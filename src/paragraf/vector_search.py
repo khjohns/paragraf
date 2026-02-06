@@ -11,9 +11,6 @@ import logging
 from dataclasses import dataclass
 from functools import lru_cache
 
-from google import genai
-from google.genai import types
-
 from paragraf._supabase_utils import get_shared_client, with_retry
 
 
@@ -73,11 +70,12 @@ class LovdataVectorSearch:
         self.supabase = get_shared_client()
         self._genai_client = None
 
-    def _get_genai_client(self) -> genai.Client:
+    def _get_genai_client(self):
         """Get or create Gemini API client lazily."""
         if self._genai_client is not None:
             return self._genai_client
 
+        from google import genai
         api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
         if not api_key:
             raise ValueError("GEMINI_API_KEY must be set for vector search")
@@ -99,6 +97,7 @@ class LovdataVectorSearch:
         Returns tuple (immutable) for caching compatibility.
         Uses RETRIEVAL_QUERY task type for optimized search quality.
         """
+        from google.genai import types
         client = self._get_genai_client()
 
         result = client.models.embed_content(
