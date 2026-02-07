@@ -1069,7 +1069,7 @@ class LovdataSupabaseService:
         4 - Title starts with identifier as complete word ("skatteloven – sktl")
         3 - Title starts with identifier but word continues ("straffelovens ...")
         2 - Contains identifier, not an amendment law
-        1 - Amendment law ("Endringslov til ...")
+        1 - Amendment ("Endringslov til ...", "Endr. i ...")
 
         Tiebreaker: shorter title wins (more likely the main law).
         """
@@ -1086,7 +1086,7 @@ class LovdataSupabaseService:
                 if next_char in ('', ' ', '-', '\u2013', '\u2014', ',', '.'):
                     return (4, -len(title))
                 return (3, -len(title))
-            if not title.startswith('endringslov'):
+            if not (title.startswith('endringslov') or title.startswith('endr.')):
                 return (2, -len(title))
             return (1, -len(title))
 
