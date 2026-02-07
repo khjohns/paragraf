@@ -156,7 +156,6 @@ function LawLookupSimulation() {
 type RegistrationState =
   | { step: 'idle' }
   | { step: 'info' }
-  | { step: 'input' }
   | { step: 'sending'; email: string }
   | { step: 'sent'; email: string }
   | { step: 'success'; apiKey: string };
@@ -238,38 +237,6 @@ function RegistrationFlow({
     );
   }
 
-  // Email input (fallback, but info step is primary now)
-  if (state.step === 'input') {
-    return (
-      <div className="flex-1 animate-fade-in">
-        <div className="flex gap-2">
-          <Input
-            type="email"
-            placeholder="din@epost.no"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            width="full"
-            onKeyDown={(e) => e.key === 'Enter' && email && onSubmit(email)}
-          />
-          <Button
-            variant="primary"
-            size="md"
-            onClick={() => onSubmit(email)}
-            disabled={!email || !email.includes('@')}
-          >
-            Send
-          </Button>
-          <button
-            onClick={onClose}
-            className="p-2 text-pkt-text-body-subtle hover:text-pkt-text-body-default"
-          >
-            <Cross2Icon className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   // Sending state
   if (state.step === 'sending') {
     return (
@@ -288,12 +255,18 @@ function RegistrationFlow({
       <div className="flex-1 p-4 rounded-lg bg-pkt-surface-subtle-pale-blue border border-pkt-brand-warm-blue-1000/20 animate-fade-in">
         <div className="flex items-start gap-3">
           <EnvelopeClosedIcon className="w-5 h-5 text-pkt-brand-warm-blue-1000 flex-shrink-0 mt-0.5" />
-          <div>
+          <div className="flex-1">
             <p className="text-sm font-medium text-pkt-text-body-dark">Sjekk e-posten din</p>
             <p className="text-xs text-pkt-text-body-subtle mt-1">
               Vi har sendt en lenke til {state.email}
             </p>
           </div>
+          <button
+            onClick={onClose}
+            className="p-1 text-pkt-text-body-subtle hover:text-pkt-text-body-default flex-shrink-0"
+          >
+            <Cross2Icon className="w-4 h-4" />
+          </button>
         </div>
       </div>
     );
@@ -305,7 +278,7 @@ function RegistrationFlow({
       <div className="flex-1 p-4 rounded-lg bg-alert-success-bg border border-pkt-brand-dark-green-1000/20 animate-fade-in">
         <div className="flex items-center gap-2 mb-3">
           <CheckCircledIcon className="w-5 h-5 text-pkt-brand-dark-green-1000" />
-          <span className="text-sm font-medium text-pkt-text-body-dark">Din aktiveringskode</span>
+          <span className="text-sm font-medium text-pkt-text-body-dark">Din API-nøkkel</span>
         </div>
         <div className="flex items-center gap-2 p-2 bg-white rounded border border-pkt-border-subtle">
           <code className="flex-1 text-xs font-mono text-pkt-text-body-default truncate">
@@ -324,7 +297,7 @@ function RegistrationFlow({
           </button>
         </div>
         <p className="text-xs text-pkt-text-body-subtle mt-2">
-          Også sendt til din e-post med instruksjoner.
+          Bruk som Bearer-token i MCP-klienten din for ubegrenset tilgang.
         </p>
       </div>
     );
@@ -480,7 +453,7 @@ function InfoCard() {
       <div className="mb-6">
         <div className="space-y-2">
           <FreeTierCard />
-          <div className="p-3 rounded-lg border-2 border-pkt-brand-warm-blue-1000 bg-pkt-surface-subtle-pale-blue flex items-center justify-between">
+          <div className="p-3 rounded-lg border border-pkt-border-subtle flex items-center justify-between">
             <div>
               <div className="text-sm font-medium text-pkt-text-body-dark">Ubegrenset</div>
               <div className="text-xs text-pkt-text-body-subtle mt-0.5">Gratis med e-postregistrering</div>
