@@ -5,7 +5,7 @@
  * and info card on the right. Inspired by AuthLanding.
  */
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { Button } from './components/Button';
 import { Input } from './components/Input';
 import {
@@ -15,6 +15,9 @@ import {
   EnvelopeClosedIcon,
   Cross2Icon,
 } from '@radix-ui/react-icons';
+import { supabase } from './lib/supabase';
+
+const MCP_URL = import.meta.env.VITE_MCP_URL || '';
 
 // ============================================================================
 // Law Lookup Simulation
@@ -334,41 +337,114 @@ function RegistrationFlow({
 // Info Card
 // ============================================================================
 
-// Check URL for magic link token and return initial state
-function getInitialRegState(): RegistrationState {
-  if (typeof window === 'undefined') return { step: 'idle' };
+function FreeTierCard() {
+  const [copied, setCopied] = useState(false);
 
-  const params = new URLSearchParams(window.location.search);
-  const token = params.get('token');
+  const handleCopy = async () => {
+    if (!MCP_URL) return;
+    await navigator.clipboard.writeText(MCP_URL);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
-  if (token) {
-    // Clean URL
-    window.history.replaceState({}, '', window.location.pathname);
-    // TODO: Verify token with backend, get API key
-    // For now, mock it
-    return { step: 'success', apiKey: 'sk_live_' + token.slice(0, 24) };
-  }
+  return (
+    <div className="p-3 rounded-lg border border-pkt-border-subtle">
+      <div className="flex items-center justify-between">
+        <div>
+          <div className="text-sm font-medium text-pkt-text-body-dark">Gratis</div>
+          <div className="text-xs text-pkt-text-body-subtle mt-0.5">200 oppslag/mnd uten registrering</div>
+        </div>
+      </div>
+      {MCP_URL && (
+        <div className="mt-2 flex items-center gap-2 p-1.5 bg-pkt-bg-subtle rounded border border-pkt-border-subtle">
+          <code className="flex-1 text-xs font-mono text-pkt-text-body-default truncate">
+            {MCP_URL}
+          </code>
+          <button
+            onClick={handleCopy}
+            className="p-1 rounded hover:bg-white transition-colors flex-shrink-0"
+            title="Kopier MCP-URL"
+          >
+            {copied ? (
+              <CheckCircledIcon className="w-3.5 h-3.5 text-pkt-brand-dark-green-1000" />
+            ) : (
+              <CopyIcon className="w-3.5 h-3.5 text-pkt-text-body-subtle" />
+            )}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
 
-  return { step: 'idle' };
+async function fetchApiKey(accessToken: string): Promise<string> {
+  const baseUrl = MCP_URL || window.location.origin + '/mcp';
+  const res = await fetch(`${baseUrl}/api-keys`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+  });
+  if (!res.ok) throw new Error(`API key request failed: ${res.status}`);
+  const data = await res.json();
+  return data.api_key;
 }
 
 function InfoCard() {
-  const [regState, setRegState] = useState<RegistrationState>(getInitialRegState);
+  const [regState, setRegState] = useState<RegistrationState>({ step: 'idle' });
+  const [error, setError] = useState<string | null>(null);
+
+  // Listen for Supabase auth state changes (magic link callback)
+  const handleAuthEvent = useCallback(async (accessToken: string) => {
+    try {
+      const apiKey = await fetchApiKey(accessToken);
+      setRegState({ step: 'success', apiKey });
+    } catch (e) {
+      console.error('Failed to fetch API key:', e);
+      setError('Kunne ikke hente API-nøkkel. Prøv igjen.');
+      setRegState({ step: 'idle' });
+    }
+  }, []);
+
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (event === 'SIGNED_IN' && session?.access_token) {
+          handleAuthEvent(session.access_token);
+        }
+      }
+    );
+    return () => subscription.unsubscribe();
+  }, [handleAuthEvent]);
 
   const handleStart = () => {
+    setError(null);
     setRegState({ step: 'info' });
   };
 
   const handleSubmit = async (email: string) => {
     setRegState({ step: 'sending', email });
-    // TODO: Call Supabase auth.signInWithOtp({ email })
-    // Mock delay for now
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    setRegState({ step: 'sent', email });
+    setError(null);
+    try {
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+        options: {
+          emailRedirectTo: window.location.origin + window.location.pathname,
+        },
+      });
+      if (error) throw error;
+      setRegState({ step: 'sent', email });
+    } catch (e) {
+      console.error('OTP send failed:', e);
+      setError('Kunne ikke sende e-post. Prøv igjen.');
+      setRegState({ step: 'info' });
+    }
   };
 
   const handleClose = () => {
     setRegState({ step: 'idle' });
+    setError(null);
   };
 
   return (
@@ -383,11 +459,6 @@ function InfoCard() {
           <p className="text-sm text-pkt-text-body-subtle">Norsk lov for KI</p>
         </div>
       </div>
-
-      {/* Description */}
-      <p className="text-pkt-text-body-default leading-relaxed mb-6">
-        Koble KI-assistenten din til 92 000 paragrafer fra norsk rett. Oppslag, søk og presis sitering via MCP.
-      </p>
 
       {/* Stats */}
       <div className="grid grid-cols-3 gap-4 p-4 rounded-lg bg-pkt-bg-subtle mb-6">
@@ -408,12 +479,7 @@ function InfoCard() {
       {/* Pricing */}
       <div className="mb-6">
         <div className="space-y-2">
-          <div className="p-3 rounded-lg border border-pkt-border-subtle flex items-center justify-between">
-            <div>
-              <div className="text-sm font-medium text-pkt-text-body-dark">Gratis</div>
-              <div className="text-xs text-pkt-text-body-subtle mt-0.5">200 oppslag/mnd uten registrering</div>
-            </div>
-          </div>
+          <FreeTierCard />
           <div className="p-3 rounded-lg border-2 border-pkt-brand-warm-blue-1000 bg-pkt-surface-subtle-pale-blue flex items-center justify-between">
             <div>
               <div className="text-sm font-medium text-pkt-text-body-dark">Ubegrenset</div>
@@ -428,6 +494,13 @@ function InfoCard() {
           </div>
         </div>
       </div>
+
+      {/* Error message */}
+      {error && (
+        <div className="mb-4 p-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700">
+          {error}
+        </div>
+      )}
 
       {/* Actions */}
       <div className="flex gap-3">
@@ -451,6 +524,21 @@ function InfoCard() {
           </Button>
         )}
       </div>
+
+      {/* Supported clients */}
+      <div className="mt-6 pt-6 border-t border-pkt-border-subtle">
+        <p className="text-xs text-pkt-text-body-subtle mb-2">Fungerer med</p>
+        <div className="flex flex-wrap gap-2">
+          {['Claude', 'ChatGPT', 'Gemini', 'Copilot', 'Cursor'].map((client) => (
+            <span
+              key={client}
+              className="px-3 py-1 text-xs text-pkt-text-body-subtle bg-pkt-bg-subtle rounded-full border border-pkt-border-subtle"
+            >
+              {client}
+            </span>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
@@ -469,8 +557,8 @@ export function LandingPage() {
 
   return (
     <div className="min-h-screen bg-pkt-bg-subtle flex">
-      {/* Left side - Simulation (hidden on mobile) */}
-      <div className="hidden lg:flex lg:w-1/2 xl:w-3/5 bg-pkt-brand-dark-blue-1000 relative overflow-hidden">
+      {/* Left side - Simulation only (hidden on mobile) */}
+      <div className="hidden lg:flex lg:w-1/2 xl:w-3/5 bg-pkt-brand-dark-blue-1000 relative overflow-hidden items-center justify-center">
         {/* Grid pattern */}
         <div
           className="absolute inset-0 opacity-5"
@@ -493,40 +581,14 @@ export function LandingPage() {
           style={{ background: 'radial-gradient(circle, var(--color-pkt-brand-green-1000) 0%, transparent 70%)' }}
         />
 
-        {/* Content */}
+        {/* Terminal simulation - centered */}
         <div
-          className={`relative z-10 flex flex-col justify-center p-12 xl:p-16 w-full max-w-2xl transition-all duration-700 ease-out ${
+          className={`relative z-10 w-full max-w-2xl px-12 xl:px-16 transition-all duration-700 ease-out ${
             mounted ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-8'
           }`}
         >
-          {/* Header */}
-          <div className="mb-10">
-            <h2 className="text-2xl font-bold text-white mb-3">
-              Riktig paragraf for kunstig intelligens
-            </h2>
-            <p className="text-white/60 leading-relaxed">
-              KI-verktøy gjetter lovtekst. Paragraf gir dem tilgang til oppdaterte lover og forskrifter fra Lovdata, slik at svarene kan etterprøves.
-            </p>
-          </div>
-
-          {/* Terminal simulation */}
           <div className="bg-black/30 backdrop-blur-sm rounded-lg border border-white/10 p-6">
             <LawLookupSimulation />
-          </div>
-
-          {/* Supported clients */}
-          <div className="mt-8">
-            <p className="text-xs text-white/40 mb-3">Fungerer med</p>
-            <div className="flex flex-wrap gap-2">
-              {['Claude', 'ChatGPT', 'Gemini', 'Copilot', 'Cursor'].map((client) => (
-                <span
-                  key={client}
-                  className="px-3 py-1 text-xs text-white/70 bg-white/5 rounded-full border border-white/10"
-                >
-                  {client}
-                </span>
-              ))}
-            </div>
           </div>
         </div>
       </div>
