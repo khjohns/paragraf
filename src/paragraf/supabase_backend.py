@@ -1046,35 +1046,52 @@ class LovdataSupabaseService:
             if result.data:
                 return result.data[0]
 
-        # Try short_title match - fetch multiple and pick best
-        result = self.client.table('lovdata_documents').select('*').ilike(
-            'short_title', f'%{identifier}%'
-        ).limit(10).execute()
-        if result.data:
-            if len(result.data) == 1:
-                return result.data[0]
-            # Rank matches: prefer title starting with identifier,
-            # deprioritize amendment laws (113+ "Endringslov til..." in DB)
-            ident_lower = identifier.lower()
-
-            def _match_score(doc: dict) -> tuple[int, str]:
-                title = (doc.get('short_title') or '').lower()
-                # Exact match
-                if title == ident_lower:
-                    return (4, title)
-                # Title starts with identifier (e.g., "husleieloven" → "husleieloven – husll")
-                if title.startswith(ident_lower):
-                    return (3, title)
-                # Not an amendment → reasonable match
-                if not title.startswith('endringslov'):
-                    return (2, title)
-                # Amendment law → lowest priority
-                return (1, title)
-
-            result.data.sort(key=_match_score, reverse=True)
-            return result.data[0]
+        # Try short_title match in two phases:
+        # Phase 1: starts-with (avoids limit cutting off correct result)
+        # Phase 2: contains (broader fallback)
+        for pattern in [f'{identifier}%', f'%{identifier}%']:
+            result = self.client.table('lovdata_documents').select('*').ilike(
+                'short_title', pattern
+            ).limit(10).execute()
+            if result.data:
+                if len(result.data) == 1:
+                    return result.data[0]
+                return self._best_title_match(result.data, identifier)
 
         return None
+
+    @staticmethod
+    def _best_title_match(docs: list[dict], identifier: str) -> dict:
+        """Pick best document from multiple short_title matches.
+
+        Ranking (highest wins):
+        5 - Exact title match
+        4 - Title starts with identifier as complete word ("skatteloven – sktl")
+        3 - Title starts with identifier but word continues ("straffelovens ...")
+        2 - Contains identifier, not an amendment law
+        1 - Amendment law ("Endringslov til ...")
+
+        Tiebreaker: shorter title wins (more likely the main law).
+        """
+        ident_lower = identifier.lower()
+        ident_len = len(ident_lower)
+
+        def _score(doc: dict) -> tuple[int, int]:
+            title = (doc.get('short_title') or '').lower()
+            if title == ident_lower:
+                return (5, -len(title))
+            if title.startswith(ident_lower):
+                # Check word boundary after identifier
+                next_char = title[ident_len] if len(title) > ident_len else ''
+                if next_char in ('', ' ', '-', '\u2013', '\u2014', ',', '.'):
+                    return (4, -len(title))
+                return (3, -len(title))
+            if not title.startswith('endringslov'):
+                return (2, -len(title))
+            return (1, -len(title))
+
+        docs.sort(key=_score, reverse=True)
+        return docs[0]
 
     @with_retry()
     def find_similar_law(self, search_term: str, threshold: float = 0.4) -> dict | None:
