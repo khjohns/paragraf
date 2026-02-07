@@ -1046,11 +1046,32 @@ class LovdataSupabaseService:
             if result.data:
                 return result.data[0]
 
-        # Try short_title match
+        # Try short_title match - fetch multiple and pick best
         result = self.client.table('lovdata_documents').select('*').ilike(
             'short_title', f'%{identifier}%'
-        ).limit(1).execute()
+        ).limit(10).execute()
         if result.data:
+            if len(result.data) == 1:
+                return result.data[0]
+            # Rank matches: prefer title starting with identifier,
+            # deprioritize amendment laws (113+ "Endringslov til..." in DB)
+            ident_lower = identifier.lower()
+
+            def _match_score(doc: dict) -> tuple[int, str]:
+                title = (doc.get('short_title') or '').lower()
+                # Exact match
+                if title == ident_lower:
+                    return (4, title)
+                # Title starts with identifier (e.g., "husleieloven" → "husleieloven – husll")
+                if title.startswith(ident_lower):
+                    return (3, title)
+                # Not an amendment → reasonable match
+                if not title.startswith('endringslov'):
+                    return (2, title)
+                # Amendment law → lowest priority
+                return (1, title)
+
+            result.data.sort(key=_match_score, reverse=True)
             return result.data[0]
 
         return None

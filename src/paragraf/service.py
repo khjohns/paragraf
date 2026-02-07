@@ -109,6 +109,10 @@ class LovdataService:
         "byggteknisk-forskrift": "FOR-2017-06-19-840",
         "tek17": "FOR-2017-06-19-840",
 
+        # Husleie
+        "husleieloven": "LOV-1999-03-26-17",
+        "husll": "LOV-1999-03-26-17",
+
         # Kontraktsrett
         "kjøpsloven": "LOV-1988-05-13-27",
         "forbrukerkjøpsloven": "LOV-2002-06-21-34",
