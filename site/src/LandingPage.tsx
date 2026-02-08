@@ -204,6 +204,64 @@ function McpTooltip() {
 }
 
 // ============================================================================
+// Privacy Dialog
+// ============================================================================
+
+function PrivacyDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={onClose}>
+      <div
+        className="bg-pkt-bg-card rounded-lg border border-pkt-border-subtle shadow-2xl max-w-md w-full max-h-[80vh] overflow-y-auto p-6"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-bold text-pkt-text-body-dark">Personvern</h2>
+          <button onClick={onClose} className="text-pkt-text-body-subtle hover:text-pkt-text-body-dark text-xl leading-none">&times;</button>
+        </div>
+        <div className="space-y-3 text-xs text-pkt-text-body-subtle leading-relaxed">
+          <p>
+            <strong className="text-pkt-text-body-dark">Ingen sporing.</strong>{' '}
+            Paragraf bruker ingen informasjonskapsler (cookies), analyseverktøy eller sporings&shy;teknologi.
+          </p>
+          <p>
+            <strong className="text-pkt-text-body-dark">Ingen registrering.</strong>{' '}
+            Tjenesten er gratis og krever ingen brukerkonto. Alle oppslag er anonyme.
+          </p>
+          <p>
+            <strong className="text-pkt-text-body-dark">Rate limiting.</strong>{' '}
+            IP-adresser brukes midlertidig i minnet for å begrense antall forespørsler.
+            De lagres ikke permanent og slettes ved omstart av tjenesten.
+          </p>
+          <p>
+            <strong className="text-pkt-text-body-dark">Lovdata.</strong>{' '}
+            All lovtekst hentes fra{' '}
+            <a href="https://lovdata.no" className="underline hover:text-pkt-text-body-dark" target="_blank" rel="noopener noreferrer">Lovdata</a>
+            {' '}og er offentlig tilgjengelig under NLOD 2.0.
+          </p>
+          <p>
+            <strong className="text-pkt-text-body-dark">Vipps.</strong>{' '}
+            Donasjonsknappen lenker til Vipps MobilePay AS. Paragraf mottar eller behandler
+            ingen betalingsinformasjon.
+          </p>
+          <p>
+            <strong className="text-pkt-text-body-dark">Infrastruktur.</strong>{' '}
+            Nettsiden hostes på GitHub Pages og API-et på Render. Disse tjenestene
+            kan logge IP-adresser i henhold til sine egne personvernerklæringer.
+          </p>
+          <p>
+            <strong className="text-pkt-text-body-dark">Kontakt.</strong>{' '}
+            Spørsmål om personvern kan rettes til{' '}
+            <a href="https://github.com/khjohns/paragraf/issues" className="underline hover:text-pkt-text-body-dark" target="_blank" rel="noopener noreferrer">GitHub</a>.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
 // Info Card
 // ============================================================================
 
@@ -314,6 +372,7 @@ function InfoCard() {
 
 export function LandingPage() {
   const [mounted, setMounted] = useState(false);
+  const [privacyOpen, setPrivacyOpen] = useState(false);
 
   useEffect(() => {
     const timer = setTimeout(() => setMounted(true), 50);
@@ -381,8 +440,12 @@ export function LandingPage() {
             <a href="https://lovdata.no" className="hover:underline">Lovdata</a>
             {' '}(NLOD 2.0)
           </p>
+          <p className="mt-2 text-center text-xs text-pkt-text-body-subtle">
+            <button onClick={() => setPrivacyOpen(true)} className="hover:underline">Personvern</button>
+          </p>
         </div>
       </div>
+      <PrivacyDialog open={privacyOpen} onClose={() => setPrivacyOpen(false)} />
     </div>
   );
 }
