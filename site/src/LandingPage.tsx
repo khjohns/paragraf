@@ -2,20 +2,17 @@
  * Paragraf Landing Page
  *
  * Split layout with animated law lookup simulation on the left
- * and info card on the right. Inspired by AuthLanding.
+ * and info card on the right.
  */
 
-import { useEffect, useState, useMemo, useCallback } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Button } from './components/Button';
-import { Input } from './components/Input';
 import {
   GitHubLogoIcon,
+  HeartIcon,
   CheckCircledIcon,
   CopyIcon,
-  EnvelopeClosedIcon,
-  Cross2Icon,
 } from '@radix-ui/react-icons';
-import { supabase } from './lib/supabase';
 
 const MCP_URL = import.meta.env.VITE_MCP_URL || '';
 
@@ -96,14 +93,12 @@ function LawLookupSimulation() {
 
       {/* Content area - fixed height with scroll */}
       <div className="flex-1 overflow-y-auto space-y-3 pr-2">
-        {/* Step 1: User question */}
         {step >= 1 && (
           <div className="animate-fade-in">
             <span className="text-white">{steps[0].content}</span>
           </div>
         )}
 
-        {/* Step 2: AI searching */}
         {step >= 2 && (
           <div className="flex gap-2 text-white/50 text-xs animate-fade-in">
             <span className="text-pkt-brand-green-1000">●</span>
@@ -111,7 +106,6 @@ function LawLookupSimulation() {
           </div>
         )}
 
-        {/* Step 3: Search results */}
         {step >= 3 && (
           <div className="flex gap-2 text-white/50 text-xs animate-fade-in">
             <span className="text-pkt-brand-green-1000">●</span>
@@ -119,7 +113,6 @@ function LawLookupSimulation() {
           </div>
         )}
 
-        {/* Step 4: Fetching */}
         {step >= 4 && (
           <div className="flex gap-2 text-white/50 text-xs animate-fade-in">
             <span className="text-pkt-brand-green-1000">●</span>
@@ -127,7 +120,6 @@ function LawLookupSimulation() {
           </div>
         )}
 
-        {/* Step 5: Law text */}
         {step >= 5 && (
           <div className="p-3 rounded bg-white/5 border border-white/10 animate-fade-in">
             <div className="text-white/90 whitespace-pre-wrap leading-relaxed text-xs">
@@ -136,7 +128,6 @@ function LawLookupSimulation() {
           </div>
         )}
 
-        {/* Loading indicator */}
         {step > 0 && step < steps.length && (
           <div className="flex gap-1 mt-2">
             <span className="w-1.5 h-1.5 rounded-full bg-white/40 animate-pulse" />
@@ -150,276 +141,43 @@ function LawLookupSimulation() {
 }
 
 // ============================================================================
-// Registration Flow
+// Copyable URL
 // ============================================================================
 
-type RegistrationState =
-  | { step: 'idle' }
-  | { step: 'info' }
-  | { step: 'sending'; email: string }
-  | { step: 'sent'; email: string }
-  | { step: 'success'; apiKey: string };
-
-function RegistrationFlow({
-  state,
-  onStart,
-  onSubmit,
-  onClose
-}: {
-  state: RegistrationState;
-  onStart: () => void;
-  onSubmit: (email: string) => void;
-  onClose: () => void;
-}) {
-  const [email, setEmail] = useState('');
+function CopyableUrl({ url }: { url: string }) {
   const [copied, setCopied] = useState(false);
 
-  const handleCopy = async (text: string) => {
-    await navigator.clipboard.writeText(text);
+  const handleCopy = async () => {
+    await navigator.clipboard.writeText(url);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
-  // Idle state - show button
-  if (state.step === 'idle') {
-    return (
-      <Button variant="primary" size="md" className="flex-1" onClick={onStart}>
-        Kom i gang
-      </Button>
-    );
-  }
-
-  // Info step - explain what happens
-  if (state.step === 'info') {
-    return (
-      <div className="flex-1 p-4 rounded-lg border border-pkt-border-subtle bg-white animate-fade-in">
-        <div className="flex justify-between items-start mb-3">
-          <h3 className="font-medium text-pkt-text-body-dark">Få tilgang</h3>
-          <button
-            onClick={onClose}
-            className="p-1 text-pkt-text-body-subtle hover:text-pkt-text-body-default"
-          >
-            <Cross2Icon className="w-4 h-4" />
-          </button>
-        </div>
-        <ul className="space-y-2 text-sm text-pkt-text-body-subtle mb-4">
-          <li className="flex items-start gap-2">
-            <CheckCircledIcon className="w-4 h-4 text-pkt-brand-dark-green-1000 flex-shrink-0 mt-0.5" />
-            <span>Ubegrenset tilgang, helt gratis</span>
-          </li>
-          <li className="flex items-start gap-2">
-            <CheckCircledIcon className="w-4 h-4 text-pkt-brand-dark-green-1000 flex-shrink-0 mt-0.5" />
-            <span>Fungerer med Claude, Cursor, m.fl.</span>
-          </li>
-        </ul>
-        <div className="flex gap-2">
-          <Input
-            type="email"
-            placeholder="din@epost.no"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            width="full"
-            onKeyDown={(e) => e.key === 'Enter' && email && onSubmit(email)}
-          />
-          <Button
-            variant="primary"
-            size="md"
-            onClick={() => onSubmit(email)}
-            disabled={!email || !email.includes('@')}
-          >
-            Send
-          </Button>
-        </div>
-        <p className="text-xs text-pkt-text-body-subtle mt-3">
-          Vi sender en aktiveringskode på e-post.
-        </p>
-      </div>
-    );
-  }
-
-  // Sending state
-  if (state.step === 'sending') {
-    return (
-      <div className="flex-1 p-3 rounded-lg bg-pkt-bg-subtle text-center animate-fade-in">
-        <div className="flex items-center justify-center gap-2 text-sm text-pkt-text-body-subtle">
-          <div className="w-4 h-4 border-2 border-pkt-brand-warm-blue-1000 border-t-transparent rounded-full animate-spin" />
-          Sender...
-        </div>
-      </div>
-    );
-  }
-
-  // Email sent - waiting for magic link
-  if (state.step === 'sent') {
-    return (
-      <div className="flex-1 p-4 rounded-lg bg-pkt-surface-subtle-pale-blue border border-pkt-brand-warm-blue-1000/20 animate-fade-in">
-        <div className="flex items-start gap-3">
-          <EnvelopeClosedIcon className="w-5 h-5 text-pkt-brand-warm-blue-1000 flex-shrink-0 mt-0.5" />
-          <div className="flex-1">
-            <p className="text-sm font-medium text-pkt-text-body-dark">Sjekk e-posten din</p>
-            <p className="text-xs text-pkt-text-body-subtle mt-1">
-              Vi har sendt en lenke til {state.email}
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-1 text-pkt-text-body-subtle hover:text-pkt-text-body-default flex-shrink-0"
-          >
-            <Cross2Icon className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // Success - show API key
-  if (state.step === 'success') {
-    return (
-      <div className="flex-1 p-4 rounded-lg bg-alert-success-bg border border-pkt-brand-dark-green-1000/20 animate-fade-in">
-        <div className="flex items-center gap-2 mb-3">
-          <CheckCircledIcon className="w-5 h-5 text-pkt-brand-dark-green-1000" />
-          <span className="text-sm font-medium text-pkt-text-body-dark">Din API-nøkkel</span>
-        </div>
-        <div className="flex items-center gap-2 p-2 bg-white rounded border border-pkt-border-subtle">
-          <code className="flex-1 text-xs font-mono text-pkt-text-body-default truncate">
-            {state.apiKey}
-          </code>
-          <button
-            onClick={() => handleCopy(state.apiKey)}
-            className="p-1.5 rounded hover:bg-pkt-bg-subtle transition-colors"
-            title="Kopier"
-          >
-            {copied ? (
-              <CheckCircledIcon className="w-4 h-4 text-pkt-brand-dark-green-1000" />
-            ) : (
-              <CopyIcon className="w-4 h-4 text-pkt-text-body-subtle" />
-            )}
-          </button>
-        </div>
-        <p className="text-xs text-pkt-text-body-subtle mt-2">
-          Bruk som Bearer-token i MCP-klienten din for ubegrenset tilgang.
-        </p>
-      </div>
-    );
-  }
-
-  return null;
+  return (
+    <div className="flex items-center gap-2 p-2 bg-pkt-bg-subtle rounded-lg border border-pkt-border-subtle">
+      <code className="flex-1 text-xs font-mono text-pkt-text-body-default truncate">
+        {url}
+      </code>
+      <button
+        onClick={handleCopy}
+        className="p-1.5 rounded hover:bg-white transition-colors flex-shrink-0"
+        title="Kopier"
+      >
+        {copied ? (
+          <CheckCircledIcon className="w-4 h-4 text-pkt-brand-dark-green-1000" />
+        ) : (
+          <CopyIcon className="w-4 h-4 text-pkt-text-body-subtle" />
+        )}
+      </button>
+    </div>
+  );
 }
 
 // ============================================================================
 // Info Card
 // ============================================================================
 
-function FreeTierCard() {
-  const [copied, setCopied] = useState(false);
-
-  const handleCopy = async () => {
-    if (!MCP_URL) return;
-    await navigator.clipboard.writeText(MCP_URL);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  return (
-    <div className="p-3 rounded-lg border border-pkt-border-subtle">
-      <div className="flex items-center justify-between">
-        <div>
-          <div className="text-sm font-medium text-pkt-text-body-dark">Gratis</div>
-          <div className="text-xs text-pkt-text-body-subtle mt-0.5">200 oppslag/mnd uten registrering</div>
-        </div>
-      </div>
-      {MCP_URL && (
-        <div className="mt-2 flex items-center gap-2 p-1.5 bg-pkt-bg-subtle rounded border border-pkt-border-subtle">
-          <code className="flex-1 text-xs font-mono text-pkt-text-body-default truncate">
-            {MCP_URL}
-          </code>
-          <button
-            onClick={handleCopy}
-            className="p-1 rounded hover:bg-white transition-colors flex-shrink-0"
-            title="Kopier MCP-URL"
-          >
-            {copied ? (
-              <CheckCircledIcon className="w-3.5 h-3.5 text-pkt-brand-dark-green-1000" />
-            ) : (
-              <CopyIcon className="w-3.5 h-3.5 text-pkt-text-body-subtle" />
-            )}
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
-
-async function fetchApiKey(accessToken: string): Promise<string> {
-  const baseUrl = MCP_URL || window.location.origin + '/mcp';
-  const res = await fetch(`${baseUrl}/api-keys`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${accessToken}`,
-      'Content-Type': 'application/json',
-    },
-  });
-  if (!res.ok) throw new Error(`API key request failed: ${res.status}`);
-  const data = await res.json();
-  return data.api_key;
-}
-
 function InfoCard() {
-  const [regState, setRegState] = useState<RegistrationState>({ step: 'idle' });
-  const [error, setError] = useState<string | null>(null);
-
-  // Listen for Supabase auth state changes (magic link callback)
-  const handleAuthEvent = useCallback(async (accessToken: string) => {
-    try {
-      const apiKey = await fetchApiKey(accessToken);
-      setRegState({ step: 'success', apiKey });
-    } catch (e) {
-      console.error('Failed to fetch API key:', e);
-      setError('Kunne ikke hente API-nøkkel. Prøv igjen.');
-      setRegState({ step: 'idle' });
-    }
-  }, []);
-
-  useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (event === 'SIGNED_IN' && session?.access_token) {
-          handleAuthEvent(session.access_token);
-        }
-      }
-    );
-    return () => subscription.unsubscribe();
-  }, [handleAuthEvent]);
-
-  const handleStart = () => {
-    setError(null);
-    setRegState({ step: 'info' });
-  };
-
-  const handleSubmit = async (email: string) => {
-    setRegState({ step: 'sending', email });
-    setError(null);
-    try {
-      const { error } = await supabase.auth.signInWithOtp({
-        email,
-        options: {
-          emailRedirectTo: window.location.origin + window.location.pathname,
-        },
-      });
-      if (error) throw error;
-      setRegState({ step: 'sent', email });
-    } catch (e) {
-      console.error('OTP send failed:', e);
-      setError('Kunne ikke sende e-post. Prøv igjen.');
-      setRegState({ step: 'info' });
-    }
-  };
-
-  const handleClose = () => {
-    setRegState({ step: 'idle' });
-    setError(null);
-  };
-
   return (
     <div className="bg-pkt-bg-card rounded-lg border border-pkt-grays-gray-200 shadow-xl shadow-pkt-brand-dark-blue-1000/5 p-8">
       {/* Header */}
@@ -449,53 +207,43 @@ function InfoCard() {
         </div>
       </div>
 
-      {/* Pricing */}
+      {/* How to connect */}
       <div className="mb-6">
-        <div className="space-y-2">
-          <FreeTierCard />
-          <div className="p-3 rounded-lg border border-pkt-border-subtle flex items-center justify-between">
-            <div>
-              <div className="text-sm font-medium text-pkt-text-body-dark">Ubegrenset</div>
-              <div className="text-xs text-pkt-text-body-subtle mt-0.5">Gratis med e-postregistrering</div>
-            </div>
-          </div>
-          <div className="p-3 rounded-lg border border-pkt-border-subtle flex items-center justify-between">
-            <div>
-              <div className="text-sm font-medium text-pkt-text-body-dark">Self-host</div>
-              <div className="text-xs text-pkt-text-body-subtle mt-0.5">Open source · MIT-lisens</div>
-            </div>
-          </div>
-        </div>
+        <p className="text-sm font-medium text-pkt-text-body-dark mb-2">
+          Koble til din KI-assistent
+        </p>
+        <p className="text-xs text-pkt-text-body-subtle mb-3">
+          Kopier adressen og lim inn under innstillinger i Claude, ChatGPT eller lignende.
+        </p>
+        {MCP_URL && (
+          <CopyableUrl url={MCP_URL} />
+        )}
       </div>
-
-      {/* Error message */}
-      {error && (
-        <div className="mb-4 p-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700">
-          {error}
-        </div>
-      )}
 
       {/* Actions */}
       <div className="flex gap-3">
-        <RegistrationFlow
-          state={regState}
-          onStart={handleStart}
-          onSubmit={handleSubmit}
-          onClose={handleClose}
-        />
-        {regState.step === 'idle' && (
-          <Button variant="secondary" size="md">
-            <a
-              href="https://github.com/khjohns/paragraf"
-              className="flex items-center gap-2"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <GitHubLogoIcon className="w-4 h-4" />
-              GitHub
-            </a>
-          </Button>
-        )}
+        <Button variant="secondary" size="md" className="flex-1">
+          <a
+            href="https://github.com/khjohns/paragraf"
+            className="flex items-center justify-center gap-2"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <GitHubLogoIcon className="w-4 h-4" />
+            Kildekode
+          </a>
+        </Button>
+        <Button variant="secondary" size="md" className="flex-1">
+          <a
+            href="https://github.com/sponsors/khjohns"
+            className="flex items-center justify-center gap-2"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <HeartIcon className="w-4 h-4" />
+            Doner
+          </a>
+        </Button>
       </div>
 
       {/* Supported clients */}
@@ -588,9 +336,9 @@ export function LandingPage() {
 
           {/* Footer */}
           <p className="mt-6 text-center text-xs text-pkt-text-body-subtle">
-            Data fra{' '}
+            Gratis og open source · Data fra{' '}
             <a href="https://lovdata.no" className="hover:underline">Lovdata</a>
-            {' '}under NLOD 2.0 · Kode under MIT
+            {' '}(NLOD 2.0)
           </p>
         </div>
       </div>
