@@ -9,6 +9,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { Button } from './components/Button';
 import {
   GitHubLogoIcon,
+  HeartIcon,
   CheckCircledIcon,
   CopyIcon,
 } from '@radix-ui/react-icons';
@@ -143,7 +144,7 @@ function LawLookupSimulation() {
 // Copyable URL
 // ============================================================================
 
-function CopyableUrl({ url, label }: { url: string; label: string }) {
+function CopyableUrl({ url }: { url: string }) {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async () => {
@@ -153,24 +154,21 @@ function CopyableUrl({ url, label }: { url: string; label: string }) {
   };
 
   return (
-    <div className="p-3 rounded-lg border border-pkt-border-subtle">
-      <div className="text-sm font-medium text-pkt-text-body-dark mb-1.5">{label}</div>
-      <div className="flex items-center gap-2 p-1.5 bg-pkt-bg-subtle rounded border border-pkt-border-subtle">
-        <code className="flex-1 text-xs font-mono text-pkt-text-body-default truncate">
-          {url}
-        </code>
-        <button
-          onClick={handleCopy}
-          className="p-1 rounded hover:bg-white transition-colors flex-shrink-0"
-          title="Kopier"
-        >
-          {copied ? (
-            <CheckCircledIcon className="w-3.5 h-3.5 text-pkt-brand-dark-green-1000" />
-          ) : (
-            <CopyIcon className="w-3.5 h-3.5 text-pkt-text-body-subtle" />
-          )}
-        </button>
-      </div>
+    <div className="flex items-center gap-2 p-2 bg-pkt-bg-subtle rounded-lg border border-pkt-border-subtle">
+      <code className="flex-1 text-xs font-mono text-pkt-text-body-default truncate">
+        {url}
+      </code>
+      <button
+        onClick={handleCopy}
+        className="p-1.5 rounded hover:bg-white transition-colors flex-shrink-0"
+        title="Kopier"
+      >
+        {copied ? (
+          <CheckCircledIcon className="w-4 h-4 text-pkt-brand-dark-green-1000" />
+        ) : (
+          <CopyIcon className="w-4 h-4 text-pkt-text-body-subtle" />
+        )}
+      </button>
     </div>
   );
 }
@@ -209,15 +207,20 @@ function InfoCard() {
         </div>
       </div>
 
-      {/* Access options */}
-      <div className="space-y-2 mb-6">
+      {/* How to connect */}
+      <div className="mb-6">
+        <p className="text-sm font-medium text-pkt-text-body-dark mb-2">
+          Koble til din KI-assistent
+        </p>
+        <p className="text-xs text-pkt-text-body-subtle mb-3">
+          Kopier adressen og lim inn under innstillinger i Claude, ChatGPT eller lignende.
+        </p>
         {MCP_URL && (
-          <CopyableUrl url={MCP_URL} label="Hosted (gratis)" />
+          <CopyableUrl url={MCP_URL} />
         )}
-        <CopyableUrl url="pip install paragraf" label="Self-host (MIT)" />
       </div>
 
-      {/* GitHub */}
+      {/* Actions */}
       <div className="flex gap-3">
         <Button variant="secondary" size="md" className="flex-1">
           <a
@@ -227,7 +230,18 @@ function InfoCard() {
             rel="noopener noreferrer"
           >
             <GitHubLogoIcon className="w-4 h-4" />
-            GitHub
+            Kildekode
+          </a>
+        </Button>
+        <Button variant="secondary" size="md" className="flex-1">
+          <a
+            href="https://github.com/sponsors/khjohns"
+            className="flex items-center justify-center gap-2"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <HeartIcon className="w-4 h-4" />
+            Doner
           </a>
         </Button>
       </div>
@@ -322,9 +336,9 @@ export function LandingPage() {
 
           {/* Footer */}
           <p className="mt-6 text-center text-xs text-pkt-text-body-subtle">
-            Data fra{' '}
+            Gratis og open source · Data fra{' '}
             <a href="https://lovdata.no" className="hover:underline">Lovdata</a>
-            {' '}under NLOD 2.0 · Kode under MIT
+            {' '}(NLOD 2.0)
           </p>
         </div>
       </div>
