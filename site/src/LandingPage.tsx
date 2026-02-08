@@ -345,7 +345,7 @@ export function LandingPage() {
 
           {/* Footer */}
           <p className="mt-6 text-center text-xs text-pkt-text-body-subtle">
-            Gratis og open source · Data fra{' '}
+            Gratis og åpen kildekode · Data fra{' '}
             <a href="https://lovdata.no" className="hover:underline">Lovdata</a>
             {' '}(NLOD 2.0)
           </p>
