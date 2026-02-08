@@ -7,9 +7,14 @@ Endpoint: /mcp/
 Protocol: MCP 2025-06-18 over Streamable HTTP
 
 Authentication:
-    - Anonymous: No token required (rate limited by IP upstream)
-    - API key: Bearer pgf_xxx (unlimited access, registered users)
+    - Anonymous: No token required (rate limited per IP)
+    - API key: Bearer pgf_xxx (same rate limit)
     - JWT: Bearer <supabase-jwt> (for API key creation)
+
+Rate limiting:
+    - 120 req/min per IP (burst protection, not quota)
+    - Provided by Flask-Limiter via unified-timeline backend
+    - No-op when running standalone (pip install paragraf)
 
 Usage in Claude.ai:
     Settings → Connectors → Add custom connector
@@ -29,6 +34,15 @@ from paragraf import MCPServer, LovdataService
 
 import logging
 logger = logging.getLogger(__name__)
+
+# Rate limiting: provided by unified-timeline's Flask-Limiter.
+# No-op fallback when running standalone (no Flask-Limiter available).
+try:
+    from lib.security.rate_limiter import limit_mcp
+except ImportError:
+    def limit_mcp(f):
+        """No-op decorator when running outside unified-timeline."""
+        return f
 
 mcp_bp = Blueprint("mcp", __name__, url_prefix="/mcp")
 
@@ -236,6 +250,7 @@ def mcp_options() -> Response:
 
 
 @mcp_bp.route("/", methods=["POST"])
+@limit_mcp
 def mcp_post() -> Response:
     """
     Handle MCP JSON-RPC requests.
