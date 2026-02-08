@@ -182,9 +182,19 @@ function InfoCard() {
     <div className="bg-pkt-bg-card rounded-lg border border-pkt-grays-gray-200 shadow-xl shadow-pkt-brand-dark-blue-1000/5 p-8">
       {/* Header */}
       <div className="flex items-center gap-3 mb-6">
-        <div className="w-12 h-12 rounded-lg bg-pkt-brand-dark-blue-1000 flex items-center justify-center">
-          <span className="text-white font-bold text-xl">§</span>
-        </div>
+        <svg viewBox="0 0 120 120" className="w-12 h-12" aria-label="Paragraf logo">
+          <defs>
+            <clipPath id="logo-l"><rect x="0" y="0" width="60" height="120"/></clipPath>
+            <clipPath id="logo-r"><rect x="60" y="0" width="60" height="120"/></clipPath>
+          </defs>
+          <rect width="120" height="120" rx="20" fill="#1B2A4A"/>
+          <g clipPath="url(#logo-l)" transform="translate(-3, -3)">
+            <text x="60" y="82" fontFamily="Georgia, 'Times New Roman', serif" fontSize="72" fontWeight="700" fill="white" textAnchor="middle">§</text>
+          </g>
+          <g clipPath="url(#logo-r)" transform="translate(3, 3)">
+            <text x="60" y="82" fontFamily="Georgia, 'Times New Roman', serif" fontSize="72" fontWeight="700" fill="#4ADE80" textAnchor="middle">§</text>
+          </g>
+        </svg>
         <div>
           <h1 className="text-xl font-bold text-pkt-text-body-dark">Paragraf</h1>
           <p className="text-sm text-pkt-text-body-subtle">Norsk lov for KI</p>
