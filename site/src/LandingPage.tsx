@@ -220,10 +220,10 @@ function InfoCard() {
       {/* How to connect */}
       <div className="mb-4 sm:mb-6">
         <p className="text-sm font-medium text-pkt-text-body-dark mb-1.5 sm:mb-2">
-          Koble til din KI-assistent
+          Koble til din KI-assistent via MCP
         </p>
         <p className="text-xs text-pkt-text-body-subtle mb-2.5 sm:mb-3">
-          Kopier adressen og lim inn under innstillinger i Claude, ChatGPT eller lignende.
+          Kopier adressen og legg til som MCP-kobling under innstillinger i din KI-assistent.
         </p>
         {MCP_URL && (
           <CopyableUrl url={MCP_URL} />
@@ -262,7 +262,7 @@ function InfoCard() {
 
       {/* Supported clients */}
       <div className="mt-4 pt-4 sm:mt-6 sm:pt-6 border-t border-pkt-border-subtle">
-        <p className="text-xs text-pkt-text-body-subtle mb-2">Fungerer med</p>
+        <p className="text-xs text-pkt-text-body-subtle mb-2">Støtter MCP</p>
         <div className="flex flex-wrap gap-2">
           {['Claude', 'ChatGPT Plus', 'Gemini CLI', 'Copilot Studio'].map((client) => (
             <span
