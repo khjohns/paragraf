@@ -264,7 +264,7 @@ function InfoCard() {
       <div className="mt-4 pt-4 sm:mt-6 sm:pt-6 border-t border-pkt-border-subtle">
         <p className="text-xs text-pkt-text-body-subtle mb-2">Fungerer med</p>
         <div className="flex flex-wrap gap-2">
-          {['Claude', 'ChatGPT Plus', 'Gemini CLI', 'Copilot', 'Cursor', 'Windsurf'].map((client) => (
+          {['Claude', 'ChatGPT Plus', 'Gemini CLI', 'Copilot Studio', 'Cursor', 'Windsurf'].map((client) => (
             <span
               key={client}
               className="px-3 py-1 text-xs text-pkt-text-body-subtle bg-pkt-bg-subtle rounded-full border border-pkt-border-subtle"
