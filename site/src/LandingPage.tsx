@@ -334,7 +334,7 @@ export function LandingPage() {
       </div>
 
       {/* Right side - Info card */}
-      <div className="w-full lg:w-1/2 xl:w-2/5 flex items-center justify-center p-6 sm:p-8">
+      <div className="w-full lg:w-1/2 xl:w-2/5 flex items-start lg:items-center justify-center p-6 pt-10 sm:p-8 sm:pt-12 lg:pt-8">
         <div
           className={`w-full max-w-md transition-all duration-700 ease-out ${
             mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
