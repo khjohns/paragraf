@@ -12,6 +12,7 @@ import {
   HeartIcon,
   CheckCircledIcon,
   CopyIcon,
+  InfoCircledIcon,
 } from '@radix-ui/react-icons';
 
 const MCP_URL = import.meta.env.VITE_MCP_URL || '';
@@ -174,6 +175,93 @@ function CopyableUrl({ url }: { url: string }) {
 }
 
 // ============================================================================
+// MCP Tooltip
+// ============================================================================
+
+function McpTooltip() {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <span className="relative inline-block">
+      <button
+        onClick={() => setOpen(!open)}
+        onMouseEnter={() => setOpen(true)}
+        onMouseLeave={() => setOpen(false)}
+        className="inline-flex items-center align-middle ml-1 text-pkt-text-body-subtle hover:text-pkt-text-body-dark transition-colors"
+        aria-label="Hva er MCP?"
+      >
+        <InfoCircledIcon className="w-3.5 h-3.5" />
+      </button>
+      {open && (
+        <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 p-2.5 text-xs text-pkt-text-body-dark bg-pkt-bg-card rounded-lg border border-pkt-border-subtle shadow-lg z-10">
+          <strong>MCP</strong> (Model Context Protocol) er en åpen standard som lar
+          KI-assistenter slå opp informasjon fra pålitelige kilder. Paragraf henter
+          kun lovtekst fra Lovdata – ingen persondata behandles.
+        </span>
+      )}
+    </span>
+  );
+}
+
+// ============================================================================
+// Privacy Dialog
+// ============================================================================
+
+function PrivacyDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={onClose}>
+      <div
+        className="bg-pkt-bg-card rounded-lg border border-pkt-border-subtle shadow-2xl max-w-md w-full max-h-[80vh] overflow-y-auto p-6"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-bold text-pkt-text-body-dark">Personvern</h2>
+          <button onClick={onClose} className="text-pkt-text-body-subtle hover:text-pkt-text-body-dark text-xl leading-none">&times;</button>
+        </div>
+        <div className="space-y-3 text-xs text-pkt-text-body-subtle leading-relaxed">
+          <p>
+            <strong className="text-pkt-text-body-dark">Ingen sporing.</strong>{' '}
+            Paragraf bruker ingen informasjonskapsler (cookies), analyseverktøy eller sporings&shy;teknologi.
+          </p>
+          <p>
+            <strong className="text-pkt-text-body-dark">Ingen registrering.</strong>{' '}
+            Tjenesten er gratis og krever ingen brukerkonto. Alle oppslag er anonyme.
+          </p>
+          <p>
+            <strong className="text-pkt-text-body-dark">Rate limiting.</strong>{' '}
+            IP-adresser brukes midlertidig i minnet for å begrense antall forespørsler.
+            De lagres ikke permanent og slettes ved omstart av tjenesten.
+          </p>
+          <p>
+            <strong className="text-pkt-text-body-dark">Lovdata.</strong>{' '}
+            All lovtekst hentes fra{' '}
+            <a href="https://lovdata.no" className="underline hover:text-pkt-text-body-dark" target="_blank" rel="noopener noreferrer">Lovdata</a>
+            {' '}og er offentlig tilgjengelig under NLOD 2.0.
+          </p>
+          <p>
+            <strong className="text-pkt-text-body-dark">Vipps.</strong>{' '}
+            Donasjonsknappen lenker til Vipps MobilePay AS. Paragraf mottar eller behandler
+            ingen betalingsinformasjon.
+          </p>
+          <p>
+            <strong className="text-pkt-text-body-dark">Infrastruktur.</strong>{' '}
+            Nettsiden hostes på GitHub Pages og API-et på Render. Disse tjenestene
+            kan logge IP-adresser i henhold til sine egne personvernerklæringer.
+          </p>
+          <p>
+            <strong className="text-pkt-text-body-dark">Kontakt.</strong>{' '}
+            Spørsmål om personvern kan rettes til{' '}
+            <a href="https://github.com/khjohns/paragraf/issues" className="underline hover:text-pkt-text-body-dark" target="_blank" rel="noopener noreferrer">GitHub</a>.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
 // Info Card
 // ============================================================================
 
@@ -220,10 +308,10 @@ function InfoCard() {
       {/* How to connect */}
       <div className="mb-4 sm:mb-6">
         <p className="text-sm font-medium text-pkt-text-body-dark mb-1.5 sm:mb-2">
-          Koble til din KI-assistent
+          Koble til din KI-assistent via MCP<McpTooltip />
         </p>
         <p className="text-xs text-pkt-text-body-subtle mb-2.5 sm:mb-3">
-          Kopier adressen og lim inn under innstillinger i Claude, ChatGPT eller lignende.
+          Kopier adressen og legg til som MCP-kobling under innstillinger i din KI-assistent.
         </p>
         {MCP_URL && (
           <CopyableUrl url={MCP_URL} />
@@ -246,7 +334,7 @@ function InfoCard() {
           </Button>
         </a>
         <a
-          href="https://github.com/sponsors/khjohns"
+          href="https://qr.vipps.no/box/TODO"
           className="flex-1"
           target="_blank"
           rel="noopener noreferrer"
@@ -254,7 +342,7 @@ function InfoCard() {
           <Button variant="secondary" size="md" className="w-full">
             <span className="flex items-center justify-center gap-2">
               <HeartIcon className="w-4 h-4" />
-              Doner
+              Vipps
             </span>
           </Button>
         </a>
@@ -262,9 +350,9 @@ function InfoCard() {
 
       {/* Supported clients */}
       <div className="mt-4 pt-4 sm:mt-6 sm:pt-6 border-t border-pkt-border-subtle">
-        <p className="text-xs text-pkt-text-body-subtle mb-2">Fungerer med</p>
+        <p className="text-xs text-pkt-text-body-subtle mb-2">Støtter MCP</p>
         <div className="flex flex-wrap gap-2">
-          {['Claude', 'ChatGPT', 'Gemini', 'Copilot', 'Cursor'].map((client) => (
+          {['Claude', 'ChatGPT Plus', 'Gemini CLI', 'Copilot Studio'].map((client) => (
             <span
               key={client}
               className="px-3 py-1 text-xs text-pkt-text-body-subtle bg-pkt-bg-subtle rounded-full border border-pkt-border-subtle"
@@ -284,6 +372,7 @@ function InfoCard() {
 
 export function LandingPage() {
   const [mounted, setMounted] = useState(false);
+  const [privacyOpen, setPrivacyOpen] = useState(false);
 
   useEffect(() => {
     const timer = setTimeout(() => setMounted(true), 50);
@@ -334,7 +423,7 @@ export function LandingPage() {
       </div>
 
       {/* Right side - Info card */}
-      <div className="w-full lg:w-1/2 xl:w-2/5 flex items-start lg:items-center justify-center p-6 pt-10 sm:p-8 sm:pt-12 lg:pt-8">
+      <div className="w-full lg:w-1/2 xl:w-2/5 flex items-start lg:items-center justify-center p-6 pt-10 pb-10 sm:p-8 sm:pt-12 sm:pb-12 lg:pt-8 lg:pb-8">
         <div
           className={`w-full max-w-md transition-all duration-700 ease-out ${
             mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
@@ -345,12 +434,18 @@ export function LandingPage() {
 
           {/* Footer */}
           <p className="mt-4 sm:mt-6 text-center text-xs text-pkt-text-body-subtle">
-            Gratis og åpen kildekode · Data fra{' '}
+            Gratis og åpen kildekode ·{' '}
+            <a href="https://github.com/sponsors/khjohns" className="hover:underline" target="_blank" rel="noopener noreferrer">Støtt via GitHub</a>
+            {' '}· Data fra{' '}
             <a href="https://lovdata.no" className="hover:underline">Lovdata</a>
             {' '}(NLOD 2.0)
           </p>
+          <p className="mt-2 text-center text-xs text-pkt-text-body-subtle">
+            <button onClick={() => setPrivacyOpen(true)} className="hover:underline">Personvern</button>
+          </p>
         </div>
       </div>
+      <PrivacyDialog open={privacyOpen} onClose={() => setPrivacyOpen(false)} />
     </div>
   );
 }
