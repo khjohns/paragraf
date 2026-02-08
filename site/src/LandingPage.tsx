@@ -12,6 +12,7 @@ import {
   HeartIcon,
   CheckCircledIcon,
   CopyIcon,
+  InfoCircledIcon,
 } from '@radix-ui/react-icons';
 
 const MCP_URL = import.meta.env.VITE_MCP_URL || '';
@@ -174,6 +175,35 @@ function CopyableUrl({ url }: { url: string }) {
 }
 
 // ============================================================================
+// MCP Tooltip
+// ============================================================================
+
+function McpTooltip() {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <span className="relative inline-block">
+      <button
+        onClick={() => setOpen(!open)}
+        onMouseEnter={() => setOpen(true)}
+        onMouseLeave={() => setOpen(false)}
+        className="inline-flex items-center align-middle ml-1 text-pkt-text-body-subtle hover:text-pkt-text-body-dark transition-colors"
+        aria-label="Hva er MCP?"
+      >
+        <InfoCircledIcon className="w-3.5 h-3.5" />
+      </button>
+      {open && (
+        <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 p-2.5 text-xs text-pkt-text-body-dark bg-pkt-bg-card rounded-lg border border-pkt-border-subtle shadow-lg z-10">
+          <strong>MCP</strong> (Model Context Protocol) lar KI-assistenter koble til
+          eksterne datakilder. Legg til adressen over som MCP-kobling i innstillingene
+          til din KI-assistent.
+        </span>
+      )}
+    </span>
+  );
+}
+
+// ============================================================================
 // Info Card
 // ============================================================================
 
@@ -220,7 +250,7 @@ function InfoCard() {
       {/* How to connect */}
       <div className="mb-4 sm:mb-6">
         <p className="text-sm font-medium text-pkt-text-body-dark mb-1.5 sm:mb-2">
-          Koble til din KI-assistent via MCP
+          Koble til din KI-assistent via MCP<McpTooltip />
         </p>
         <p className="text-xs text-pkt-text-body-subtle mb-2.5 sm:mb-3">
           Kopier adressen og legg til som MCP-kobling under innstillinger i din KI-assistent.
