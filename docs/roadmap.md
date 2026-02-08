@@ -164,7 +164,7 @@ unified-timeline backend (Render Starter $7/mnd)
 └── /mcp/           ← Paragraf MCP endpoint
 ```
 
-Brukere kobler til via `https://your-domain.com/mcp/` i claude.ai.
+Brukere kobler til via `https://api.paragraf.dev/mcp/` i claude.ai.
 
 ### Self-host (alternativ)
 
@@ -200,7 +200,7 @@ SQLite-backend brukes automatisk når `SUPABASE_URL` ikke er satt.
 
 Landing-pagen (`site/`) bygges som statisk Vite-app og kan:
 
-- **A: Deployes på GitHub Pages** — gratis, paragraf.app peker dit
+- **A: Deployes på GitHub Pages** — gratis, paragraf.dev peker dit
 - **B: Serves fra Flask** — bygget output i `web/static/`
 - **C: Eget Vercel/Netlify** — gratis tier
 
@@ -251,6 +251,6 @@ app.register_blueprint(create_mcp_blueprint(), url_prefix="/mcp")
 - [ ] Publiser på PyPI (`pip install paragraf`)
 - [ ] Publiser Docker image
 - [ ] Oppdater unified-timeline til å importere fra pakken
-- [ ] Registrer domene (paragraf.app)
+- [x] Registrer domene (paragraf.dev)
 - [ ] Sett opp GitHub Pages for landing page
 - [ ] Legg til i MCP-kataloger (mcp.so, Smithery, etc.)

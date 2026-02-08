@@ -128,7 +128,7 @@ paragraf serve --http --port 8000
 ### Koble til Claude.ai
 
 1. Gå til **Settings → Connectors → Add custom connector**
-2. URL: `https://your-domain.com/mcp/`
+2. URL: `https://api.paragraf.dev/mcp/`
 3. Ferdig — ingen autentisering kreves
 
 ## MCP-verktøy
