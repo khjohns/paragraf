@@ -181,7 +181,7 @@ function InfoCard() {
   return (
     <div className="bg-pkt-bg-card rounded-lg border border-pkt-grays-gray-200 shadow-xl shadow-pkt-brand-dark-blue-1000/5 p-5 sm:p-8">
       {/* Header */}
-      <div className="flex items-center gap-3 mb-6">
+      <div className="flex items-center gap-3 mb-4 sm:mb-6">
         <svg viewBox="0 0 120 120" className="w-12 h-12" aria-label="Paragraf logo">
           <defs>
             <clipPath id="logo-l"><rect x="0" y="0" width="60" height="120"/></clipPath>
@@ -202,7 +202,7 @@ function InfoCard() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-4 p-4 rounded-lg bg-pkt-bg-subtle mb-6">
+      <div className="grid grid-cols-3 gap-4 p-3 sm:p-4 rounded-lg bg-pkt-bg-subtle mb-4 sm:mb-6">
         <div className="text-center">
           <div className="text-lg font-bold text-pkt-text-body-dark">770</div>
           <div className="text-xs text-pkt-text-body-subtle">Lover</div>
@@ -218,11 +218,11 @@ function InfoCard() {
       </div>
 
       {/* How to connect */}
-      <div className="mb-6">
-        <p className="text-sm font-medium text-pkt-text-body-dark mb-2">
+      <div className="mb-4 sm:mb-6">
+        <p className="text-sm font-medium text-pkt-text-body-dark mb-1.5 sm:mb-2">
           Koble til din KI-assistent
         </p>
-        <p className="text-xs text-pkt-text-body-subtle mb-3">
+        <p className="text-xs text-pkt-text-body-subtle mb-2.5 sm:mb-3">
           Kopier adressen og lim inn under innstillinger i Claude, ChatGPT eller lignende.
         </p>
         {MCP_URL && (
@@ -261,7 +261,7 @@ function InfoCard() {
       </div>
 
       {/* Supported clients */}
-      <div className="mt-6 pt-6 border-t border-pkt-border-subtle">
+      <div className="mt-4 pt-4 sm:mt-6 sm:pt-6 border-t border-pkt-border-subtle">
         <p className="text-xs text-pkt-text-body-subtle mb-2">Fungerer med</p>
         <div className="flex flex-wrap gap-2">
           {['Claude', 'ChatGPT', 'Gemini', 'Copilot', 'Cursor'].map((client) => (
@@ -344,7 +344,7 @@ export function LandingPage() {
           <InfoCard />
 
           {/* Footer */}
-          <p className="mt-6 text-center text-xs text-pkt-text-body-subtle">
+          <p className="mt-4 sm:mt-6 text-center text-xs text-pkt-text-body-subtle">
             Gratis og åpen kildekode · Data fra{' '}
             <a href="https://lovdata.no" className="hover:underline">Lovdata</a>
             {' '}(NLOD 2.0)
