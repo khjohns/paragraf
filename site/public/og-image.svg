@@ -27,20 +27,16 @@
     <line x1="600" y1="0" x2="600" y2="630" stroke="white" stroke-width="1" />
   </g>
 
-  <!-- Logo (centered, scaled up) -->
-  <g transform="translate(510, 160)">
-    <rect width="180" height="180" rx="30" fill="#1B2A4A" stroke="white" stroke-opacity="0.15" stroke-width="2"/>
-    <g clip-path="url(#logo-l)" transform="translate(30, 30) scale(1.5)">
-      <g transform="translate(-3, -3)">
-        <text x="60" y="82" font-family="Georgia, 'Times New Roman', serif" font-size="72" font-weight="700" fill="white" text-anchor="middle">§</text>
-      </g>
+  <!-- Logo (centered, scaled via nested svg) -->
+  <rect x="510" y="130" width="180" height="180" rx="30" fill="#1B2A4A" stroke="white" stroke-opacity="0.15" stroke-width="2"/>
+  <svg x="510" y="130" width="180" height="180" viewBox="0 0 120 120">
+    <g clip-path="url(#logo-l)" transform="translate(-3, -3)">
+      <text x="60" y="82" font-family="Georgia, 'Times New Roman', serif" font-size="72" font-weight="700" fill="white" text-anchor="middle">§</text>
     </g>
-    <g clip-path="url(#logo-r)" transform="translate(30, 30) scale(1.5)">
-      <g transform="translate(3, 3)">
-        <text x="60" y="82" font-family="Georgia, 'Times New Roman', serif" font-size="72" font-weight="700" fill="#4ADE80" text-anchor="middle">§</text>
-      </g>
+    <g clip-path="url(#logo-r)" transform="translate(3, 3)">
+      <text x="60" y="82" font-family="Georgia, 'Times New Roman', serif" font-size="72" font-weight="700" fill="#4ADE80" text-anchor="middle">§</text>
     </g>
-  </g>
+  </svg>
 
   <!-- Title -->
   <text x="600" y="410" font-family="system-ui, -apple-system, sans-serif" font-size="48" font-weight="700" fill="white" text-anchor="middle">Paragraf</text>
