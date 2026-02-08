@@ -154,13 +154,13 @@ function CopyableUrl({ url }: { url: string }) {
   };
 
   return (
-    <div className="flex items-center gap-2 p-2 bg-pkt-bg-subtle rounded-lg border border-pkt-border-subtle">
+    <div className="flex items-center gap-2 p-2.5 sm:p-2 bg-pkt-bg-subtle rounded-lg border border-pkt-border-subtle">
       <code className="flex-1 text-xs font-mono text-pkt-text-body-default truncate">
         {url}
       </code>
       <button
         onClick={handleCopy}
-        className="p-1.5 rounded hover:bg-white transition-colors flex-shrink-0"
+        className="p-2 sm:p-1.5 rounded hover:bg-white transition-colors flex-shrink-0"
         title="Kopier"
       >
         {copied ? (
@@ -179,7 +179,7 @@ function CopyableUrl({ url }: { url: string }) {
 
 function InfoCard() {
   return (
-    <div className="bg-pkt-bg-card rounded-lg border border-pkt-grays-gray-200 shadow-xl shadow-pkt-brand-dark-blue-1000/5 p-8">
+    <div className="bg-pkt-bg-card rounded-lg border border-pkt-grays-gray-200 shadow-xl shadow-pkt-brand-dark-blue-1000/5 p-5 sm:p-8">
       {/* Header */}
       <div className="flex items-center gap-3 mb-6">
         <svg viewBox="0 0 120 120" className="w-12 h-12" aria-label="Paragraf logo">
@@ -232,28 +232,32 @@ function InfoCard() {
 
       {/* Actions */}
       <div className="flex gap-3">
-        <Button variant="secondary" size="md" className="flex-1">
-          <a
-            href="https://github.com/khjohns/paragraf"
-            className="flex items-center justify-center gap-2"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <GitHubLogoIcon className="w-4 h-4" />
-            Kildekode
-          </a>
-        </Button>
-        <Button variant="secondary" size="md" className="flex-1">
-          <a
-            href="https://github.com/sponsors/khjohns"
-            className="flex items-center justify-center gap-2"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <HeartIcon className="w-4 h-4" />
-            Doner
-          </a>
-        </Button>
+        <a
+          href="https://github.com/khjohns/paragraf"
+          className="flex-1"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <Button variant="secondary" size="md" className="w-full">
+            <span className="flex items-center justify-center gap-2">
+              <GitHubLogoIcon className="w-4 h-4" />
+              Kildekode
+            </span>
+          </Button>
+        </a>
+        <a
+          href="https://github.com/sponsors/khjohns"
+          className="flex-1"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <Button variant="secondary" size="md" className="w-full">
+            <span className="flex items-center justify-center gap-2">
+              <HeartIcon className="w-4 h-4" />
+              Doner
+            </span>
+          </Button>
+        </a>
       </div>
 
       {/* Supported clients */}
@@ -287,7 +291,12 @@ export function LandingPage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-pkt-bg-subtle flex">
+    <div className="min-h-screen bg-pkt-bg-subtle flex relative overflow-hidden">
+      {/* Mobile background accent */}
+      <div
+        className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] opacity-[0.07] blur-3xl pointer-events-none lg:hidden"
+        style={{ background: 'radial-gradient(ellipse, var(--color-pkt-brand-blue-1000) 0%, transparent 70%)' }}
+      />
       {/* Left side - Simulation only (hidden on mobile) */}
       <div className="hidden lg:flex lg:w-1/2 xl:w-3/5 bg-pkt-brand-dark-blue-1000 relative overflow-hidden items-center justify-center">
         {/* Grid pattern */}
@@ -332,16 +341,6 @@ export function LandingPage() {
           }`}
           style={{ transitionDelay: '100ms' }}
         >
-          {/* Mobile header */}
-          <div className="lg:hidden mb-6">
-            <h1 className="text-2xl font-bold text-pkt-text-body-dark mb-2">
-              Paragraf
-            </h1>
-            <p className="text-sm text-pkt-text-body-subtle">
-              Norsk lov for KI
-            </p>
-          </div>
-
           <InfoCard />
 
           {/* Footer */}
