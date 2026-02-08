@@ -194,9 +194,9 @@ function McpTooltip() {
       </button>
       {open && (
         <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 p-2.5 text-xs text-pkt-text-body-dark bg-pkt-bg-card rounded-lg border border-pkt-border-subtle shadow-lg z-10">
-          <strong>MCP</strong> (Model Context Protocol) lar KI-assistenter koble til
-          eksterne datakilder. Legg til adressen over som MCP-kobling i innstillingene
-          til din KI-assistent.
+          <strong>MCP</strong> (Model Context Protocol) er en åpen standard som lar
+          KI-assistenter slå opp informasjon fra pålitelige kilder. Paragraf henter
+          kun lovtekst fra Lovdata – ingen persondata behandles.
         </span>
       )}
     </span>
