@@ -246,7 +246,7 @@ function InfoCard() {
           </Button>
         </a>
         <a
-          href="https://github.com/sponsors/khjohns"
+          href="https://qr.vipps.no/box/TODO"
           className="flex-1"
           target="_blank"
           rel="noopener noreferrer"
@@ -254,7 +254,7 @@ function InfoCard() {
           <Button variant="secondary" size="md" className="w-full">
             <span className="flex items-center justify-center gap-2">
               <HeartIcon className="w-4 h-4" />
-              Doner
+              Vipps
             </span>
           </Button>
         </a>
@@ -345,7 +345,9 @@ export function LandingPage() {
 
           {/* Footer */}
           <p className="mt-4 sm:mt-6 text-center text-xs text-pkt-text-body-subtle">
-            Gratis og åpen kildekode · Data fra{' '}
+            Gratis og åpen kildekode ·{' '}
+            <a href="https://github.com/sponsors/khjohns" className="hover:underline" target="_blank" rel="noopener noreferrer">Støtt via GitHub</a>
+            {' '}· Data fra{' '}
             <a href="https://lovdata.no" className="hover:underline">Lovdata</a>
             {' '}(NLOD 2.0)
           </p>
