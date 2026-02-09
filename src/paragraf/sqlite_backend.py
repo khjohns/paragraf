@@ -29,6 +29,7 @@ logger = logging.getLogger(__name__)
 # =============================================================================
 
 LOVDATA_API_BASE = "https://api.lovdata.no/v1/publicData/get"
+LOVDATA_LIST_URL = "https://api.lovdata.no/v1/publicData/list"
 
 DATASETS = {
     "lover": "gjeldende-lover.tar.bz2",
@@ -199,8 +200,8 @@ class LovdataSyncService:
         logger.info(f"Syncing dataset: {dataset_name} from {url}")
 
         # Check if we need to download
+        remote_modified = self._get_remote_last_modified(filename)
         if not force:
-            remote_modified = self._get_remote_last_modified(url)
             local_modified = self._get_local_last_modified(dataset_name)
 
             if remote_modified and local_modified and remote_modified <= local_modified:
@@ -220,7 +221,7 @@ class LovdataSyncService:
         # Update sync metadata
         self._update_sync_meta(
             dataset_name,
-            self._get_remote_last_modified(url),
+            remote_modified,
             file_count
         )
 
@@ -255,16 +256,23 @@ class LovdataSyncService:
 
         return file_count
 
-    def _get_remote_last_modified(self, url: str) -> datetime | None:
-        """Get Last-Modified header from remote URL."""
+    def _get_remote_last_modified(self, filename: str) -> datetime | None:
+        """Get lastModified for a dataset file via the list endpoint.
+
+        The Lovdata API does not return Last-Modified on HEAD requests,
+        so we use /v1/publicData/list which returns lastModified per file.
+        """
         try:
             with httpx.Client(timeout=30.0) as client:
-                response = client.head(url, follow_redirects=True)
-                if 'last-modified' in response.headers:
-                    from email.utils import parsedate_to_datetime
-                    return parsedate_to_datetime(response.headers['last-modified'])
+                response = client.get(LOVDATA_LIST_URL)
+                response.raise_for_status()
+                for entry in response.json():
+                    if entry.get('filename') == filename:
+                        return datetime.fromisoformat(
+                            entry['lastModified'].replace('Z', '+00:00')
+                        )
         except Exception as e:
-            logger.warning(f"Could not get Last-Modified for {url}: {e}")
+            logger.warning(f"Could not get lastModified for {filename}: {e}")
         return None
 
     def _get_local_last_modified(self, dataset_name: str) -> datetime | None:

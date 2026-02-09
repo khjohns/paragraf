@@ -49,6 +49,7 @@ from paragraf._supabase_utils import safe_execute, with_retry  # noqa: E402, I00
 # =============================================================================
 
 LOVDATA_API_BASE = "https://api.lovdata.no/v1/publicData/get"
+LOVDATA_LIST_URL = "https://api.lovdata.no/v1/publicData/list"
 
 DATASETS = {
     "lover": "gjeldende-lover.tar.bz2",
@@ -196,10 +197,10 @@ class LovdataSupabaseService:
         logger.info(f"Syncing dataset: {dataset_name}")
 
         # Check if we need to sync
+        remote_modified = self._get_remote_last_modified(filename)
         if not force:
             status = self._get_sync_status(dataset_name)
             if status and status.get('status') == 'idle':
-                remote_modified = self._get_remote_last_modified(url)
                 local_modified = status.get('last_modified')
                 if remote_modified and local_modified:
                     if datetime.fromisoformat(local_modified.replace('Z', '+00:00')) >= remote_modified:
@@ -216,7 +217,7 @@ class LovdataSupabaseService:
             self._set_sync_status(
                 dataset_name,
                 'idle',
-                last_modified=self._get_remote_last_modified(url),
+                last_modified=remote_modified,
                 file_count=stats['docs']
             )
 
@@ -788,16 +789,23 @@ class LovdataSupabaseService:
             if i % 2000 == 0:
                 logger.info(f"Upserted {i + len(batch)} sections...")
 
-    def _get_remote_last_modified(self, url: str) -> datetime | None:
-        """Get Last-Modified header from URL."""
+    def _get_remote_last_modified(self, filename: str) -> datetime | None:
+        """Get lastModified for a dataset file via the list endpoint.
+
+        The Lovdata API does not return Last-Modified on HEAD requests,
+        so we use /v1/publicData/list which returns lastModified per file.
+        """
         try:
             with httpx.Client(timeout=30.0) as client:
-                response = client.head(url, follow_redirects=True)
-                if 'last-modified' in response.headers:
-                    from email.utils import parsedate_to_datetime
-                    return parsedate_to_datetime(response.headers['last-modified'])
+                response = client.get(LOVDATA_LIST_URL)
+                response.raise_for_status()
+                for entry in response.json():
+                    if entry.get('filename') == filename:
+                        return datetime.fromisoformat(
+                            entry['lastModified'].replace('Z', '+00:00')
+                        )
         except Exception as e:
-            logger.warning(f"Could not get Last-Modified: {e}")
+            logger.warning(f"Could not get lastModified for {filename}: {e}")
         return None
 
     def _get_sync_status(self, dataset: str) -> dict | None:
