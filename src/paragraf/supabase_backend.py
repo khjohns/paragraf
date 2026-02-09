@@ -187,7 +187,25 @@ class LovdataSupabaseService:
                 logger.error(f"Failed to sync {dataset_name}: {e}")
                 results[dataset_name] = -1
 
+        # Derive legal_area for forskrifter from their hjemmelslov
+        self._derive_forskrift_legal_area()
+
         return results
+
+    def _derive_forskrift_legal_area(self) -> None:
+        """Derive legal_area for forskrifter from their hjemmelslov.
+
+        Forskrifter don't have legalArea in the Lovdata public API XML,
+        but they reference their hjemmelslov via based_on.  Calls a
+        PostgreSQL function that does the derivation in a single UPDATE.
+        """
+        try:
+            result = self.client.rpc("derive_forskrift_legal_area", {}).execute()
+            count = result.data if result.data else 0
+            if count:
+                logger.info(f"Derived legal_area for {count} forskrifter from hjemmelslov")
+        except Exception as e:
+            logger.warning(f"Failed to derive forskrift legal_area: {e}")
 
     def sync_dataset(self, dataset_name: str, filename: str, force: bool = False) -> dict:
         """
