@@ -247,6 +247,7 @@ class LovdataSupabaseService:
         total_sections = 0
         total_structures = 0
         parse_errors = 0
+        flush_errors = 0
         batch_size = 20  # Reduced from 50 to avoid Supabase statement timeouts
         doc_batch = []
         section_batch = []
@@ -293,6 +294,7 @@ class LovdataSupabaseService:
                     if not member.isfile() or not member.name.endswith('.xml'):
                         continue
 
+                    # Parse XML
                     try:
                         f = tar.extractfile(member)
                         if f is None:
@@ -300,56 +302,72 @@ class LovdataSupabaseService:
 
                         content = f.read().decode('utf-8')
                         doc, secs, structs = self._parse_xml(content, doc_type)
-
-                        if doc:
-                            dok_id = doc['dok_id']
-                            # Deduplicate in-memory
-                            if dok_id in seen_dok_ids:
-                                continue
-                            seen_dok_ids.add(dok_id)
-
-                            doc_batch.append(doc)
-                            section_batch.extend(secs)
-                            structure_batch.extend(structs)
-                            total_docs += 1
-                            total_sections += len(secs)
-                            total_structures += len(structs)
-
-                            # Flush batch when full
-                            if len(doc_batch) >= batch_size:
-                                self._flush_batch(doc_batch, section_batch, structure_batch, doc_type)
-                                doc_batch = []
-                                section_batch = []
-                                structure_batch = []
-
-                                elapsed = time.time() - proc_start
-                                rate = total_docs / elapsed if elapsed > 0 else 0
-                                _log(f"  {total_docs} docs, {total_sections} sections ({rate:.0f} docs/s)")
-
                     except Exception as e:
                         parse_errors += 1
                         logger.warning(f"Failed to parse {member.name}: {e}")
+                        continue
+
+                    if doc:
+                        dok_id = doc['dok_id']
+                        if dok_id in seen_dok_ids:
+                            continue
+                        seen_dok_ids.add(dok_id)
+
+                        doc_batch.append(doc)
+                        section_batch.extend(secs)
+                        structure_batch.extend(structs)
+                        total_docs += 1
+                        total_sections += len(secs)
+                        total_structures += len(structs)
+
+                    # Flush batch when full (outside parse try/except)
+                    if len(doc_batch) >= batch_size:
+                        try:
+                            self._flush_batch(doc_batch, section_batch, structure_batch, doc_type)
+                        except Exception as e:
+                            flush_errors += 1
+                            logger.warning(f"Flush failed ({len(section_batch)} sections): {e}")
+                        # Always clear batch to avoid snowballing
+                        doc_batch = []
+                        section_batch = []
+                        structure_batch = []
+
+                        elapsed = time.time() - proc_start
+                        rate = total_docs / elapsed if elapsed > 0 else 0
+                        _log(f"  {total_docs} docs, {total_sections} sections ({rate:.0f} docs/s)")
 
             # Flush remaining
             if doc_batch:
-                self._flush_batch(doc_batch, section_batch, structure_batch, doc_type)
+                try:
+                    self._flush_batch(doc_batch, section_batch, structure_batch, doc_type)
+                except Exception as e:
+                    flush_errors += 1
+                    logger.warning(f"Final flush failed ({len(section_batch)} sections): {e}")
 
             proc_elapsed = time.time() - proc_start
             total_elapsed = time.time() - dl_start
 
+            error_parts = []
+            if parse_errors:
+                error_parts.append(f"{parse_errors} parse errors")
+            if flush_errors:
+                error_parts.append(f"{flush_errors} flush errors")
+            error_msg = f" ({', '.join(error_parts)})" if error_parts else ""
+
             _log(f"Done: {total_docs} docs, {total_sections} sections, "
-                 f"{total_structures} structures in {proc_elapsed:.0f}s"
-                 + (f" ({parse_errors} parse errors)" if parse_errors else ""))
+                 f"{total_structures} structures in {proc_elapsed:.0f}s{error_msg}")
 
         return {
             'docs': total_docs,
             'sections': total_sections,
             'structures': total_structures,
-            'errors': parse_errors,
+            'errors': parse_errors + flush_errors,
             'elapsed': total_elapsed,
         }
 
-    @with_retry()
+    # Max rows per upsert to avoid Supabase statement timeout
+    SECTION_CHUNK_SIZE = 50
+
     def _flush_batch(
         self,
         documents: list[dict],
@@ -357,17 +375,19 @@ class LovdataSupabaseService:
         structures: list[StructureRecord],
         doc_type: str,
     ) -> None:
-        """Insert a batch of documents, sections, and structures."""
+        """Insert a batch of documents, sections, and structures.
+
+        Sections are chunked to avoid Supabase statement timeout on large
+        batches (e.g. Skatteloven with 364 paragraphs).
+        """
         if documents:
-            self.client.table('lovdata_documents').upsert(
-                documents,
-                on_conflict='dok_id'
-            ).execute()
+            self._upsert_with_retry(
+                'lovdata_documents', documents, 'dok_id'
+            )
 
         # Insert structures (before sections to enable FK resolution)
         if structures:
             # Convert StructureRecord to dict for upsert
-            # Note: parent_id is a key like "del:I", resolved later
             structure_dicts = []
             for s in structures:
                 structure_dicts.append({
@@ -378,7 +398,6 @@ class LovdataSupabaseService:
                     'sort_order': s.sort_order,
                     'address': s.address,
                     'heading_level': s.heading_level,
-                    # parent_id left as NULL for now - resolved in post-processing
                 })
 
             # Deduplicate structures
@@ -388,25 +407,35 @@ class LovdataSupabaseService:
                 seen_structs[key] = s
             unique_structures = list(seen_structs.values())
 
-            self.client.table('lovdata_structure').upsert(
-                unique_structures,
-                on_conflict='dok_id,structure_type,structure_id'
-            ).execute()
+            self._upsert_with_retry(
+                'lovdata_structure', unique_structures,
+                'dok_id,structure_type,structure_id'
+            )
 
         if sections:
             # Deduplicate sections within batch
             seen = {}
             for sec in sections:
                 key = (sec['dok_id'], sec['section_id'])
-                # Remove temporary structure_key before insert
                 sec.pop('structure_key', None)
                 seen[key] = sec
             unique_sections = list(seen.values())
 
-            self.client.table('lovdata_sections').upsert(
-                unique_sections,
-                on_conflict='dok_id,section_id'
-            ).execute()
+            # Chunk to avoid statement timeout on large laws
+            for i in range(0, len(unique_sections), self.SECTION_CHUNK_SIZE):
+                chunk = unique_sections[i:i + self.SECTION_CHUNK_SIZE]
+                self._upsert_with_retry(
+                    'lovdata_sections', chunk, 'dok_id,section_id'
+                )
+
+    @with_retry()
+    def _upsert_with_retry(
+        self, table: str, rows: list[dict], on_conflict: str
+    ) -> None:
+        """Upsert rows with retry logic."""
+        self.client.table(table).upsert(
+            rows, on_conflict=on_conflict
+        ).execute()
 
     def _parse_xml(
         self, content: str, doc_type: str
