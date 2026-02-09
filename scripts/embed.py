@@ -153,10 +153,22 @@ def fetch_sections_needing_embedding(
 
 def fetch_document_metadata(supabase) -> dict[str, dict]:
     """Fetch metadata for all documents (for context enrichment)."""
-    result = (
-        supabase.table("lovdata_documents").select("dok_id, short_title, title, doc_type").execute()
-    )
-    return {doc["dok_id"]: doc for doc in result.data}
+    docs = {}
+    offset = 0
+    page_size = 1000
+    while True:
+        result = (
+            supabase.table("lovdata_documents")
+            .select("dok_id, short_title, title, doc_type")
+            .range(offset, offset + page_size - 1)
+            .execute()
+        )
+        for doc in result.data:
+            docs[doc["dok_id"]] = doc
+        if len(result.data) < page_size:
+            break
+        offset += page_size
+    return docs
 
 
 def generate_embeddings_batch(
