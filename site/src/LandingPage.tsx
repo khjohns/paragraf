@@ -13,6 +13,7 @@ import {
   CheckCircledIcon,
   CopyIcon,
   InfoCircledIcon,
+  ChevronDownIcon,
 } from '@radix-ui/react-icons';
 
 const MCP_URL = import.meta.env.VITE_MCP_URL || '';
@@ -155,7 +156,7 @@ function CopyableUrl({ url }: { url: string }) {
   };
 
   return (
-    <div className="flex items-center gap-2 p-2.5 sm:p-2 bg-pkt-bg-subtle rounded-lg border border-pkt-border-subtle">
+    <div className="flex items-center gap-2 p-3 bg-pkt-bg-subtle rounded-lg border border-pkt-border-subtle">
       <code className="flex-1 text-xs font-mono text-pkt-text-body-default truncate">
         {url}
       </code>
@@ -193,7 +194,7 @@ function McpTooltip() {
         <InfoCircledIcon className="w-3.5 h-3.5" />
       </button>
       {open && (
-        <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 p-2.5 text-xs text-pkt-text-body-dark bg-pkt-bg-card rounded-lg border border-pkt-border-subtle shadow-lg z-10">
+        <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 p-3 text-xs text-pkt-text-body-dark bg-pkt-bg-card rounded-lg border border-pkt-border-subtle shadow-lg z-10">
           <strong>MCP</strong> (Model Context Protocol) er en åpen standard som lar
           KI-assistenter slå opp informasjon fra pålitelige kilder. Paragraf henter
           kun lovtekst fra Lovdata – ingen persondata behandles.
@@ -262,6 +263,62 @@ function PrivacyDialog({ open, onClose }: { open: boolean; onClose: () => void }
 }
 
 // ============================================================================
+// Tools Accordion
+// ============================================================================
+
+const toolGroups = [
+  {
+    title: 'Søk i lovverket',
+    tools: 'sok · semantisk_sok',
+    description: 'Fulltekstsøk og KI-søk med filtre for departement, rettsområde og dokumenttype',
+  },
+  {
+    title: 'Hent lovtekst',
+    tools: 'lov · forskrift · hent_flere',
+    description: 'Slå opp enkeltparagrafer eller hent flere samtidig',
+  },
+  {
+    title: 'Utforsk sammenhenger',
+    tools: 'relaterte_forskrifter · sjekk_storrelse',
+    description: 'Finn relaterte forskrifter og estimer kontekstbruk før store oppslag',
+  },
+  {
+    title: 'Filterverdier',
+    tools: 'departementer · rettsomrader · liste',
+    description: 'List tilgjengelige departementer, rettsområder og lover',
+  },
+];
+
+function ToolsAccordion() {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="mb-4 sm:mb-6">
+      <button
+        onClick={() => setOpen(!open)}
+        className="flex items-center gap-1.5 text-xs text-pkt-text-body-subtle hover:text-pkt-text-body-dark transition-colors"
+      >
+        <ChevronDownIcon
+          className={`w-3.5 h-3.5 transition-transform duration-200 ${open ? 'rotate-0' : '-rotate-90'}`}
+        />
+        <span>11 verktøy tilgjengelig</span>
+      </button>
+      {open && (
+        <div className="mt-3 space-y-3 animate-fade-in">
+          {toolGroups.map((group) => (
+            <div key={group.title} className="p-3 rounded-lg bg-pkt-bg-subtle border border-pkt-border-subtle">
+              <span className="text-xs font-medium text-pkt-text-body-dark">{group.title}</span>
+              <p className="text-xs text-pkt-text-body-subtle leading-relaxed">{group.description}</p>
+              <code className="text-xs text-pkt-text-body-subtle font-mono">{group.tools}</code>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================================
 // Info Card
 // ============================================================================
 
@@ -310,13 +367,16 @@ function InfoCard() {
         <p className="text-sm font-medium text-pkt-text-body-dark mb-1.5 sm:mb-2">
           Koble til din KI-assistent via MCP<McpTooltip />
         </p>
-        <p className="text-xs text-pkt-text-body-subtle mb-2.5 sm:mb-3">
+        <p className="text-xs text-pkt-text-body-subtle mb-3">
           Kopier adressen og legg til som MCP-kobling under innstillinger i din KI-assistent.
         </p>
         {MCP_URL && (
           <CopyableUrl url={MCP_URL} />
         )}
       </div>
+
+      {/* Tools */}
+      <ToolsAccordion />
 
       {/* Actions */}
       <div className="flex gap-3">
