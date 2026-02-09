@@ -569,6 +569,47 @@ class LovdataService:
         """Return which backend is in use."""
         return "supabase" if USE_SUPABASE else "sqlite"
 
+    @staticmethod
+    def _format_based_on(raw: str) -> str:
+        """Format concatenated based_on references into a readable string.
+
+        Input:  'lov/2005-06-17-62/§1-4lov/2005-06-17-62/§14-12forskrift/2007-05-31-590'
+        Output: 'lov/2005-06-17-62 §§ 1-4, 14-12; forskrift/2007-05-31-590'
+        """
+        # Split into individual references using lookahead at lov/ or forskrift/ boundaries
+        parts_raw = re.split(r"(?=(?:lov|forskrift)/\d{4})", raw)
+        parts_raw = [p for p in parts_raw if p]
+
+        if not parts_raw:
+            return raw
+
+        # Parse each reference into (doc_id, paragraph)
+        from collections import OrderedDict
+
+        grouped: OrderedDict[str, list[str]] = OrderedDict()
+        for ref in parts_raw:
+            m = re.match(r"((?:lov|forskrift)/\d{4}-\d{2}-\d{2}-\d+)(?:/§(.+))?$", ref)
+            if m:
+                doc_id = m.group(1)
+                paragraph = m.group(2)
+                if doc_id not in grouped:
+                    grouped[doc_id] = []
+                if paragraph:
+                    grouped[doc_id].append(paragraph)
+            else:
+                grouped[ref] = []
+
+        parts = []
+        for doc_id, paragraphs in grouped.items():
+            if paragraphs:
+                if len(paragraphs) == 1:
+                    parts.append(f"{doc_id} § {paragraphs[0]}")
+                else:
+                    parts.append(f"{doc_id} §§ {', '.join(paragraphs)}")
+            else:
+                parts.append(doc_id)
+        return "; ".join(parts)
+
     def _format_table_of_contents(
         self, doc: dict, sections: list[dict], structures: list[dict] | None = None
     ) -> str:
@@ -608,7 +649,7 @@ class LovdataService:
             meta_lines.append(f"**Sprak:** {language}")
         based_on = doc.get("based_on")
         if based_on:
-            meta_lines.append(f"**Hjemmelslov:** {based_on}")
+            meta_lines.append(f"**Hjemmelslov:** {self._format_based_on(based_on)}")
         keywords = doc.get("keywords")
         if keywords:
             meta_lines.append(f"**Stikkord:** {keywords}")
@@ -995,7 +1036,7 @@ Fant {len(results)} treff (alias-søk):
             # Show hjemmelslov for forskrifter
             based_on_line = ""
             if doc_type == "Forskrift" and based_on:
-                based_on_line = f"\n**Hjemmelslov:** {based_on}"
+                based_on_line = f"\n**Hjemmelslov:** {self._format_based_on(based_on)}"
 
             result_lines.append(f"""### {doc_type}: {title}{section_info}
 **ID:** `{dok_id}`{f" **Paragraf:** `{section_id}`" if section_id else ""}{based_on_line}

@@ -3,6 +3,15 @@
 -- Depends on: 002_document_metadata.sql
 
 -- =============================================================================
+-- 0. Drop old function overloads (different param counts = separate functions in PG)
+-- =============================================================================
+
+DROP FUNCTION IF EXISTS search_lovdata_fast(text, integer);
+DROP FUNCTION IF EXISTS search_lovdata_fast(text, integer, boolean, text);
+DROP FUNCTION IF EXISTS search_lovdata_hybrid(text, vector, integer, double precision, integer, text, text);
+DROP FUNCTION IF EXISTS search_lovdata_hybrid(text, vector, integer, double precision, integer, text, text, boolean);
+
+-- =============================================================================
 -- 1. Updated search_lovdata_fast with doc_type + legal_area filters + based_on
 -- =============================================================================
 
