@@ -2,7 +2,7 @@
 
 MCP-server som gir AI-assistenter tilgang til alle norske lover og forskrifter via [Model Context Protocol](https://modelcontextprotocol.io/).
 
-92 000+ paragrafer fra 770 lover og 3 666 forskrifter — gratis under NLOD 2.0-lisensen.
+92 000+ paragrafer fra 773 lover og 3 673 forskrifter — gratis under NLOD 2.0-lisensen.
 
 ## Hvorfor
 
@@ -60,15 +60,20 @@ Svar:    "Etter husleieloven § 9-7 skal oppsigelse fra utleier
                               └───────────────────┘              └───────────────────┘
 ```
 
-## Hurtigstart
+## Bruk
 
-### Forutsetninger
+### Hosted (ingen installasjon)
 
-- Python 3.11+
-- PostgreSQL med `pgvector` og `pg_trgm` (Supabase anbefalt)
-- Valgfritt: Gemini API-nøkkel for semantisk søk
+MCP-serveren er fritt tilgjengelig — ingen registrering eller API-nøkkel kreves.
 
-### Installasjon
+**Claude.ai:**
+1. Gå til **Settings → Connectors → Add custom connector**
+2. URL: `https://api.paragraf.dev/mcp/`
+3. Ferdig
+
+Eneste begrensning er 120 req/min per IP (burst-beskyttelse).
+
+### Lokal installasjon
 
 ```bash
 pip install paragraf            # Minimal (SQLite backend)
@@ -97,24 +102,11 @@ GEMINI_API_KEY=AIza...
 
 Uten Supabase brukes SQLite som lokal fallback.
 
-### Kjør databasemigreringer
-
-```bash
-# Kjør mot Supabase (i rekkefølge)
-supabase db push
-```
-
-Migreringene oppretter:
-- `lovdata_documents` — lover og forskrifter
-- `lovdata_sections` — paragrafer med FTS og embedding
-- `lovdata_structure` — hierarkisk struktur (del/kapittel/avsnitt)
-- `lovdata_sync_meta` — sync-metadata
-- SQL-funksjoner for søk og fuzzy matching
-
 ### Synkroniser lovdata
 
 ```bash
-paragraf sync                   # Første gang (tar 5-10 min)
+paragraf sync                   # Inkrementell sync (sjekker last-modified)
+paragraf sync --force           # Tving full re-sync
 ```
 
 ### Start serveren
@@ -124,12 +116,6 @@ paragraf serve                  # stdio MCP (for Claude Desktop, Cursor)
 paragraf serve --http           # HTTP MCP (for claude.ai connector)
 paragraf serve --http --port 8000
 ```
-
-### Koble til Claude.ai
-
-1. Gå til **Settings → Connectors → Add custom connector**
-2. URL: `https://api.paragraf.dev/mcp/`
-3. Ferdig — ingen autentisering kreves
 
 ## MCP-verktøy
 
@@ -179,17 +165,23 @@ src/paragraf/
 ├── structure_parser.py      # XML → hierarkisk struktur
 ├── vector_search.py         # Hybrid vektor+FTS søk
 ├── cli.py                   # CLI (serve, sync, status)
-└── web.py                   # Flask blueprint factory
+├── web.py                   # Flask blueprint factory
+└── _supabase_utils.py       # Retry/backoff, feilhåndtering
 
 web/
-└── app.py                   # Full Flask blueprint (OAuth, SSE, HTTP)
+└── app.py                   # Standalone Flask-app (hosted deploy)
+
+site/                        # Landing page (paragraf.dev, GitHub Pages)
 
 scripts/
 └── embed.py                 # Generer embeddings for vektorsøk
 
 migrations/
-├── 20260203_create_lovdata_tables.sql
-└── 20260206_add_lovdata_structure.sql
+└── 001_complete_schema.sql  # Supabase-skjema (tabeller, funksjoner, indekser)
+
+docs/
+├── ADR-001.md               # Arkitekturbeslutninger
+└── ADR-002.md               # Tilgangsmodell og rate limiting
 ```
 
 ## API-endepunkter
@@ -218,7 +210,7 @@ migrations/
 ### Tabeller
 
 ```
-lovdata_documents (4 439 rader)
+lovdata_documents (4 446 rader)
 ├── dok_id TEXT UNIQUE        "lov/2005-05-20-28"
 ├── title TEXT                "Lov om arbeidsmiljø..."
 ├── short_title TEXT          "Arbeidsmiljøloven"
@@ -226,15 +218,15 @@ lovdata_documents (4 439 rader)
 ├── ministry TEXT             "Arbeids- og inkluderingsdepartementet"
 └── search_vector TSVECTOR
 
-lovdata_sections (92 130 rader)
+lovdata_sections (92 164 rader)
 ├── dok_id + section_id       UNIQUE
 ├── content TEXT               Paragraftekst
 ├── search_vector TSVECTOR     Norsk stemming
-├── embedding VECTOR(1536)     Gemini embedding
+├── embedding VECTOR(1536)     Gemini embedding (100% dekning)
 ├── char_count INTEGER         GENERATED ALWAYS
 └── structure_id UUID FK       → lovdata_structure
 
-lovdata_structure (13 909 rader)
+lovdata_structure (14 798 rader)
 ├── structure_type TEXT        "del" | "kapittel" | "avsnitt" | "vedlegg"
 ├── title TEXT                 "Kapittel 2. Arbeidsgivers plikter"
 ├── parent_id UUID FK          Hierarkisk (self-ref)
@@ -250,10 +242,11 @@ lovdata_structure (13 909 rader)
 
 ## Sikkerhet
 
-- **Ingen brukerdata lagres** — authless design
+- **Ingen brukerdata lagres** — åpent, authless design
+- **Ingen registrering** — MCP-URL er fritt tilgjengelig
+- **Rate limiting** — 120 req/min per IP (burst-beskyttelse via Flask-Limiter)
 - **Parameteriserte queries** — ingen SQL injection
 - **Input-validering** på alle MCP-verktøy
-- **Rate limiting** anbefalt i produksjon (flask-limiter)
 - **NLOD 2.0-lisens** — alle data er offentlige
 
 ### Testet mot
@@ -268,8 +261,8 @@ lovdata_structure (13 909 rader)
 
 ### Inkludert (gratis via Lovdata Public API)
 
-- Gjeldende lover (770+)
-- Sentrale forskrifter (3 666+)
+- Gjeldende lover (773+)
+- Sentrale forskrifter (3 673+)
 - Lokale forskrifter, delegeringer, instrukser
 
 ### IKKE inkludert
@@ -278,29 +271,13 @@ lovdata_structure (13 909 rader)
 - Forarbeider (NOU, Prop., Ot.prp.) — krever Lovdata Pro
 - Juridiske artikler
 
-## Deploy
-
-### Render
-
-```yaml
-# render.yaml
-services:
-  - type: web
-    name: paragraf
-    runtime: python
-    buildCommand: pip install paragraf[all]
-    startCommand: paragraf serve --http
-    healthCheckPath: /mcp/health
-```
-
-### Miljøvariabler
+## Miljøvariabler
 
 | Variabel | Påkrevd | Beskrivelse |
 |----------|---------|-------------|
 | `SUPABASE_URL` | Ja* | Supabase prosjekt-URL |
 | `SUPABASE_SERVICE_ROLE_KEY` | Ja* | Service role nøkkel |
 | `GEMINI_API_KEY` | Nei | For semantisk søk |
-| `MCP_REQUIRE_AUTH` | Nei | `true` for OAuth 2.1 |
 | `LOVDATA_CACHE_DIR` | Nei | SQLite cache-sti (default: `/tmp/lovdata-cache`) |
 
 \* SQLite brukes som fallback uten Supabase.
@@ -308,8 +285,16 @@ services:
 ## Utvikling
 
 ```bash
+# Installer fra kildekode
+pip install -e ".[all,dev]"
+
 # Generer embeddings (krever GEMINI_API_KEY)
-python scripts/embed.py
+python scripts/embed.py --dry-run    # Sjekk kostnad
+python scripts/embed.py              # Kjør
+
+# Linting (pre-commit hook kjører automatisk)
+ruff check src/ scripts/
+ruff format src/ scripts/
 
 # Helsesjekk
 curl http://localhost:8000/mcp/health
@@ -339,15 +324,15 @@ curl -X POST http://localhost:8000/mcp/ \
 | Fuzzy matching | pg_trgm |
 | Protokoll | MCP 2025-06-18, Streamable HTTP |
 | Datakilde | Lovdata Public API (NLOD 2.0) |
+| Landing page | GitHub Pages (paragraf.dev) |
 
 ## Lisens
 
 Inneholder data under Norsk lisens for offentlige data ([NLOD 2.0](https://data.norge.no/nlod/no/2.0)) tilgjengeliggjort av [Lovdata](https://lovdata.no).
 
-## Relatert dokumentasjon
+## Dokumentasjon
 
-- [ADR-001: Arkitekturbeslutninger](docs/ADR-001.md) — alle arkitekturbeslutninger
-- [Dataflyt](docs/dataflow.md) — sikkerhet og nettverksmodell
-- [Roadmap](docs/roadmap.md) — veien videre
+- [ADR-001: Arkitekturbeslutninger](docs/ADR-001.md) — datamodell, søk, sync, MCP-verktøy
+- [ADR-002: Tilgangsmodell](docs/ADR-002.md) — åpen tilgang og rate limiting
 - [MCP Specification](https://modelcontextprotocol.io/specification/2025-06-18)
 - [Lovdata Public API](https://api.lovdata.no/)
