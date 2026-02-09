@@ -75,12 +75,12 @@ class LovdataVectorSearch:
         if self._genai_client is not None:
             return self._genai_client
 
-        from google import genai
+        import google.genai
 
         api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
         if not api_key:
             raise ValueError("GEMINI_API_KEY must be set for vector search")
-        self._genai_client = genai.Client(api_key=api_key)
+        self._genai_client = google.genai.Client(api_key=api_key)
         return self._genai_client
 
     @staticmethod
@@ -98,14 +98,14 @@ class LovdataVectorSearch:
         Returns tuple (immutable) for caching compatibility.
         Uses RETRIEVAL_QUERY task type for optimized search quality.
         """
-        from google.genai import types
+        import google.genai.types
 
         client = self._get_genai_client()
 
         result = client.models.embed_content(
             model=EMBEDDING_MODEL,
             contents=query,
-            config=types.EmbedContentConfig(
+            config=google.genai.types.EmbedContentConfig(
                 task_type=TASK_TYPE_QUERY, output_dimensionality=EMBEDDING_DIM
             ),
         )

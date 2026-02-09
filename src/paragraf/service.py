@@ -21,6 +21,7 @@ Usage:
 
 import logging
 import os
+import re
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -39,6 +40,9 @@ USE_SUPABASE = bool(os.getenv("SUPABASE_URL"))
 # Token estimation: ~3.5 chars per token for Norwegian text
 CHARS_PER_TOKEN = 3.5
 LARGE_RESPONSE_THRESHOLD = 5000  # tokens
+
+# Sentinel returned by _fetch_law_content when document exists but section does not
+_SECTION_NOT_FOUND = "__SECTION_NOT_FOUND__"
 
 # Lazy service singletons
 _supabase_service = None
@@ -288,14 +292,24 @@ class LovdataService:
         # Try to fetch from cache/API
         content = self._fetch_law_content(resolved_id, paragraf, max_tokens=max_tokens)
 
-        if content:
+        if content == _SECTION_NOT_FOUND:
+            return (
+                f"**Feil:** § {paragraf} finnes ikke i {law_name}.\n\n"
+                f'Bruk `lov("{lov_id}")` for å se innholdsfortegnelsen, '
+                f'eller `sok("{paragraf}")` for å søke.'
+            )
+        elif content:
             return self._format_response(
                 law_name=law_name, law_id=resolved_id, paragraf=paragraf, content=content, url=url
             )
         else:
-            # Fallback: Return link with metadata
-            return self._format_fallback_response(
-                law_name=law_name, law_id=resolved_id, paragraf=paragraf, url=url
+            # Document not found at all
+            return (
+                f"**Feil:** Fant ikke loven «{lov_id}».\n\n"
+                f'**Tips:** Bruk `sok("{lov_id}")` for å søke, '
+                f"eller `liste()` for å se kjente aliaser.\n\n"
+                f"Du kan også bruke full Lovdata-ID fra søkeresultater, "
+                f'f.eks. `lov("lov/1999-03-26-17", "9-2")`.'
             )
 
     def _fetch_law_content(
@@ -310,7 +324,8 @@ class LovdataService:
             max_tokens: Optional token limit (truncates if exceeded)
 
         Returns:
-            Law text content or None if not available
+            Law text content, _SECTION_NOT_FOUND if doc exists but section doesn't,
+            or None if document not found
         """
         backend = _get_backend_service()
 
@@ -331,6 +346,32 @@ class LovdataService:
                             content = content[:max_chars] + "\n\n... [avkortet]"
 
                     return content
+
+                # Section not found — try stripping "nr X" suffix (e.g. "4-2 nr 1" → "4-2")
+                stripped = re.sub(r"\s+nr\s+\d+.*$", "", paragraf, flags=re.IGNORECASE)
+                if stripped != paragraf:
+                    section = backend.get_section(lov_id, stripped)
+                    if section:
+                        content = ""
+                        if section.title:
+                            content = f"**{section.title}**\n\n"
+                        content += section.content
+                        content += (
+                            f"\n\n> *Merk: § {paragraf} ble ikke funnet som egen seksjon. "
+                            f"Viser hele § {stripped} som inneholder denne bestemmelsen.*"
+                        )
+
+                        if max_tokens:
+                            max_chars = int(max_tokens * CHARS_PER_TOKEN)
+                            if len(content) > max_chars:
+                                content = content[:max_chars] + "\n\n... [avkortet]"
+
+                        return content
+
+                # Check if document exists at all (to differentiate errors)
+                doc = backend.get_document(lov_id)
+                if doc:
+                    return _SECTION_NOT_FOUND
             else:
                 # Get document overview with table of contents
                 doc = backend.get_document(lov_id)
@@ -363,15 +404,16 @@ class LovdataService:
         Returns:
             Dict with char_count and estimated_tokens, or None
         """
+        resolved_id = self._resolve_id(lov_id)
         backend = _get_backend_service()
 
         try:
             # Try Supabase method first
             if hasattr(backend, "get_section_size"):
-                return backend.get_section_size(lov_id, paragraf)
+                return backend.get_section_size(resolved_id, paragraf)
 
             # Fallback: fetch section and measure
-            section = backend.get_section(lov_id, paragraf)
+            section = backend.get_section(resolved_id, paragraf)
             if section:
                 char_count = len(section.content)
                 return {
@@ -765,7 +807,13 @@ Lovteksten er ikke tilgjengelig i lokal cache.
         # Try to fetch from cache (same as laws - both stored in lovdata_sections)
         content = self._fetch_law_content(resolved_id, paragraf, max_tokens=max_tokens)
 
-        if content:
+        if content == _SECTION_NOT_FOUND:
+            return (
+                f"**Feil:** § {paragraf} finnes ikke i {regulation_name}.\n\n"
+                f'Bruk `forskrift("{forskrift_id}")` for å se innholdsfortegnelsen, '
+                f'eller `sok("{paragraf}")` for å søke.'
+            )
+        elif content:
             return self._format_response(
                 law_name=regulation_name,
                 law_id=resolved_id,
@@ -774,9 +822,11 @@ Lovteksten er ikke tilgjengelig i lokal cache.
                 url=url,
             )
         else:
-            # Fallback: Return link with metadata
-            return self._format_fallback_response(
-                law_name=regulation_name, law_id=resolved_id, paragraf=paragraf, url=url
+            # Document not found at all
+            return (
+                f"**Feil:** Fant ikke forskriften «{forskrift_id}».\n\n"
+                f'**Tips:** Bruk `sok("{forskrift_id}")` for å søke, '
+                f"eller prøv fullt navn/ID."
             )
 
     def search(self, query: str, limit: int = 20) -> str:
