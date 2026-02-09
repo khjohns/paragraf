@@ -58,6 +58,8 @@ class LawDocument:
     ministry: str | None
     content: str  # Full text content
     xml_path: Path
+    legal_area: str | None = None
+    based_on: str | None = None
 
 
 @dataclass
@@ -129,11 +131,8 @@ class LovdataSyncService:
                     ministry TEXT,
                     doc_type TEXT,  -- 'lov' or 'forskrift'
                     is_amendment BOOLEAN DEFAULT FALSE,
-                    language TEXT,
                     legal_area TEXT,
                     based_on TEXT,
-                    date_end TEXT,
-                    keywords TEXT,
                     xml_path TEXT,
                     indexed_at TEXT
                 );
@@ -181,11 +180,8 @@ class LovdataSyncService:
             doc_cols = {row[1] for row in conn.execute("PRAGMA table_info(documents)").fetchall()}
             for col, col_type, default in [
                 ("is_amendment", "BOOLEAN", "FALSE"),
-                ("language", "TEXT", "NULL"),
                 ("legal_area", "TEXT", "NULL"),
                 ("based_on", "TEXT", "NULL"),
-                ("date_end", "TEXT", "NULL"),
-                ("keywords", "TEXT", "NULL"),
             ]:
                 if col not in doc_cols:
                     conn.execute(
@@ -457,6 +453,8 @@ class LovdataSyncService:
                 ministry=ministry,
                 content=full_content,
                 xml_path=xml_path,
+                legal_area=self._extract_meta(header, "legalArea"),
+                based_on=self._extract_meta(header, "basedOn"),
             )
 
         except Exception as e:
@@ -507,23 +505,29 @@ class LovdataSyncService:
         return text if text else None
 
     def _extract_meta(self, header, class_name: str) -> str | None:
-        """Extract metadata value from header by class name."""
+        """Extract metadata value from header by class name.
+
+        Handles multi-value fields where multiple <a> or block-level child
+        elements are concatenated by BeautifulSoup's get_text() without
+        separator.  Uses "; " as delimiter between distinct child elements.
+        """
         if not header:
             return None
 
         # Find dt/dd pair with matching class
         dt = header.find("dt", class_=class_name)
-        if dt:
-            dd = dt.find_next_sibling("dd")
-            if dd:
-                return dd.get_text(strip=True)
+        dd = dt.find_next_sibling("dd") if dt else header.find("dd", class_=class_name)
+        if not dd:
+            return None
 
-        # Alternative: find dd directly
-        dd = header.find("dd", class_=class_name)
-        if dd:
-            return dd.get_text(strip=True)
+        # If dd contains multiple <a> elements, join them with delimiter
+        links = dd.find_all("a")
+        if len(links) > 1:
+            values = [a.get_text(strip=True) for a in links if a.get_text(strip=True)]
+            if values:
+                return "; ".join(values)
 
-        return None
+        return dd.get_text(strip=True) or None
 
     @staticmethod
     def _is_amendment_title(title: str) -> bool:
@@ -545,8 +549,8 @@ class LovdataSyncService:
             """
             INSERT OR REPLACE INTO documents
             (dok_id, ref_id, title, short_title, date_in_force, ministry, doc_type,
-             is_amendment, xml_path, indexed_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             is_amendment, xml_path, indexed_at, legal_area, based_on)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
             (
                 doc.dok_id,
@@ -559,6 +563,8 @@ class LovdataSyncService:
                 is_amendment,
                 str(doc.xml_path),
                 datetime.now().isoformat(),
+                doc.legal_area,
+                doc.based_on,
             ),
         )
 

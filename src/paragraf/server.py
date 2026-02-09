@@ -42,6 +42,7 @@ Tilgang til norske lover og forskrifter fra Lovdata Public API (92 000+ paragraf
 | `hent_flere(lov_id, [paragrafer])` | Batch-henting (~80% raskere enn separate kall) |
 | `relaterte_forskrifter(lov_id)` | Finn forskrifter med hjemmel i en lov |
 | `departementer()` | List alle departementer (for filterverdier) |
+| `rettsomrader()` | List alle rettsområder (for filterverdier) |
 | `liste` | Vis aliaser (IKKE komplett liste - alle 770+ lover kan slås opp) |
 | `sjekk_storrelse` | Estimer tokens før henting |
 
@@ -54,7 +55,7 @@ Tilgang til norske lover og forskrifter fra Lovdata Public API (92 000+ paragraf
 | Bruker spør med egne ord | `semantisk_sok("skjulte feil i boligen")` | AI forstår → finner "mangel" |
 | Synonym-problem | `semantisk_sok("oppsigelse")` | Finner også "avskjed"-paragrafer |
 | Filtrere på type/departement | `semantisk_sok(query, doc_type="lov")` eller `sok(query, departement="Klima")` | Begge har filter |
-| Filtrere på rettsområde | `sok(query, rettsomrade="Erstatningsrett")` | Begrenser til fagfelt |
+| Filtrere på rettsområde | `sok(query, rettsomrade="Erstatningsrett")` | Begrenser til fagfelt (bruk `rettsomrader()` for verdier) |
 | Finne tilhørende forskrifter | `relaterte_forskrifter("aml")` | Viser forskrifter hjemlet i loven |
 
 **Kjerneforskjell:** FTS krever at ordene finnes i teksten. Semantisk finner relatert innhold selv om ordene er annerledes.
@@ -91,9 +92,19 @@ FTS prøver AND-logikk først. Hvis 0 treff, faller den automatisk tilbake til O
 1. **Ukjent rettsområde?** → `sok("brede nøkkelord")` - kartlegg først!
 2. **Vet hvilken lov?** → `lov("navn")` gir hierarkisk oversikt (Del → Kapittel → §) med tokens
 3. **Trenger flere §§?** → `hent_flere()` er ~80% raskere
-4. **Store paragrafer?** → `sjekk_storrelse()` først, spør bruker ved >5000 tokens
+4. **Før henting av kapitler/store §§** → `sjekk_storrelse()` ALLTID. Spør bruker ved >5000 tokens
 5. **Presis sitering?** → `lov("navn", "paragraf")`
 6. **ALLTID etter søk** → Tilby systematisk utforskning (se under)
+
+## VIKTIG: Sjekk størrelse før store hentinger
+
+Bruk `sjekk_storrelse(lov_id, paragraf)` **FØR** du henter:
+- Hele kapitler eller deler av en lov
+- Paragrafer du ikke kjenner størrelsen på
+- Når bruker ber om "alt om [tema]"
+
+Hvis estimatet er >5000 tokens: **spør brukeren** før du henter.
+Hvis <2000 tokens: trygt å hente direkte.
 
 ## VIKTIG: Tilby systematisk utforskning etter søk
 
@@ -484,6 +495,16 @@ class MCPServer:
                 ),
                 "inputSchema": {"type": "object", "properties": {}, "required": []},
             },
+            {
+                "name": "rettsomrader",
+                "title": "Liste over rettsområder",
+                "description": (
+                    "List alle rettsområder (juridiske fagfelt) som finnes i databasen. "
+                    "Bruk dette for å finne gyldige filterverdier for "
+                    "sok(rettsomrade=...) og semantisk_sok(rettsomrade=...)."
+                ),
+                "inputSchema": {"type": "object", "properties": {}, "required": []},
+            },
         ]
 
     def handle_request(self, body: dict[str, Any]) -> dict[str, Any]:
@@ -645,6 +666,8 @@ class MCPServer:
                 content = self.lovdata.get_related_regulations(lov_id)
             elif tool_name == "departementer":
                 content = self.lovdata.list_ministries()
+            elif tool_name == "rettsomrader":
+                content = self.lovdata.list_legal_areas()
             else:
                 content = f"Ukjent verktøy: {tool_name}"
                 logger.warning(f"Unknown tool requested: {tool_name}")
@@ -794,9 +817,10 @@ Kjør `sync()` for å laste ned lovdata fra Lovdata API.
             lines.append(f"### {ref}")
             if r.title:
                 lines.append(f"**{r.title}**")
-            lines.append(
-                f"*Score: {r.combined_score:.2f} (vektor: {r.similarity:.2f}, FTS: {r.fts_rank:.2f})*"
-            )
+            score_line = f"*Score: {r.combined_score:.2f} (vektor: {r.similarity:.2f}, FTS: {r.fts_rank:.2f})*"
+            if r.legal_area:
+                score_line += f" | *{r.legal_area}*"
+            lines.append(score_line)
             lines.append(f"\n{snippet}\n")
             lines.append(f'→ `lov("{r.dok_id}", "{r.section_id}")`\n')
 

@@ -111,6 +111,7 @@ class SearchResult:
     section_id: str | None = None
     search_mode: str | None = None  # 'and' or 'or_fallback'
     based_on: str | None = None
+    legal_area: str | None = None
 
     @property
     def estimated_tokens(self) -> int:
@@ -477,11 +478,8 @@ class LovdataSupabaseService:
                 "ministry": self._extract_ministry(header),
                 "doc_type": doc_type,
                 "is_amendment": self._is_amendment_title(title),
-                "language": self._extract_meta(header, "doclang"),
                 "legal_area": self._extract_meta(header, "legalArea"),
                 "based_on": self._extract_meta(header, "basedOn"),
-                "date_end": self._parse_date(self._extract_meta(header, "dateInForceEnd")),
-                "keywords": self._extract_meta(header, "keywords"),
             }
 
             # Parse sections - try multiple strategies
@@ -724,18 +722,28 @@ class LovdataSupabaseService:
         }
 
     def _extract_meta(self, header, class_name: str) -> str | None:
-        """Extract metadata value from header."""
+        """Extract metadata value from header.
+
+        Handles multi-value fields where multiple <a> or block-level child
+        elements are concatenated by BeautifulSoup's get_text() without
+        separator.  Uses "; " as delimiter between distinct child elements.
+        """
         if not header:
             return None
 
         dt = header.find("dt", class_=class_name)
-        if dt:
-            dd = dt.find_next_sibling("dd")
-            if dd:
-                return dd.get_text(strip=True)
+        dd = dt.find_next_sibling("dd") if dt else header.find("dd", class_=class_name)
+        if not dd:
+            return None
 
-        dd = header.find("dd", class_=class_name)
-        return dd.get_text(strip=True) if dd else None
+        # If dd contains multiple <a> elements, join them with delimiter
+        links = dd.find_all("a")
+        if len(links) > 1:
+            values = [a.get_text(strip=True) for a in links if a.get_text(strip=True)]
+            if values:
+                return "; ".join(values)
+
+        return dd.get_text(strip=True) or None
 
     def _extract_ministry(self, header) -> str | None:
         """
@@ -1118,6 +1126,7 @@ class LovdataSupabaseService:
                     section_id=row.get("section_id"),
                     search_mode=row.get("search_mode"),
                     based_on=row.get("based_on"),
+                    legal_area=row.get("legal_area"),
                 )
             )
 
@@ -1181,6 +1190,38 @@ class LovdataSupabaseService:
         # Deduplicate and sort in Python (Supabase client doesn't support DISTINCT)
         ministries = {row["ministry"] for row in result.data if row.get("ministry")}
         return sorted(ministries)
+
+    def list_legal_areas(self) -> list[str]:
+        """
+        List all unique legal areas across all documents.
+
+        Returns:
+            Sorted list of legal area names
+        """
+
+        @with_retry()
+        def _execute():
+            return (
+                self.client.table("lovdata_documents")
+                .select("legal_area")
+                .not_.is_("legal_area", "null")
+                .execute()
+            )
+
+        result = safe_execute(_execute, "Failed to list legal areas", default=None)
+        if not result or not result.data:
+            return []
+
+        # legal_area can contain multiple values separated by "; "
+        areas = set()
+        for row in result.data:
+            raw = row.get("legal_area", "")
+            if raw:
+                for area in raw.split("; "):
+                    area = area.strip()
+                    if area:
+                        areas.add(area)
+        return sorted(areas)
 
     def get_document(self, dok_id: str) -> dict | None:
         """Get document metadata by ID."""

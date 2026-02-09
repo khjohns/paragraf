@@ -571,13 +571,16 @@ class LovdataService:
 
     @staticmethod
     def _format_based_on(raw: str) -> str:
-        """Format concatenated based_on references into a readable string.
+        """Format based_on references into a readable string.
 
-        Input:  'lov/2005-06-17-62/§1-4lov/2005-06-17-62/§14-12forskrift/2007-05-31-590'
+        Handles both old concatenated format and new "; "-delimited format:
+          Old: 'lov/2005-06-17-62/§1-4lov/2005-06-17-62/§14-12forskrift/2007-05-31-590'
+          New: 'lov/2005-06-17-62/§1-4; lov/2005-06-17-62/§14-12; forskrift/2007-05-31-590'
         Output: 'lov/2005-06-17-62 §§ 1-4, 14-12; forskrift/2007-05-31-590'
         """
-        # Split into individual references using lookahead at lov/ or forskrift/ boundaries
-        parts_raw = re.split(r"(?=(?:lov|forskrift)/\d{4})", raw)
+        # Normalize: strip any existing "; " delimiters, then re-split on boundaries
+        normalized = re.sub(r";\s*", "", raw)
+        parts_raw = re.split(r"(?=(?:lov|forskrift)/\d{4})", normalized)
         parts_raw = [p for p in parts_raw if p]
 
         if not parts_raw:
@@ -644,18 +647,9 @@ class LovdataService:
         legal_area = doc.get("legal_area")
         if legal_area:
             meta_lines.append(f"**Rettsomrade:** {legal_area}")
-        language = doc.get("language")
-        if language and language != "Bokmål":
-            meta_lines.append(f"**Sprak:** {language}")
         based_on = doc.get("based_on")
         if based_on:
             meta_lines.append(f"**Hjemmelslov:** {self._format_based_on(based_on)}")
-        keywords = doc.get("keywords")
-        if keywords:
-            meta_lines.append(f"**Stikkord:** {keywords}")
-        date_end = doc.get("date_end")
-        if date_end:
-            meta_lines.append(f"**Utlopsdato:** {date_end}")
         is_amendment = doc.get("is_amendment")
         if is_amendment:
             meta_lines.append("*Dette er en endringslov/-forskrift.*")
@@ -1013,6 +1007,7 @@ Fant {len(results)} treff (alias-søk):
                 section_id = getattr(r, "section_id", None)
                 search_mode = getattr(r, "search_mode", None)
                 based_on = getattr(r, "based_on", None)
+                legal_area = getattr(r, "legal_area", None)
             else:
                 # Dict fallback
                 doc_type_raw = r.get("doc_type", "lov")
@@ -1023,6 +1018,7 @@ Fant {len(results)} treff (alias-søk):
                 section_id = r.get("section_id")
                 search_mode = r.get("search_mode")
                 based_on = r.get("based_on")
+                legal_area = r.get("legal_area")
 
             if search_mode == "or_fallback":
                 used_or_fallback = True
@@ -1038,8 +1034,13 @@ Fant {len(results)} treff (alias-søk):
             if doc_type == "Forskrift" and based_on:
                 based_on_line = f"\n**Hjemmelslov:** {self._format_based_on(based_on)}"
 
+            # Show legal area for context
+            legal_area_line = ""
+            if legal_area:
+                legal_area_line = f" | *{legal_area}*"
+
             result_lines.append(f"""### {doc_type}: {title}{section_info}
-**ID:** `{dok_id}`{f" **Paragraf:** `{section_id}`" if section_id else ""}{based_on_line}
+**ID:** `{dok_id}`{f" **Paragraf:** `{section_id}`" if section_id else ""}{legal_area_line}{based_on_line}
 
 {snippet}
 """)
@@ -1188,6 +1189,41 @@ Fant {len(results)} treff (fulltekstsøk):
         lines.append(
             "**Bruk med filter:** `sok('emne', departement='Klima')` "
             "eller `semantisk_sok('emne', ministry='Justis')`"
+        )
+
+        return "\n".join(lines)
+
+    def list_legal_areas(self) -> str:
+        """
+        List all legal areas (rettsområder) that have laws/regulations.
+
+        Returns:
+            Formatted list of legal areas
+        """
+        backend = _get_backend_service()
+
+        if not hasattr(backend, "list_legal_areas"):
+            return "**Feil:** Denne funksjonen krever Supabase-backend."
+
+        try:
+            areas = backend.list_legal_areas()
+        except Exception as e:
+            logger.warning(f"Failed to list legal areas: {e}")
+            return "**Feil:** Kunne ikke hente rettsområdeliste."
+
+        if not areas:
+            return "Ingen rettsområder funnet. Data er kanskje ikke synkronisert."
+
+        lines = [f"## Rettsområder ({len(areas)} stk)\n"]
+
+        for a in areas:
+            lines.append(f"- {a}")
+
+        lines.append("")
+        lines.append("---")
+        lines.append(
+            "**Bruk med filter:** `sok('emne', rettsomrade='Erstatningsrett')` "
+            "eller `semantisk_sok('emne', rettsomrade='Arbeidsliv')`"
         )
 
         return "\n".join(lines)

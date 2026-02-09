@@ -33,6 +33,7 @@ class VectorSearchResult:
     doc_type: str
     ministry: str | None
     based_on: str | None
+    legal_area: str | None
     similarity: float
     fts_rank: float
     combined_score: float
@@ -53,6 +54,7 @@ class VectorSearchResult:
             "doc_type": self.doc_type,
             "ministry": self.ministry,
             "based_on": self.based_on,
+            "legal_area": self.legal_area,
             "similarity": self.similarity,
             "fts_rank": self.fts_rank,
             "combined_score": self.combined_score,
@@ -146,6 +148,7 @@ class LovdataVectorSearch:
                 doc_type=row.get("doc_type", ""),
                 ministry=row.get("ministry"),
                 based_on=row.get("based_on"),
+                legal_area=row.get("legal_area"),
                 similarity=0.0,
                 fts_rank=row.get("rank", 0.0),
                 combined_score=row.get("rank", 0.0),
@@ -217,6 +220,7 @@ class LovdataVectorSearch:
                 doc_type=row["doc_type"],
                 ministry=row.get("ministry"),
                 based_on=row.get("based_on"),
+                legal_area=row.get("legal_area"),
                 similarity=row["similarity"],
                 fts_rank=row["fts_rank"],
                 combined_score=row["combined_score"],
@@ -256,6 +260,7 @@ class LovdataVectorSearch:
                 doc_type=row["doc_type"],
                 ministry=row.get("ministry"),
                 based_on=row.get("based_on"),
+                legal_area=row.get("legal_area"),
                 similarity=row["similarity"],
                 fts_rank=0.0,
                 combined_score=row["similarity"],

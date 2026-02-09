@@ -233,7 +233,111 @@ None. All tools functional, no crashes, no data integrity issues.
 
 ---
 
+## Appendix: Testing Methodology Critique
+
+### What can we actually claim?
+
+This testing framework has strengths and weaknesses. Here is an honest assessment of the statistical and scientific rigor of each layer.
+
+### Layer 1: Data Quality — Strong (Census, not sampling)
+
+**Method:** SQL queries against the entire population (4,446 documents, 92,164 sections).
+
+**Statistical validity: HIGH.** These are not estimates from a sample — they are exact counts of the full dataset. When we say "100% embedding coverage" or "0 orphaned sections", there is no confidence interval or margin of error. These are census results.
+
+**Limitations:**
+- Measures *presence* of data, not *correctness*. A `based_on` field that exists but points to the wrong law would pass our check.
+- No validation against ground truth (we didn't compare our parsed metadata to Lovdata's own database).
+- The `legal_area` regex fix was validated visually on 5 samples, not systematically verified for all 796 documents.
+
+**What we can claim:** "All sections have content, embeddings, and FTS vectors. Ministry coverage is 100%. based_on coverage is 96.2% for forskrifter." These are facts, not estimates.
+
+**What we cannot claim:** "The metadata is correct." We only know it's present.
+
+### Layer 2: Tool Correctness — Moderate (Targeted, not exhaustive)
+
+**Method:** 75 hand-crafted test cases covering all 11 tools, including happy paths, edge cases, and error conditions.
+
+**Statistical validity: LIMITED.** This is targeted testing (equivalence class partitioning), not random/fuzz testing. We selected representative inputs from each category:
+- Known aliases (`aml`, `tek17`)
+- Direct IDs (`lov/2005-06-17-62`)
+- Edge cases (empty input, `§` prefix, nonexistent laws)
+
+**What this catches:** Regressions, crashes, obvious logic errors. The 100% pass rate means all tested paths work.
+
+**What this misses:**
+- **Input space coverage is minuscule.** With ~4,450 documents and ~92,000 sections, we tested maybe 20 unique document lookups — 0.4% of the corpus. A law with unusual XML structure could fail and we'd never know.
+- **No fuzz testing.** We didn't test random strings, unicode edge cases, very long inputs, or SQL injection attempts.
+- **No performance testing.** We don't know if search degrades on rare queries or large result sets.
+- **Assertion weakness.** Many tests use pattern matching (`assert_contains "treff|resultat|§"`) which passes on any vaguely relevant output. A test could "pass" while returning garbage that happens to contain "§".
+
+**What we can claim:** "All 11 tools handle their designed use cases correctly. No tool crashes on tested inputs."
+
+**What we cannot claim:** "The tools work for all inputs" or "search results are relevant." We'd need fuzz testing (thousands of random inputs) and precision/recall measurement against a labeled dataset to make those claims.
+
+### Layer 3: LLM-as-User — Weakest (Subjective, non-reproducible)
+
+**Method:** 10 scenarios evaluated by sonnet subagents planning tool usage, scored on a 5-dimension rubric.
+
+**Statistical validity: LOW.** This layer has multiple methodological problems:
+
+1. **Subjectivity.** The 0-2 scoring rubric is applied by the same researcher (me) who designed the system. There is no inter-rater reliability — no second scorer to verify consistency.
+
+2. **Non-reproducibility.** LLM outputs are stochastic. Running the same 10 scenarios again would produce different tool plans, and potentially different scores. We have n=1 per scenario with no repeated trials.
+
+3. **Sample size.** 10 scenarios is too small for statistical significance. With 5 dimensions and 3 possible scores each, we'd need ~30+ scenarios to detect meaningful patterns.
+
+4. **Selection bias.** The scenarios were chosen to cover tool diversity, not sampled from real user queries. Real users may ask questions we didn't anticipate (e.g., asking about specific forskrift numbers, comparing laws across time, or asking in English).
+
+5. **Criterion contamination.** The subagents received the SERVER_INSTRUCTIONS, which tell them exactly how to use the tools. This tests "can an LLM follow instructions?" more than "are the tools intuitive?"
+
+6. **No actual execution.** Subagents *planned* tool calls but we didn't execute all plans against the live server. We verified the *strategy* but not whether the strategy would actually produce useful output.
+
+**What we can claim:** "Sonnet-class LLMs, given the SERVER_INSTRUCTIONS, generally select appropriate tools and follow the recommended workflow."
+
+**What we cannot claim:** "The tools are usable in production" or "users will be satisfied." We'd need:
+- A/B testing with real users
+- Blind evaluation by independent raters
+- Repeated trials (n>=30) with statistical tests
+- Measurement of actual task completion, not just tool selection
+
+### Summary: Confidence levels
+
+| Layer | Claim | Confidence | Method needed to strengthen |
+|-------|-------|------------|---------------------------|
+| 1 | Data is present and complete | **Very high** (census) | Ground truth validation against Lovdata source |
+| 1 | Data is *correct* | **Low** (untested) | Sample-based manual verification (n=100 random docs) |
+| 2 | Tools don't crash | **High** (75 tests, 0 failures) | Fuzz testing (1000+ random inputs) |
+| 2 | Search returns relevant results | **Low** (subjective) | Precision@k on labeled query set (100+ queries) |
+| 3 | LLMs use tools correctly | **Moderate** (n=10, biased) | Real user study, blind scoring, n>=30 |
+| 3 | System is production-ready | **Moderate** | All of the above + load testing |
+
+### Honest verdict
+
+This testing is **sufficient for a developer confidence check** — we know the system doesn't crash, the data is present, and the tools work on representative inputs. It is **not sufficient for a scientific claim of quality** — we have no labeled ground truth, no statistical tests, and no user study.
+
+The "production readiness: PASS" verdict means "no blocking issues found in targeted testing", not "statistically validated to meet quality thresholds."
+
+---
+
+## Addendum: Fixes Applied (post-testing)
+
+Based on issues discovered during testing, the following fixes were applied:
+
+1. **`_extract_meta()` multi-element fix** (both backends): Uses `"; "` delimiter when `<dd>` contains multiple `<a>` elements, matching the existing `_extract_ministry()` approach.
+
+2. **Migration 004**: SQL regex to fix 2,144 concatenated `based_on` values and concatenated `legal_area` values in existing data. Dropped 3 empty columns (`keywords`, `language`, `date_end`).
+
+3. **SQLite backend parity**: Added `legal_area` and `based_on` extraction/insertion to SQLite backend (was previously missing).
+
+4. **SERVER_INSTRUCTIONS strengthened**: Added dedicated section emphasizing `sjekk_storrelse` usage before large fetches.
+
+5. **`_format_based_on()` compatibility**: Updated to handle both old concatenated format and new `"; "`-delimited format via normalization.
+
+---
+
 ## Test Artifacts
 
 - **Layer 2 test script:** `tests/test_mcp_tools.sh`
 - **This report:** `docs/test-report-2026-02-09.md`
+- **Fix migration:** `migrations/004_fix_concatenated_metadata.sql`
