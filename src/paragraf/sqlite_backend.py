@@ -8,12 +8,13 @@ API: https://api.lovdata.no/v1/publicData/get/gjeldende-lover.tar.bz2
 License: NLOD 2.0
 """
 
-import bz2
-import io
 import logging
 import os
 import sqlite3
+import sys
 import tarfile
+import tempfile
+import time
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -63,10 +64,17 @@ class LawDocument:
 class LawSection:
     """A specific section (paragraph) of a law."""
 
+    dok_id: str
     section_id: str  # e.g., "3-9"
     title: str | None
     content: str
     address: str | None  # data-absoluteaddress
+    char_count: int = 0
+
+    @property
+    def estimated_tokens(self) -> int:
+        """Estimate token count for this section."""
+        return int(len(self.content) / 3.5)
 
 
 # =============================================================================
@@ -105,7 +113,10 @@ class LovdataSyncService:
         self.regulations_dir.mkdir(exist_ok=True)
 
     def _init_db(self) -> None:
-        """Initialize SQLite database with FTS index."""
+        """Initialize SQLite database with FTS index.
+
+        Handles both fresh creation and migration of existing databases.
+        """
         with sqlite3.connect(self.db_path) as conn:
             conn.executescript("""
                 -- Main documents table
@@ -121,16 +132,6 @@ class LovdataSyncService:
                     indexed_at TEXT
                 );
 
-                -- FTS index for full-text search
-                CREATE VIRTUAL TABLE IF NOT EXISTS documents_fts USING fts5(
-                    dok_id,
-                    title,
-                    short_title,
-                    content,
-                    content='documents',
-                    content_rowid='rowid'
-                );
-
                 -- Sections table for paragraph lookup
                 CREATE TABLE IF NOT EXISTS sections (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -139,12 +140,22 @@ class LovdataSyncService:
                     title TEXT,
                     content TEXT,
                     address TEXT,
-                    FOREIGN KEY (dok_id) REFERENCES documents(dok_id)
+                    char_count INTEGER DEFAULT 0,
+                    FOREIGN KEY (dok_id) REFERENCES documents(dok_id),
+                    UNIQUE(dok_id, section_id)
                 );
 
                 -- Index for fast section lookup
                 CREATE INDEX IF NOT EXISTS idx_sections_dok_section
                 ON sections(dok_id, section_id);
+
+                -- Section-level FTS index for full-text search
+                CREATE VIRTUAL TABLE IF NOT EXISTS sections_fts USING fts5(
+                    dok_id,
+                    section_id,
+                    title,
+                    content
+                );
 
                 -- Sync metadata
                 CREATE TABLE IF NOT EXISTS sync_meta (
@@ -155,11 +166,26 @@ class LovdataSyncService:
                 );
             """)
 
+            # Migration: add char_count column if missing (existing DBs)
+            cols = {row[1] for row in conn.execute("PRAGMA table_info(sections)").fetchall()}
+            if "char_count" not in cols:
+                conn.execute("ALTER TABLE sections ADD COLUMN char_count INTEGER DEFAULT 0")
+
+            # Migration: drop old documents_fts if it exists (replaced by sections_fts)
+            tables = {
+                row[0]
+                for row in conn.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table'"
+                ).fetchall()
+            }
+            if "documents_fts" in tables:
+                conn.execute("DROP TABLE documents_fts")
+
     # -------------------------------------------------------------------------
     # Download & Extract
     # -------------------------------------------------------------------------
 
-    def sync_all(self, force: bool = False) -> dict[str, int]:
+    def sync_all(self, force: bool = False) -> dict[str, dict | int]:
         """
         Sync all datasets (laws and regulations).
 
@@ -167,23 +193,27 @@ class LovdataSyncService:
             force: Force re-download even if up-to-date
 
         Returns:
-            Dict with counts of synced documents per dataset
+            Dict with sync stats per dataset (dict with docs/sections/etc,
+            or -1 on failure)
         """
         results = {}
 
         for dataset_name, filename in DATASETS.items():
             try:
-                count = self.sync_dataset(dataset_name, filename, force=force)
-                results[dataset_name] = count
+                stats = self.sync_dataset(dataset_name, filename, force=force)
+                results[dataset_name] = stats
+            except KeyboardInterrupt:
+                logger.info(f"Sync interrupted during {dataset_name}")
+                break
             except Exception as e:
                 logger.error(f"Failed to sync {dataset_name}: {e}")
                 results[dataset_name] = -1
 
         return results
 
-    def sync_dataset(self, dataset_name: str, filename: str, force: bool = False) -> int:
+    def sync_dataset(self, dataset_name: str, filename: str, force: bool = False) -> dict:
         """
-        Sync a single dataset.
+        Sync a single dataset with streaming download.
 
         Args:
             dataset_name: Name of dataset ('lover' or 'forskrifter')
@@ -191,7 +221,7 @@ class LovdataSyncService:
             force: Force re-download
 
         Returns:
-            Number of documents indexed
+            Dict with sync stats (docs, sections, elapsed, etc.)
         """
         url = f"{LOVDATA_API_BASE}/{filename}"
         target_dir = self.laws_dir if dataset_name == "lover" else self.regulations_dir
@@ -205,51 +235,62 @@ class LovdataSyncService:
 
             if remote_modified and local_modified and remote_modified <= local_modified:
                 logger.info(f"Dataset {dataset_name} is up-to-date")
-                return self._get_indexed_count(dataset_name)
+                count = self._get_indexed_count(dataset_name)
+                return {"docs": count, "up_to_date": True}
 
-        # Download and extract
-        logger.info(f"Downloading {filename}...")
-        archive_data = self._download_archive(url)
+        # Streaming download to temp file
+        dl_start = time.time()
+        is_tty = hasattr(sys.stderr, "isatty") and sys.stderr.isatty()
 
-        logger.info(f"Extracting to {target_dir}...")
-        file_count = self._extract_archive(archive_data, target_dir)
+        with tempfile.NamedTemporaryFile(suffix=".tar.bz2", delete=True) as tmp:
+            logger.info(f"Downloading {filename}...")
+            dl_bytes = 0
+            with httpx.Client(timeout=300.0) as client:
+                with client.stream("GET", url, follow_redirects=True) as response:
+                    response.raise_for_status()
+                    content_length = int(response.headers.get("content-length", 0))
+                    for chunk in response.iter_bytes(chunk_size=65536):
+                        tmp.write(chunk)
+                        dl_bytes += len(chunk)
+                        if is_tty and content_length:
+                            pct = dl_bytes * 100 // content_length
+                            mb = dl_bytes / 1_048_576
+                            print(f"\r  {mb:.1f} MB ({pct}%)", end="", file=sys.stderr)
+            if is_tty and content_length:
+                print(file=sys.stderr)
+
+            dl_elapsed = time.time() - dl_start
+            dl_mb = dl_bytes / 1_048_576
+            logger.info(f"Downloaded {dl_mb:.1f} MB in {dl_elapsed:.0f}s")
+
+            tmp.flush()
+            tmp.seek(0)
+
+            # Extract XML files
+            logger.info(f"Extracting to {target_dir}...")
+            file_count = 0
+            with tarfile.open(fileobj=tmp, mode="r:bz2") as tar:
+                for member in tar:
+                    if member.isfile() and member.name.endswith(".xml"):
+                        member.name = Path(member.name).name
+                        tar.extract(member, target_dir)
+                        file_count += 1
 
         logger.info(f"Extracted {file_count} files, indexing...")
-        indexed_count = self._index_directory(target_dir, dataset_name)
+        indexed_count, section_count = self._index_directory(target_dir, dataset_name)
 
         # Update sync metadata
         self._update_sync_meta(dataset_name, remote_modified, file_count)
 
-        logger.info(f"Sync complete: {indexed_count} documents indexed")
-        return indexed_count
-
-    def _download_archive(self, url: str) -> bytes:
-        """Download tar.bz2 archive from URL."""
-        with httpx.Client(timeout=300.0) as client:
-            response = client.get(url, follow_redirects=True)
-            response.raise_for_status()
-            return response.content
-
-    def _extract_archive(self, data: bytes, target_dir: Path) -> int:
-        """
-        Extract tar.bz2 archive to target directory.
-
-        Returns number of files extracted.
-        """
-        file_count = 0
-
-        # Decompress bz2 and extract tar
-        decompressed = bz2.decompress(data)
-
-        with tarfile.open(fileobj=io.BytesIO(decompressed), mode="r") as tar:
-            for member in tar.getmembers():
-                if member.isfile() and member.name.endswith(".xml"):
-                    # Extract to flat structure
-                    member.name = Path(member.name).name
-                    tar.extract(member, target_dir)
-                    file_count += 1
-
-        return file_count
+        total_elapsed = time.time() - dl_start
+        logger.info(
+            f"Sync complete: {indexed_count} documents, {section_count} sections in {total_elapsed:.0f}s"
+        )
+        return {
+            "docs": indexed_count,
+            "sections": section_count,
+            "elapsed": total_elapsed,
+        }
 
     def _get_remote_last_modified(self, filename: str) -> datetime | None:
         """Get lastModified for a dataset file via the list endpoint.
@@ -310,38 +351,50 @@ class LovdataSyncService:
     # XML Parsing & Indexing
     # -------------------------------------------------------------------------
 
-    def _index_directory(self, directory: Path, dataset_name: str) -> int:
+    def _index_directory(self, directory: Path, dataset_name: str) -> tuple[int, int]:
         """
-        Index all XML files in directory.
+        Index all XML files in directory using upsert.
 
-        Returns number of documents indexed.
+        Returns (documents_indexed, sections_indexed) tuple.
         """
         doc_type = "lov" if dataset_name == "lover" else "forskrift"
         indexed = 0
+        total_sections = 0
+        is_tty = hasattr(sys.stderr, "isatty") and sys.stderr.isatty()
+        idx_start = time.time()
+
+        xml_files = list(directory.glob("*.xml"))
 
         with sqlite3.connect(self.db_path) as conn:
-            # Clear existing data for this type
-            conn.execute(
-                "DELETE FROM sections WHERE dok_id IN (SELECT dok_id FROM documents WHERE doc_type = ?)",
-                (doc_type,),
-            )
-            conn.execute("DELETE FROM documents WHERE doc_type = ?", (doc_type,))
-
-            for xml_path in directory.glob("*.xml"):
+            for i, xml_path in enumerate(xml_files):
                 try:
                     doc = self._parse_xml(xml_path)
                     if doc:
-                        self._insert_document(conn, doc, doc_type)
+                        section_count = self._insert_document(conn, doc, doc_type)
                         indexed += 1
+                        total_sections += section_count
                 except Exception as e:
                     logger.warning(f"Failed to parse {xml_path.name}: {e}")
+
+                if is_tty and (i + 1) % 100 == 0:
+                    elapsed = time.time() - idx_start
+                    rate = (i + 1) / elapsed if elapsed > 0 else 0
+                    remaining = (len(xml_files) - i - 1) / rate if rate > 0 else 0
+                    print(
+                        f"\r  {i + 1}/{len(xml_files)} docs ({rate:.0f}/s, ~{remaining:.0f}s left)",
+                        end="",
+                        file=sys.stderr,
+                    )
+
+            if is_tty and len(xml_files) >= 100:
+                print(file=sys.stderr)
 
             conn.commit()
 
             # Rebuild FTS index
             self._rebuild_fts_index(conn)
 
-        return indexed
+        return indexed, total_sections
 
     def _parse_xml(self, xml_path: Path) -> LawDocument | None:
         """
@@ -408,9 +461,12 @@ class LovdataSyncService:
 
         return None
 
-    def _insert_document(self, conn: sqlite3.Connection, doc: LawDocument, doc_type: str) -> None:
-        """Insert document and its sections into database."""
-        # Insert main document
+    def _insert_document(self, conn: sqlite3.Connection, doc: LawDocument, doc_type: str) -> int:
+        """Insert document and its sections into database.
+
+        Returns number of sections inserted.
+        """
+        # Insert/update main document
         conn.execute(
             """
             INSERT OR REPLACE INTO documents
@@ -430,18 +486,27 @@ class LovdataSyncService:
             ),
         )
 
-        # Parse and insert sections
-        sections = self._parse_sections(doc.xml_path)
+        # Parse and upsert sections
+        sections = self._parse_sections(doc.xml_path, doc.dok_id)
         for section in sections:
             conn.execute(
                 """
-                INSERT INTO sections (dok_id, section_id, title, content, address)
-                VALUES (?, ?, ?, ?, ?)
+                INSERT OR REPLACE INTO sections (dok_id, section_id, title, content, address, char_count)
+                VALUES (?, ?, ?, ?, ?, ?)
             """,
-                (doc.dok_id, section.section_id, section.title, section.content, section.address),
+                (
+                    doc.dok_id,
+                    section.section_id,
+                    section.title,
+                    section.content,
+                    section.address,
+                    section.char_count,
+                ),
             )
 
-    def _parse_sections(self, xml_path: Path) -> list[LawSection]:
+        return len(sections)
+
+    def _parse_sections(self, xml_path: Path, dok_id: str) -> list[LawSection]:
         """Parse all sections (paragraphs) from XML file."""
         sections = []
 
@@ -459,6 +524,10 @@ class LovdataSyncService:
                 section_id = value_span.get_text(strip=True)
                 # Clean up section ID (remove § and whitespace)
                 section_id = section_id.replace("§", "").strip()
+                section_id = " ".join(section_id.split())
+
+                if not section_id:
+                    continue
 
                 # Get optional title
                 title_span = article.find("span", class_="legalArticleTitle")
@@ -473,15 +542,19 @@ class LovdataSyncService:
                 if not content_parts:
                     content_parts.append(article.get_text(strip=True))
 
-                # Get absolute address
-                address = article.get("data-absoluteaddress")
+                # Get absolute address (cast to str for type safety)
+                raw_addr = article.get("data-absoluteaddress") or article.get("id")
+                address = str(raw_addr) if raw_addr else None
 
+                content = "\n\n".join(content_parts)
                 sections.append(
                     LawSection(
+                        dok_id=dok_id,
                         section_id=section_id,
                         title=title,
-                        content="\n\n".join(content_parts),
+                        content=content,
                         address=address,
+                        char_count=len(content),
                     )
                 )
 
@@ -491,16 +564,13 @@ class LovdataSyncService:
         return sections
 
     def _rebuild_fts_index(self, conn: sqlite3.Connection) -> None:
-        """Rebuild full-text search index."""
-        conn.execute("DELETE FROM documents_fts")
+        """Rebuild section-level full-text search index."""
+        conn.execute("DELETE FROM sections_fts")
         conn.execute("""
-            INSERT INTO documents_fts (dok_id, title, short_title, content)
-            SELECT
-                d.dok_id,
-                d.title,
-                d.short_title,
-                (SELECT GROUP_CONCAT(content, ' ') FROM sections WHERE dok_id = d.dok_id)
-            FROM documents d
+            INSERT INTO sections_fts (dok_id, section_id, title, content)
+            SELECT dok_id, section_id, COALESCE(title, ''), content
+            FROM sections
+            WHERE content IS NOT NULL AND content != ''
         """)
 
     # -------------------------------------------------------------------------
@@ -548,6 +618,9 @@ class LovdataSyncService:
             ).fetchone()
 
             if not doc:
+                doc = self._find_document_row(conn, dok_id)
+
+            if not doc:
                 return None
 
             # Then find the section
@@ -557,29 +630,32 @@ class LovdataSyncService:
             ).fetchone()
 
             if row:
+                content = row["content"]
                 return LawSection(
+                    dok_id=doc["dok_id"],
                     section_id=row["section_id"],
                     title=row["title"],
-                    content=row["content"],
+                    content=content,
                     address=row["address"],
+                    char_count=len(content) if content else 0,
                 )
         return None
 
-    def search(self, query: str, limit: int = 10) -> list[dict]:
+    def search(self, query: str, limit: int = 20) -> list[dict]:
         """
-        Full-text search across all documents.
+        Full-text search across all sections.
 
         Args:
             query: Search query
             limit: Maximum results
 
         Returns:
-            List of matching documents with snippets
+            List of matching sections with snippets and document metadata
         """
         with sqlite3.connect(self.db_path) as conn:
             conn.row_factory = sqlite3.Row
 
-            # FTS5 search
+            # FTS5 search at section level, joined with documents for metadata
             rows = conn.execute(
                 """
                 SELECT
@@ -587,10 +663,11 @@ class LovdataSyncService:
                     d.title,
                     d.short_title,
                     d.doc_type,
-                    snippet(documents_fts, 3, '<mark>', '</mark>', '...', 32) as snippet
-                FROM documents_fts
-                JOIN documents d ON d.dok_id = documents_fts.dok_id
-                WHERE documents_fts MATCH ?
+                    sf.section_id,
+                    snippet(sections_fts, 3, '<mark>', '</mark>', '...', 32) as snippet
+                FROM sections_fts sf
+                JOIN documents d ON d.dok_id = sf.dok_id
+                WHERE sections_fts MATCH ?
                 ORDER BY rank
                 LIMIT ?
             """,
@@ -636,6 +713,208 @@ class LovdataSyncService:
                 }
             return status
 
+    def is_synced(self) -> bool:
+        """Check if any data has been synced."""
+        with sqlite3.connect(self.db_path) as conn:
+            row = conn.execute("SELECT COUNT(*) FROM sync_meta WHERE file_count > 0").fetchone()
+            return row[0] > 0 if row else False
+
+    def list_sections(self, dok_id: str) -> list[dict]:
+        """
+        List all sections for a document with metadata.
+
+        Returns list of dicts with: section_id, title, char_count, estimated_tokens, address
+        Sorted by section_id (natural sort).
+        """
+        import re
+
+        normalized = self._normalize_id(dok_id)
+
+        with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+
+            # Find the document first
+            doc = conn.execute(
+                "SELECT dok_id FROM documents WHERE dok_id = ? OR ref_id = ? OR short_title = ?",
+                (normalized, normalized, dok_id.lower()),
+            ).fetchone()
+
+            if not doc:
+                # Try LIKE match
+                doc = self._find_document_row(conn, dok_id)
+
+            if not doc:
+                return []
+
+            rows = conn.execute(
+                "SELECT section_id, title, char_count, address FROM sections WHERE dok_id = ?",
+                (doc["dok_id"],),
+            ).fetchall()
+
+            sections = []
+            for row in rows:
+                char_count = row["char_count"] or 0
+                sections.append(
+                    {
+                        "section_id": row["section_id"],
+                        "title": row["title"],
+                        "char_count": char_count,
+                        "estimated_tokens": int(char_count / 3.5),
+                        "address": row["address"],
+                    }
+                )
+
+            # Natural sort: 1, 1a, 2, 3-1, 3-2, 10, 11
+            def sort_key(s):
+                section_id = s["section_id"]
+                parts = section_id.replace("-", ".").split(".")
+                result = []
+                for p in parts:
+                    match = re.match(r"^(\d+)\s*([a-z]?)$", p.strip(), re.I)
+                    if match:
+                        result.append((int(match.group(1)), match.group(2).lower()))
+                    else:
+                        result.append((float("inf"), p.lower()))
+                return result
+
+            sections.sort(key=sort_key)
+            return sections
+
+    def _find_document(self, identifier: str) -> dict | None:
+        """Find document by ID, short_title, or partial match."""
+        with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            doc = self._find_document_row(conn, identifier)
+            return dict(doc) if doc else None
+
+    def _find_document_row(self, conn: sqlite3.Connection, identifier: str) -> sqlite3.Row | None:
+        """Find document row by various matching strategies."""
+        normalized = self._normalize_id(identifier)
+
+        # Exact match on dok_id or ref_id
+        row = conn.execute(
+            "SELECT * FROM documents WHERE dok_id = ? OR ref_id = ?",
+            (normalized, normalized),
+        ).fetchone()
+        if row:
+            return row
+
+        # Short title exact match (case-insensitive)
+        row = conn.execute(
+            "SELECT * FROM documents WHERE LOWER(short_title) = LOWER(?)",
+            (identifier,),
+        ).fetchone()
+        if row:
+            return row
+
+        # LIKE match on short_title (starts with)
+        row = conn.execute(
+            "SELECT * FROM documents WHERE short_title LIKE ? LIMIT 1",
+            (f"{identifier}%",),
+        ).fetchone()
+        if row:
+            return row
+
+        # LIKE match on short_title (contains)
+        row = conn.execute(
+            "SELECT * FROM documents WHERE short_title LIKE ? LIMIT 1",
+            (f"%{identifier}%",),
+        ).fetchone()
+        if row:
+            return row
+
+        # LIKE match on dok_id (contains)
+        row = conn.execute(
+            "SELECT * FROM documents WHERE dok_id LIKE ? LIMIT 1",
+            (f"%{normalized}%",),
+        ).fetchone()
+        return row
+
+    def get_section_size(self, dok_id: str, section_id: str) -> dict | None:
+        """
+        Get section size info without fetching full content.
+
+        Returns:
+            Dict with char_count and estimated_tokens, or None
+        """
+        normalized = self._normalize_id(dok_id)
+        section_id = section_id.replace("§", "").strip()
+
+        with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+
+            doc = conn.execute(
+                "SELECT dok_id FROM documents WHERE dok_id = ? OR ref_id = ? OR short_title = ?",
+                (normalized, normalized, dok_id.lower()),
+            ).fetchone()
+
+            if not doc:
+                return None
+
+            row = conn.execute(
+                "SELECT char_count, LENGTH(content) as content_len FROM sections WHERE dok_id = ? AND section_id = ?",
+                (doc["dok_id"], section_id),
+            ).fetchone()
+
+            if not row:
+                return None
+
+            char_count = row["char_count"] or row["content_len"] or 0
+            return {
+                "char_count": char_count,
+                "estimated_tokens": int(char_count / 3.5),
+            }
+
+    def get_sections_batch(self, dok_id: str, section_ids: list[str]) -> list[LawSection]:
+        """
+        Fetch multiple sections in a single database call.
+
+        Args:
+            dok_id: Document ID or alias
+            section_ids: List of section IDs to fetch
+
+        Returns:
+            List of LawSection objects (in requested order)
+        """
+        normalized = self._normalize_id(dok_id)
+
+        with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+
+            doc = conn.execute(
+                "SELECT dok_id FROM documents WHERE dok_id = ? OR ref_id = ? OR short_title = ?",
+                (normalized, normalized, dok_id.lower()),
+            ).fetchone()
+
+            if not doc:
+                return []
+
+            # Normalize section IDs
+            clean_ids = [s.replace("§", "").strip() for s in section_ids]
+
+            # Use IN clause with parameter placeholders
+            placeholders = ",".join("?" * len(clean_ids))
+            rows = conn.execute(
+                f"SELECT * FROM sections WHERE dok_id = ? AND section_id IN ({placeholders})",
+                [doc["dok_id"], *clean_ids],
+            ).fetchall()
+
+            # Build lookup for ordering
+            sections_dict = {}
+            for row in rows:
+                content = row["content"]
+                sections_dict[row["section_id"]] = LawSection(
+                    dok_id=doc["dok_id"],
+                    section_id=row["section_id"],
+                    title=row["title"],
+                    content=content,
+                    address=row["address"],
+                    char_count=len(content) if content else 0,
+                )
+
+            # Return in requested order
+            return [sections_dict[sid] for sid in clean_ids if sid in sections_dict]
+
     def _normalize_id(self, id_str: str) -> str:
         """Normalize document ID to match database format."""
         # Handle various ID formats
@@ -674,12 +953,12 @@ def sync_cli():
 
     if args.dataset:
         filename = DATASETS[args.dataset]
-        count = service.sync_dataset(args.dataset, filename, force=args.force)
-        print(f"Synced {args.dataset}: {count} documents")
+        stats = service.sync_dataset(args.dataset, filename, force=args.force)
+        print(f"Synced {args.dataset}: {stats}")
     else:
         results = service.sync_all(force=args.force)
-        for dataset, count in results.items():
-            print(f"Synced {dataset}: {count} documents")
+        for dataset, stats in results.items():
+            print(f"Synced {dataset}: {stats}")
 
 
 if __name__ == "__main__":
