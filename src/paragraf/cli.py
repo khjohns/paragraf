@@ -58,19 +58,54 @@ def cmd_serve(args):
                 print(json.dumps(error_response), flush=True)
 
 
+def _log(msg: str):
+    from datetime import datetime
+    ts = datetime.now().strftime("%H:%M:%S")
+    print(f"[{ts}] {msg}")
+
+
 def cmd_sync(args):
     """Sync law data from Lovdata API."""
+    import time
     from paragraf import LovdataService
 
     service = LovdataService()
-    print("Syncing from Lovdata API...")
-    results = service.sync(force=args.force)
+    _log(f"Syncing from Lovdata API (backend: {service.get_backend_type()})")
+    start = time.time()
 
-    for dataset, count in results.items():
-        if count >= 0:
-            print(f"  {dataset}: {count} documents")
+    try:
+        results = service.sync(force=args.force)
+    except KeyboardInterrupt:
+        results = {}
+        _log("Interrupted by user (Ctrl+C)")
+
+    print()
+    total_docs = 0
+    total_sections = 0
+    for dataset, stats in results.items():
+        if isinstance(stats, dict):
+            if stats.get('up_to_date'):
+                _log(f"  {dataset}: up-to-date ({stats['docs']} docs)")
+            else:
+                docs = stats.get('docs', 0)
+                secs = stats.get('sections', 0)
+                structs = stats.get('structures', 0)
+                errors = stats.get('errors', 0)
+                elapsed = stats.get('elapsed', 0)
+                total_docs += docs
+                total_sections += secs
+                _log(f"  {dataset}: {docs} docs, {secs} sections, "
+                     f"{structs} structures ({elapsed:.0f}s)"
+                     + (f" [{errors} parse errors]" if errors else ""))
+        elif isinstance(stats, int) and stats >= 0:
+            # SQLite backend returns plain int
+            total_docs += stats
+            _log(f"  {dataset}: {stats} documents")
         else:
-            print(f"  {dataset}: FAILED")
+            _log(f"  {dataset}: FAILED")
+
+    elapsed = time.time() - start
+    _log(f"Total: {total_docs} docs, {total_sections} sections in {elapsed:.0f}s")
 
 
 def cmd_status(args):

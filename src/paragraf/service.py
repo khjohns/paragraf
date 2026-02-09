@@ -515,7 +515,7 @@ class LovdataService:
                 url=url
             )
 
-    def sync(self, force: bool = False) -> dict[str, int]:
+    def sync(self, force: bool = False) -> dict:
         """
         Sync law data from Lovdata API.
 
@@ -525,7 +525,7 @@ class LovdataService:
             force: Force re-download even if up-to-date
 
         Returns:
-            Dict with counts of synced documents
+            Dict with sync stats per dataset
         """
         backend = _get_backend_service()
         return backend.sync_all(force=force)

@@ -15,7 +15,9 @@ Usage:
 """
 
 import os
+import sys
 import tarfile
+import time
 from dataclasses import dataclass
 from datetime import datetime
 
@@ -152,7 +154,7 @@ class LovdataSupabaseService:
     # Sync Methods
     # -------------------------------------------------------------------------
 
-    def sync_all(self, force: bool = False) -> dict[str, int]:
+    def sync_all(self, force: bool = False) -> dict[str, dict | int]:
         """
         Sync all datasets from Lovdata API.
 
@@ -160,26 +162,33 @@ class LovdataSupabaseService:
             force: Force re-download even if up-to-date
 
         Returns:
-            Dict with counts of synced documents per dataset
+            Dict with sync stats per dataset (dict with docs/sections/etc,
+            or -1 on failure)
         """
         results = {}
 
         for dataset_name, filename in DATASETS.items():
             try:
-                count = self.sync_dataset(dataset_name, filename, force=force)
-                results[dataset_name] = count
+                stats = self.sync_dataset(dataset_name, filename, force=force)
+                results[dataset_name] = stats
+            except KeyboardInterrupt:
+                logger.info(f"Sync interrupted during {dataset_name}")
+                break
             except Exception as e:
                 logger.error(f"Failed to sync {dataset_name}: {e}")
                 results[dataset_name] = -1
 
         return results
 
-    def sync_dataset(self, dataset_name: str, filename: str, force: bool = False) -> int:
+    def sync_dataset(self, dataset_name: str, filename: str, force: bool = False) -> dict:
         """
         Sync a single dataset with streaming/chunked processing.
 
         Memory-efficient: processes files in batches to avoid loading everything
         into memory at once. Suitable for Render's 512MB free tier.
+
+        Returns:
+            Dict with sync stats (docs, sections, structures, errors, elapsed)
         """
         url = f"{LOVDATA_API_BASE}/{filename}"
         doc_type = "lov" if dataset_name == "lover" else "forskrift"
@@ -195,59 +204,88 @@ class LovdataSupabaseService:
                 if remote_modified and local_modified:
                     if datetime.fromisoformat(local_modified.replace('Z', '+00:00')) >= remote_modified:
                         logger.info(f"Dataset {dataset_name} is up-to-date")
-                        return status.get('file_count', 0)
+                        return {'docs': status.get('file_count', 0), 'up_to_date': True}
 
         # Update sync status
         self._set_sync_status(dataset_name, 'syncing')
 
         try:
-            # Stream download to temp file to avoid memory issues
-            logger.info(f"Downloading {filename}...")
-            total_docs = self._stream_sync(url, doc_type)
+            stats = self._stream_sync(url, doc_type)
 
             # Update sync metadata
             self._set_sync_status(
                 dataset_name,
                 'idle',
                 last_modified=self._get_remote_last_modified(url),
-                file_count=total_docs
+                file_count=stats['docs']
             )
 
-            logger.info(f"Sync complete: {total_docs} documents")
-            return total_docs
+            return stats
+
+        except KeyboardInterrupt:
+            logger.info("Sync interrupted by user")
+            self._set_sync_status(dataset_name, 'idle')
+            raise
 
         except Exception:
             self._set_sync_status(dataset_name, 'error')
             raise
 
-    def _stream_sync(self, url: str, doc_type: str) -> int:
+    def _stream_sync(self, url: str, doc_type: str) -> dict:
         """
         Stream download and process in chunks.
 
         Downloads to temp file, then processes XML files in batches
         to minimize memory usage.
+
+        Returns:
+            Dict with sync stats (docs, sections, structures, errors, elapsed)
         """
         import tempfile
 
         total_docs = 0
+        total_sections = 0
+        total_structures = 0
+        parse_errors = 0
         batch_size = 20  # Reduced from 50 to avoid Supabase statement timeouts
         doc_batch = []
         section_batch = []
         structure_batch: list[StructureRecord] = []
         seen_dok_ids = set()  # Track for deduplication
+        is_tty = hasattr(sys.stderr, 'isatty') and sys.stderr.isatty()
+
+        def _log(msg: str):
+            ts = datetime.now().strftime("%H:%M:%S")
+            logger.info(f"[{ts}] {msg}")
 
         # Download to temp file (streaming)
         with tempfile.NamedTemporaryFile(suffix='.tar.bz2', delete=True) as tmp:
-            logger.info("Streaming download to temp file...")
+            _log("Downloading...")
+            dl_start = time.time()
+            dl_bytes = 0
             with httpx.Client(timeout=300.0) as client:
                 with client.stream('GET', url, follow_redirects=True) as response:
                     response.raise_for_status()
+                    content_length = int(response.headers.get('content-length', 0))
                     for chunk in response.iter_bytes(chunk_size=65536):
                         tmp.write(chunk)
+                        dl_bytes += len(chunk)
+                        if is_tty and content_length:
+                            pct = dl_bytes * 100 // content_length
+                            mb = dl_bytes / 1_048_576
+                            print(f"\r  {mb:.1f} MB ({pct}%)", end="", file=sys.stderr)
+            if is_tty and content_length:
+                print(file=sys.stderr)  # newline after progress
+
+            dl_elapsed = time.time() - dl_start
+            dl_mb = dl_bytes / 1_048_576
+            _log(f"Downloaded {dl_mb:.1f} MB in {dl_elapsed:.0f}s ({dl_mb/dl_elapsed:.1f} MB/s)")
+
             tmp.flush()
             tmp.seek(0)
 
-            logger.info("Processing XML files in batches...")
+            _log("Processing XML files...")
+            proc_start = time.time()
 
             # Open tar directly with bz2 decompression (streaming)
             with tarfile.open(fileobj=tmp, mode='r:bz2') as tar:
@@ -274,6 +312,8 @@ class LovdataSupabaseService:
                             section_batch.extend(secs)
                             structure_batch.extend(structs)
                             total_docs += 1
+                            total_sections += len(secs)
+                            total_structures += len(structs)
 
                             # Flush batch when full
                             if len(doc_batch) >= batch_size:
@@ -281,17 +321,33 @@ class LovdataSupabaseService:
                                 doc_batch = []
                                 section_batch = []
                                 structure_batch = []
-                                logger.info(f"Processed {total_docs} documents...")
+
+                                elapsed = time.time() - proc_start
+                                rate = total_docs / elapsed if elapsed > 0 else 0
+                                _log(f"  {total_docs} docs, {total_sections} sections ({rate:.0f} docs/s)")
 
                     except Exception as e:
+                        parse_errors += 1
                         logger.warning(f"Failed to parse {member.name}: {e}")
 
             # Flush remaining
             if doc_batch:
                 self._flush_batch(doc_batch, section_batch, structure_batch, doc_type)
-                logger.info(f"Processed {total_docs} documents (final batch)")
 
-        return total_docs
+            proc_elapsed = time.time() - proc_start
+            total_elapsed = time.time() - dl_start
+
+            _log(f"Done: {total_docs} docs, {total_sections} sections, "
+                 f"{total_structures} structures in {proc_elapsed:.0f}s"
+                 + (f" ({parse_errors} parse errors)" if parse_errors else ""))
+
+        return {
+            'docs': total_docs,
+            'sections': total_sections,
+            'structures': total_structures,
+            'errors': parse_errors,
+            'elapsed': total_elapsed,
+        }
 
     @with_retry()
     def _flush_batch(
