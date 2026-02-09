@@ -41,6 +41,7 @@ scripts/
 migrations/
   001_complete_schema.sql  # Supabase-skjema (tabeller, indekser, sokefunksjoner)
   002_document_metadata.sql  # is_amendment, metadata-kolonner, oppdaterte sokefunksjoner
+  003_search_enhancements.sql  # doc_type/legal_area-filtre, based_on i sok
 
 web/
   app.py               # Standalone Flask-app (hosted deploy)
@@ -76,11 +77,13 @@ Lovdata API (tar.bz2) -> Streaming download -> XML-parsing -> Upsert til DB
 
 | Verktoy | Beskrivelse |
 |---------|-------------|
-| `sok(query, departement?, inkluder_endringslover?)` | Fulltekstsok med norsk stemming + filtre |
-| `semantisk_sok(query, doc_type?, ministry?, inkluder_endringslover?)` | Hybrid vektorsok (naturlig sprak) |
-| `lov(id, paragraf)` | Hent lovtekst (uten paragraf = innholdsfortegnelse) |
-| `forskrift(id, paragraf)` | Hent forskriftstekst |
+| `sok(query, departement?, doc_type?, rettsomrade?, inkluder_endringslover?)` | Fulltekstsok med norsk stemming + filtre |
+| `semantisk_sok(query, doc_type?, ministry?, rettsomrade?, inkluder_endringslover?)` | Hybrid vektorsok (naturlig sprak) |
+| `lov(id, paragraf)` | Hent lovtekst (uten paragraf = innholdsfortegnelse med metadata) |
+| `forskrift(id, paragraf)` | Hent forskriftstekst (uten paragraf = innholdsfortegnelse med hjemmelslov) |
 | `hent_flere(id, paragrafer)` | Batch-henting (~80% raskere) |
+| `relaterte_forskrifter(lov_id)` | Finn forskrifter med hjemmel i en lov |
+| `departementer()` | List alle departementer (for filterverdier) |
 | `liste()` | List tilgjengelige lover |
 | `status()` | Sync-status |
 | `sjekk_storrelse(id, paragraf)` | Token-estimat for seksjon |
@@ -146,6 +149,7 @@ Prosjektet bruker Supabase-prosjektet **unified-timeline** (`iyetsvrteyzpirygxen
 | `docs/ADR-001.md` | Alle arkitekturbeslutninger |
 | `migrations/001_complete_schema.sql` | Database-skjema (tabeller, sokefunksjoner) |
 | `migrations/002_document_metadata.sql` | Metadata-kolonner + oppdaterte sokefunksjoner |
+| `migrations/003_search_enhancements.sql` | doc_type/legal_area-filtre, based_on i resultater |
 | `scripts/embed.py` | Embedding-generering |
 
 ## Begrensninger
