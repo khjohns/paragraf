@@ -7,12 +7,12 @@ for exposing Norwegian law lookup tools to AI assistants.
 Protocol specification: https://modelcontextprotocol.io/specification/2025-03-26
 """
 
+import logging
 from typing import Any
 
 from paragraf.service import LovdataService
 from paragraf.vector_search import LovdataVectorSearch
 
-import logging
 logger = logging.getLogger(__name__)
 
 
@@ -207,7 +207,7 @@ class MCPServer:
                                 "Lovens kortnavn eller ID. "
                                 "Korte aliaser: aml, pbl, buofl, avhl, tvl. "
                                 "Lange: arbeidsmiljøloven, plan-og-bygningsloven, etc."
-                            )
+                            ),
                         },
                         "paragraf": {
                             "type": "string",
@@ -215,18 +215,18 @@ class MCPServer:
                                 "Paragrafnummer uten §-tegn. "
                                 "Format: '3-9', '14-9', '17'. "
                                 "Utelat for dokumentoversikt."
-                            )
+                            ),
                         },
                         "max_tokens": {
                             "type": "integer",
                             "description": (
                                 "Maks tokens i respons. "
                                 "Bruk sjekk_storrelse først for store paragrafer."
-                            )
-                        }
+                            ),
+                        },
                     },
-                    "required": ["lov_id"]
-                }
+                    "required": ["lov_id"],
+                },
             },
             {
                 "name": "forskrift",
@@ -240,26 +240,23 @@ class MCPServer:
                     "properties": {
                         "forskrift_id": {
                             "type": "string",
-                            "description": "Forskriftens navn eller ID"
+                            "description": "Forskriftens navn eller ID",
                         },
-                        "paragraf": {
-                            "type": "string",
-                            "description": "Paragrafnummer (valgfritt)"
-                        },
+                        "paragraf": {"type": "string", "description": "Paragrafnummer (valgfritt)"},
                         "max_tokens": {
                             "type": "integer",
-                            "description": "Maks antall tokens i respons (valgfritt)"
-                        }
+                            "description": "Maks antall tokens i respons (valgfritt)",
+                        },
                     },
-                    "required": ["forskrift_id"]
-                }
+                    "required": ["forskrift_id"],
+                },
             },
             {
                 "name": "sok",
                 "title": "Søk i Lovdata (FTS)",
                 "description": (
                     "Fulltekstsøk i norske lover. Raskt og presist når du kjenner termene. "
-                    "Støtter: OR, \"frase\", -ekskluder. "
+                    'Støtter: OR, "frase", -ekskluder. '
                     "Eks: 'mangel', 'miljø OR klima', '\"vesentlig mislighold\"'. "
                     "For naturlig språk/synonymer, bruk semantisk_sok."
                 ),
@@ -269,19 +266,19 @@ class MCPServer:
                         "query": {
                             "type": "string",
                             "description": (
-                                "Søkeord. Støtter: OR, \"frase\", -ekskluder. "
+                                'Søkeord. Støtter: OR, "frase", -ekskluder. '
                                 "Eks: 'klima', 'miljø OR tildelingskriterier', "
                                 "'\"vesentlig mislighold\"'"
-                            )
+                            ),
                         },
                         "limit": {
                             "type": "integer",
                             "description": "Maks antall resultater (standard: 20)",
-                            "default": 20
-                        }
+                            "default": 20,
+                        },
                     },
-                    "required": ["query"]
-                }
+                    "required": ["query"],
+                },
             },
             {
                 "name": "semantisk_sok",
@@ -301,28 +298,28 @@ class MCPServer:
                                 "Søketekst i naturlig språk. "
                                 "Eks: 'hva skjer hvis jeg ikke betaler husleie', "
                                 "'oppsigelse av ansatt', 'skjulte feil ved boligkjøp'"
-                            )
+                            ),
                         },
                         "limit": {
                             "type": "integer",
                             "description": "Maks antall resultater (standard: 10)",
-                            "default": 10
+                            "default": 10,
                         },
                         "doc_type": {
                             "type": "string",
                             "enum": ["lov", "forskrift"],
-                            "description": "Filtrer på dokumenttype (valgfritt)"
+                            "description": "Filtrer på dokumenttype (valgfritt)",
                         },
                         "ministry": {
                             "type": "string",
                             "description": (
                                 "Filtrer på departement (delvis match). "
                                 "Eks: 'Klima' matcher 'Klima- og miljødepartementet'"
-                            )
-                        }
+                            ),
+                        },
                     },
-                    "required": ["query"]
-                }
+                    "required": ["query"],
+                },
             },
             {
                 "name": "hent_flere",
@@ -337,20 +334,20 @@ class MCPServer:
                     "properties": {
                         "lov_id": {
                             "type": "string",
-                            "description": "Lov-ID eller alias (f.eks. 'personopplysningsloven')"
+                            "description": "Lov-ID eller alias (f.eks. 'personopplysningsloven')",
                         },
                         "paragrafer": {
                             "type": "array",
                             "items": {"type": "string"},
-                            "description": "Liste med paragraf-IDer (f.eks. ['Artikkel 5', 'Artikkel 6'])"
+                            "description": "Liste med paragraf-IDer (f.eks. ['Artikkel 5', 'Artikkel 6'])",
                         },
                         "max_tokens": {
                             "type": "integer",
-                            "description": "Maks tokens per paragraf (valgfri)"
-                        }
+                            "description": "Maks tokens per paragraf (valgfri)",
+                        },
                     },
-                    "required": ["lov_id", "paragrafer"]
-                }
+                    "required": ["lov_id", "paragrafer"],
+                },
             },
             {
                 "name": "liste",
@@ -360,11 +357,7 @@ class MCPServer:
                     "MERK: Dette er IKKE en komplett liste - alle 770+ lover i Lovdata "
                     "kan slås opp med lov('lovnavn'). Bruk sok() for å finne lover."
                 ),
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {},
-                    "required": []
-                }
+                "inputSchema": {"type": "object", "properties": {}, "required": []},
             },
             {
                 "name": "sync",
@@ -380,11 +373,11 @@ class MCPServer:
                         "force": {
                             "type": "boolean",
                             "description": "Tving re-nedlasting selv om data er oppdatert",
-                            "default": False
+                            "default": False,
                         }
                     },
-                    "required": []
-                }
+                    "required": [],
+                },
             },
             {
                 "name": "status",
@@ -393,11 +386,7 @@ class MCPServer:
                     "Vis status for synkronisert lovdata. "
                     "Viser når data sist ble synkronisert og antall dokumenter."
                 ),
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {},
-                    "required": []
-                }
+                "inputSchema": {"type": "object", "properties": {}, "required": []},
             },
             {
                 "name": "sjekk_storrelse",
@@ -411,18 +400,15 @@ class MCPServer:
                 "inputSchema": {
                     "type": "object",
                     "properties": {
-                        "lov_id": {
-                            "type": "string",
-                            "description": "Lovens kortnavn eller ID"
-                        },
+                        "lov_id": {"type": "string", "description": "Lovens kortnavn eller ID"},
                         "paragraf": {
                             "type": "string",
-                            "description": "Paragrafnummer (f.eks. '3-9')"
-                        }
+                            "description": "Paragrafnummer (f.eks. '3-9')",
+                        },
                     },
-                    "required": ["lov_id", "paragraf"]
-                }
-            }
+                    "required": ["lov_id", "paragraf"],
+                },
+            },
         ]
 
     def handle_request(self, body: dict[str, Any]) -> dict[str, Any]:
@@ -463,11 +449,7 @@ class MCPServer:
                 result = {}
             else:
                 logger.warning(f"Unknown MCP method: {method}")
-                return self._error_response(
-                    request_id,
-                    -32601,
-                    f"Method not found: {method}"
-                )
+                return self._error_response(request_id, -32601, f"Method not found: {method}")
 
             return self._success_response(request_id, result)
 
@@ -495,7 +477,7 @@ class MCPServer:
                 "resources": {},
                 "prompts": {},
             },
-            "instructions": SERVER_INSTRUCTIONS.strip()
+            "instructions": SERVER_INSTRUCTIONS.strip(),
         }
 
     def handle_tools_list(self) -> dict[str, Any]:
@@ -522,13 +504,13 @@ class MCPServer:
                 content = self.lovdata.lookup_law(
                     arguments.get("lov_id", ""),
                     arguments.get("paragraf"),
-                    max_tokens=arguments.get("max_tokens")
+                    max_tokens=arguments.get("max_tokens"),
                 )
             elif tool_name == "forskrift":
                 content = self.lovdata.lookup_regulation(
                     arguments.get("forskrift_id", ""),
                     arguments.get("paragraf"),
-                    max_tokens=arguments.get("max_tokens")
+                    max_tokens=arguments.get("max_tokens"),
                 )
             elif tool_name == "sok":
                 query = arguments.get("query", "")
@@ -539,9 +521,7 @@ class MCPServer:
                 limit = arguments.get("limit", 10)
                 doc_type = arguments.get("doc_type")
                 ministry = arguments.get("ministry")
-                content = self._handle_semantic_search(
-                    query, limit, doc_type, ministry
-                )
+                content = self._handle_semantic_search(query, limit, doc_type, ministry)
             elif tool_name == "hent_flere":
                 lov_id = arguments.get("lov_id", "")
                 paragrafer = arguments.get("paragrafer", [])
@@ -560,37 +540,22 @@ class MCPServer:
                 content = self._format_status(status)
             elif tool_name == "sjekk_storrelse":
                 size_info = self.lovdata.get_section_size(
-                    arguments.get("lov_id", ""),
-                    arguments.get("paragraf", "")
+                    arguments.get("lov_id", ""), arguments.get("paragraf", "")
                 )
                 content = self._format_size_check(
-                    arguments.get("lov_id", ""),
-                    arguments.get("paragraf", ""),
-                    size_info
+                    arguments.get("lov_id", ""), arguments.get("paragraf", ""), size_info
                 )
             else:
                 content = f"Ukjent verktøy: {tool_name}"
                 logger.warning(f"Unknown tool requested: {tool_name}")
 
-            return {
-                "content": [
-                    {
-                        "type": "text",
-                        "text": content
-                    }
-                ]
-            }
+            return {"content": [{"type": "text", "text": content}]}
 
         except Exception as e:
             logger.exception(f"Tool execution error: {e}")
             return {
-                "content": [
-                    {
-                        "type": "text",
-                        "text": f"Feil ved kjøring av {tool_name}: {str(e)}"
-                    }
-                ],
-                "isError": True
+                "content": [{"type": "text", "text": f"Feil ved kjøring av {tool_name}: {str(e)}"}],
+                "isError": True,
             }
 
     def _format_sync_results(self, results: dict[str, int]) -> str:
@@ -634,18 +599,13 @@ Kjør `sync()` for å laste ned lovdata fra Lovdata API.
 
         return "\n".join(lines)
 
-    def _format_size_check(
-        self,
-        lov_id: str,
-        paragraf: str,
-        size_info: dict | None
-    ) -> str:
+    def _format_size_check(self, lov_id: str, paragraf: str, size_info: dict | None) -> str:
         """Format size check result."""
         if not size_info:
             return f"Fant ikke § {paragraf} i {lov_id}."
 
-        tokens = size_info.get('estimated_tokens', 0)
-        chars = size_info.get('char_count', 0)
+        tokens = size_info.get("estimated_tokens", 0)
+        chars = size_info.get("char_count", 0)
 
         # Determine if this is a large response
         if tokens > 5000:
@@ -667,11 +627,7 @@ Kjør `sync()` for å laste ned lovdata fra Lovdata API.
 """
 
     def _handle_semantic_search(
-        self,
-        query: str,
-        limit: int = 10,
-        doc_type: str | None = None,
-        ministry: str | None = None
+        self, query: str, limit: int = 10, doc_type: str | None = None, ministry: str | None = None
     ) -> str:
         """
         Handle semantic search using hybrid vector + FTS.
@@ -688,10 +644,7 @@ Kjør `sync()` for å laste ned lovdata fra Lovdata API.
         try:
             vector_search = self._get_vector_search()
             results = vector_search.search(
-                query=query,
-                limit=limit,
-                doc_type=doc_type,
-                ministry=ministry
+                query=query, limit=limit, doc_type=doc_type, ministry=ministry
             )
         except Exception as e:
             logger.warning(f"Semantic search failed, falling back to FTS: {e}")
@@ -714,7 +667,11 @@ Kjør `sync()` for å laste ned lovdata fra Lovdata API.
 
         for r in results:
             # Format reference
-            ref = f"{r.short_title} § {r.section_id}" if r.short_title else f"{r.dok_id} § {r.section_id}"
+            ref = (
+                f"{r.short_title} § {r.section_id}"
+                if r.short_title
+                else f"{r.dok_id} § {r.section_id}"
+            )
 
             # Truncate content for snippet
             snippet = r.content[:300] + "..." if len(r.content) > 300 else r.content
@@ -722,9 +679,11 @@ Kjør `sync()` for å laste ned lovdata fra Lovdata API.
             lines.append(f"### {ref}")
             if r.title:
                 lines.append(f"**{r.title}**")
-            lines.append(f"*Score: {r.combined_score:.2f} (vektor: {r.similarity:.2f}, FTS: {r.fts_rank:.2f})*")
+            lines.append(
+                f"*Score: {r.combined_score:.2f} (vektor: {r.similarity:.2f}, FTS: {r.fts_rank:.2f})*"
+            )
             lines.append(f"\n{snippet}\n")
-            lines.append(f"→ `lov(\"{r.dok_id}\", \"{r.section_id}\")`\n")
+            lines.append(f'→ `lov("{r.dok_id}", "{r.section_id}")`\n')
 
         return "\n".join(lines)
 
@@ -748,7 +707,7 @@ Kjør `sync()` for å laste ned lovdata fra Lovdata API.
                         "Komplett brukerveiledning for Paragraf. "
                         "Inkluderer tilgjengelige verktøy, aliaser, begrensninger og tips."
                     ),
-                    "arguments": []
+                    "arguments": [],
                 }
             ]
         }
@@ -771,43 +730,17 @@ Kjør `sync()` for å laste ned lovdata fra Lovdata API.
                 "messages": [
                     {
                         "role": "user",
-                        "content": {
-                            "type": "text",
-                            "text": SERVER_INSTRUCTIONS.strip()
-                        }
+                        "content": {"type": "text", "text": SERVER_INSTRUCTIONS.strip()},
                     }
-                ]
+                ],
             }
 
-        return {
-            "description": f"Ukjent prompt: {prompt_name}",
-            "messages": []
-        }
+        return {"description": f"Ukjent prompt: {prompt_name}", "messages": []}
 
-    def _success_response(
-        self,
-        request_id: Any,
-        result: dict[str, Any]
-    ) -> dict[str, Any]:
+    def _success_response(self, request_id: Any, result: dict[str, Any]) -> dict[str, Any]:
         """Format successful JSON-RPC response."""
-        return {
-            "jsonrpc": "2.0",
-            "id": request_id,
-            "result": result
-        }
+        return {"jsonrpc": "2.0", "id": request_id, "result": result}
 
-    def _error_response(
-        self,
-        request_id: Any,
-        code: int,
-        message: str
-    ) -> dict[str, Any]:
+    def _error_response(self, request_id: Any, code: int, message: str) -> dict[str, Any]:
         """Format error JSON-RPC response."""
-        return {
-            "jsonrpc": "2.0",
-            "id": request_id,
-            "error": {
-                "code": code,
-                "message": message
-            }
-        }
+        return {"jsonrpc": "2.0", "id": request_id, "error": {"code": code, "message": message}}

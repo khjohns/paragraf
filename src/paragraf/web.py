@@ -11,13 +11,15 @@ def create_mcp_blueprint():
     """Create and return Flask MCP blueprint."""
     # Import here to avoid Flask dependency at package level
     import importlib.util
-    import sys
 
     # Load the web/app.py module
     spec = importlib.util.find_spec("paragraf")
     if spec and spec.origin:
         import os
-        web_app_path = os.path.join(os.path.dirname(os.path.dirname(spec.origin)), "..", "web", "app.py")
+
+        web_app_path = os.path.join(
+            os.path.dirname(os.path.dirname(spec.origin)), "..", "web", "app.py"
+        )
         if os.path.exists(web_app_path):
             spec = importlib.util.spec_from_file_location("paragraf_web_app", web_app_path)
             if spec and spec.loader:
@@ -26,10 +28,10 @@ def create_mcp_blueprint():
                 return mod.mcp_bp
 
     # Fallback: inline minimal blueprint
-    from flask import Blueprint, Response, jsonify, request
-    import json
 
-    from paragraf import MCPServer, LovdataService
+    from flask import Blueprint, Response, jsonify, request
+
+    from paragraf import LovdataService, MCPServer
 
     mcp_bp = Blueprint("mcp", __name__)
 
@@ -52,7 +54,9 @@ def create_mcp_blueprint():
     def mcp_post():
         body = request.get_json()
         if not body:
-            return jsonify({"jsonrpc": "2.0", "id": None, "error": {"code": -32700, "message": "Empty body"}}), 400
+            return jsonify(
+                {"jsonrpc": "2.0", "id": None, "error": {"code": -32700, "message": "Empty body"}}
+            ), 400
         server = get_mcp_server()
         response = server.handle_request(body)
         return jsonify(response)

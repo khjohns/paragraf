@@ -19,7 +19,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Literal
 
 if TYPE_CHECKING:
-    from bs4 import BeautifulSoup, Tag
+    from bs4 import BeautifulSoup
 
 logger = logging.getLogger(__name__)
 
@@ -156,7 +156,7 @@ def parse_structure_heading(text: str, heading_level: int) -> StructureMatch | N
 
 
 def extract_structure_hierarchy(
-    soup: "BeautifulSoup", dok_id: str
+    soup: BeautifulSoup, dok_id: str
 ) -> tuple[list[StructureRecord], dict[str, str]]:
     """
     Extract hierarchical structure from a Lovdata document.

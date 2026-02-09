@@ -18,12 +18,13 @@ import sys
 
 def cmd_serve(args):
     """Start MCP server (stdio or HTTP)."""
-    from paragraf import MCPServer, LovdataService
+    from paragraf import LovdataService, MCPServer
 
     if args.http:
         # HTTP mode via Flask
         try:
             from flask import Flask
+
             from paragraf.web import create_mcp_blueprint
         except ImportError:
             print("Flask not installed. Run: pip install paragraf[http]", file=sys.stderr)
@@ -39,7 +40,9 @@ def cmd_serve(args):
     else:
         # stdio mode - read JSON-RPC from stdin, write to stdout
         server = MCPServer(LovdataService())
-        print("Paragraf MCP server (stdio mode). Send JSON-RPC requests via stdin.", file=sys.stderr)
+        print(
+            "Paragraf MCP server (stdio mode). Send JSON-RPC requests via stdin.", file=sys.stderr
+        )
 
         for line in sys.stdin:
             line = line.strip()
@@ -60,6 +63,7 @@ def cmd_serve(args):
 
 def _log(msg: str):
     from datetime import datetime
+
     ts = datetime.now().strftime("%H:%M:%S")
     print(f"[{ts}] {msg}")
 
@@ -67,6 +71,7 @@ def _log(msg: str):
 def cmd_sync(args):
     """Sync law data from Lovdata API."""
     import time
+
     from paragraf import LovdataService
 
     service = LovdataService()
@@ -84,19 +89,21 @@ def cmd_sync(args):
     total_sections = 0
     for dataset, stats in results.items():
         if isinstance(stats, dict):
-            if stats.get('up_to_date'):
+            if stats.get("up_to_date"):
                 _log(f"  {dataset}: up-to-date ({stats['docs']} docs)")
             else:
-                docs = stats.get('docs', 0)
-                secs = stats.get('sections', 0)
-                structs = stats.get('structures', 0)
-                errors = stats.get('errors', 0)
-                elapsed = stats.get('elapsed', 0)
+                docs = stats.get("docs", 0)
+                secs = stats.get("sections", 0)
+                structs = stats.get("structures", 0)
+                errors = stats.get("errors", 0)
+                elapsed = stats.get("elapsed", 0)
                 total_docs += docs
                 total_sections += secs
-                _log(f"  {dataset}: {docs} docs, {secs} sections, "
-                     f"{structs} structures ({elapsed:.0f}s)"
-                     + (f" [{errors} parse errors]" if errors else ""))
+                _log(
+                    f"  {dataset}: {docs} docs, {secs} sections, "
+                    f"{structs} structures ({elapsed:.0f}s)"
+                    + (f" [{errors} parse errors]" if errors else "")
+                )
         elif isinstance(stats, int) and stats >= 0:
             # SQLite backend returns plain int
             total_docs += stats
@@ -131,9 +138,7 @@ def main():
         prog="paragraf",
         description="MCP server for Norwegian law lookup via Lovdata",
     )
-    parser.add_argument(
-        "-v", "--verbose", action="store_true", help="Enable debug logging"
-    )
+    parser.add_argument("-v", "--verbose", action="store_true", help="Enable debug logging")
 
     subparsers = parser.add_subparsers(dest="command")
 

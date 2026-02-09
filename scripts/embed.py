@@ -14,16 +14,16 @@ Recommended for Supabase free/micro tier (30 min burst/day):
     python scripts/embed_lovdata.py --workers 1 --max-time 25
 """
 
+import argparse
+import hashlib
+import math
 import os
 import sys
-import math
-import hashlib
-import argparse
-import time
 import threading
-from datetime import datetime
+import time
+from collections.abc import Generator
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Generator
+from datetime import datetime
 
 
 def log(msg: str):
@@ -31,8 +31,9 @@ def log(msg: str):
     ts = datetime.now().strftime("%H:%M:%S")
     print(f"[{ts}] {msg}")
 
+
 # Add src to path for paragraf imports
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from google import genai
 from google.genai import types
@@ -56,13 +57,15 @@ _thread_local = threading.local()
 def get_supabase_client():
     """Create Supabase client (one per thread for thread safety)."""
     # Check thread-local storage first
-    if hasattr(_thread_local, 'supabase_client'):
+    if hasattr(_thread_local, "supabase_client"):
         return _thread_local.supabase_client
 
     url = os.environ.get("SUPABASE_URL")
-    key = (os.environ.get("SUPABASE_SECRET_KEY")
-           or os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
-           or os.environ.get("SUPABASE_KEY"))
+    key = (
+        os.environ.get("SUPABASE_SECRET_KEY")
+        or os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+        or os.environ.get("SUPABASE_KEY")
+    )
     if not url or not key:
         raise ValueError("SUPABASE_URL and SUPABASE_KEY must be set")
 
@@ -113,16 +116,15 @@ def create_embedding_text(doc: dict, section: dict) -> str:
     - Content (main text)
     """
     parts = [f"{doc.get('short_title', '')} § {section['section_id']}"]
-    if section.get('title'):
-        parts.append(section['title'])
+    if section.get("title"):
+        parts.append(section["title"])
     parts.append("")  # Blank line
-    parts.append(section['content'])
+    parts.append(section["content"])
     return "\n".join(parts)
 
 
 def fetch_sections_needing_embedding(
-    supabase,
-    batch_size: int = 1000
+    supabase, batch_size: int = 1000
 ) -> Generator[list[dict], None, None]:
     """
     Fetch sections that need embedding (missing or outdated).
@@ -131,9 +133,13 @@ def fetch_sections_needing_embedding(
     offset = 0
     while True:
         # Fetch sections without embedding
-        result = supabase.table('lovdata_sections').select(
-            'id, dok_id, section_id, title, content, content_hash'
-        ).is_('embedding', 'null').range(offset, offset + batch_size - 1).execute()
+        result = (
+            supabase.table("lovdata_sections")
+            .select("id, dok_id, section_id, title, content, content_hash")
+            .is_("embedding", "null")
+            .range(offset, offset + batch_size - 1)
+            .execute()
+        )
 
         if not result.data:
             break
@@ -147,15 +153,14 @@ def fetch_sections_needing_embedding(
 
 def fetch_document_metadata(supabase) -> dict[str, dict]:
     """Fetch metadata for all documents (for context enrichment)."""
-    result = supabase.table('lovdata_documents').select(
-        'dok_id, short_title, title, doc_type'
-    ).execute()
-    return {doc['dok_id']: doc for doc in result.data}
+    result = (
+        supabase.table("lovdata_documents").select("dok_id, short_title, title, doc_type").execute()
+    )
+    return {doc["dok_id"]: doc for doc in result.data}
 
 
 def generate_embeddings_batch(
-    texts: list[str],
-    task_type: str = TASK_TYPE_DOCUMENT
+    texts: list[str], task_type: str = TASK_TYPE_DOCUMENT
 ) -> list[list[float]]:
     """
     Generate embeddings for a batch of texts.
@@ -168,10 +173,7 @@ def generate_embeddings_batch(
     result = client.models.embed_content(
         model=EMBEDDING_MODEL,
         contents=texts,
-        config=types.EmbedContentConfig(
-            task_type=task_type,
-            output_dimensionality=EMBEDDING_DIM
-        )
+        config=types.EmbedContentConfig(task_type=task_type, output_dimensionality=EMBEDDING_DIM),
     )
     # Normalize embeddings (required for 768/1536 dim)
     return [normalize_embedding(list(emb.values)) for emb in result.embeddings]
@@ -183,10 +185,9 @@ def update_section_embeddings(supabase, updates: list[dict], max_retries: int = 
     for update in updates:
         for attempt in range(max_retries):
             try:
-                supabase.table('lovdata_sections').update({
-                    'embedding': update['embedding'],
-                    'content_hash': update['content_hash']
-                }).eq('id', update['id']).execute()
+                supabase.table("lovdata_sections").update(
+                    {"embedding": update["embedding"], "content_hash": update["content_hash"]}
+                ).eq("id", update["id"]).execute()
                 success += 1
                 break
             except Exception:
@@ -213,12 +214,10 @@ def process_batch(batch_texts: list[str], batch_ids: list[str]) -> int:
 
     # Prepare updates
     updates = []
-    for section_id, embedding, text in zip(batch_ids, embeddings, batch_texts):
-        updates.append({
-            'id': section_id,
-            'embedding': embedding,
-            'content_hash': content_hash(text)
-        })
+    for section_id, embedding, text in zip(batch_ids, embeddings, batch_texts, strict=False):
+        updates.append(
+            {"id": section_id, "embedding": embedding, "content_hash": content_hash(text)}
+        )
 
     # Update database
     return update_section_embeddings(supabase, updates)
@@ -226,7 +225,7 @@ def process_batch(batch_texts: list[str], batch_ids: list[str]) -> int:
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Generate Lovdata embeddings',
+        description="Generate Lovdata embeddings",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
@@ -241,20 +240,27 @@ Examples:
 
     # Adjust parallelism
     python scripts/embed_lovdata.py --workers 4
-        """
+        """,
     )
-    parser.add_argument('--dry-run', action='store_true',
-                        help='Show what would be done without calling API')
-    parser.add_argument('--batch-size', type=int, default=BATCH_SIZE,
-                        help=f'Batch size for API calls (default: {BATCH_SIZE})')
-    parser.add_argument('--limit', type=int,
-                        help='Max number of sections to process')
-    parser.add_argument('--workers', type=int, default=1,
-                        help='Number of parallel workers (default: 1)')
-    parser.add_argument('--delay', type=float, default=0,
-                        help='Delay in seconds between batches (default: 0)')
-    parser.add_argument('--max-time', type=int, default=0,
-                        help='Stop after N minutes (default: 0 = unlimited)')
+    parser.add_argument(
+        "--dry-run", action="store_true", help="Show what would be done without calling API"
+    )
+    parser.add_argument(
+        "--batch-size",
+        type=int,
+        default=BATCH_SIZE,
+        help=f"Batch size for API calls (default: {BATCH_SIZE})",
+    )
+    parser.add_argument("--limit", type=int, help="Max number of sections to process")
+    parser.add_argument(
+        "--workers", type=int, default=1, help="Number of parallel workers (default: 1)"
+    )
+    parser.add_argument(
+        "--delay", type=float, default=0, help="Delay in seconds between batches (default: 0)"
+    )
+    parser.add_argument(
+        "--max-time", type=int, default=0, help="Stop after N minutes (default: 0 = unlimited)"
+    )
     args = parser.parse_args()
 
     log("Initializing clients...")
@@ -285,12 +291,9 @@ Examples:
             if args.limit and total_processed + len(all_batches) * args.batch_size >= args.limit:
                 break
 
-            doc = docs.get(section['dok_id'], {})
+            doc = docs.get(section["dok_id"], {})
             text = create_embedding_text(doc, section)
-            all_batches.append({
-                'id': section['id'],
-                'text': text
-            })
+            all_batches.append({"id": section["id"], "text": text})
             total_tokens += len(text) // 4
 
     stopped_early = False
@@ -302,9 +305,9 @@ Examples:
         # Split into sub-batches of batch_size
         sub_batches = []
         for i in range(0, len(all_batches), args.batch_size):
-            batch_slice = all_batches[i:i + args.batch_size]
-            batch_texts = [b['text'] for b in batch_slice]
-            batch_ids = [b['id'] for b in batch_slice]
+            batch_slice = all_batches[i : i + args.batch_size]
+            batch_texts = [b["text"] for b in batch_slice]
+            batch_ids = [b["id"] for b in batch_slice]
             sub_batches.append((batch_texts, batch_ids))
 
         log(f"Total: {len(all_batches):,} sections in {len(sub_batches)} batches")
@@ -335,7 +338,9 @@ Examples:
                             rate = total_processed / elapsed_min if elapsed_min > 0 else 0
                             remaining = len(all_batches) - total_processed
                             eta_min = remaining / rate if rate > 0 else 0
-                            log(f"Processed {total_processed:,} / {len(all_batches):,} ({rate:.0f}/min, ETA {eta_min:.0f} min)")
+                            log(
+                                f"Processed {total_processed:,} / {len(all_batches):,} ({rate:.0f}/min, ETA {eta_min:.0f} min)"
+                            )
                         except Exception as e:
                             log(f"[ERROR] Batch failed: {e}")
                         if args.delay > 0:
@@ -357,7 +362,9 @@ Examples:
                     rate = total_processed / elapsed_min if elapsed_min > 0 else 0
                     remaining = len(all_batches) - total_processed
                     eta_min = remaining / rate if rate > 0 else 0
-                    log(f"Processed {total_processed:,} / {len(all_batches):,} ({rate:.0f}/min, ETA {eta_min:.0f} min)")
+                    log(
+                        f"Processed {total_processed:,} / {len(all_batches):,} ({rate:.0f}/min, ETA {eta_min:.0f} min)"
+                    )
                     if args.delay > 0:
                         time.sleep(args.delay)
 
@@ -369,7 +376,7 @@ Examples:
     rate = total_processed / (elapsed / 60) if elapsed > 0 else 0
 
     print("")  # blank line
-    log(f"{'STOPPED' if stopped_early else 'DONE'} in {elapsed/60:.1f} minutes")
+    log(f"{'STOPPED' if stopped_early else 'DONE'} in {elapsed / 60:.1f} minutes")
     log(f"Processed: {total_processed:,} sections ({rate:.0f}/min avg)")
     if stopped_early:
         remaining = len(all_batches) - total_processed
