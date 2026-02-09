@@ -64,6 +64,15 @@ datamodellen i en backend, oppdater den andre. `service.py` bruker `hasattr()`-s
 valgfrie metoder, men kritiske metoder (`get_section`, `search`, `list_sections`, `is_synced`)
 ma finnes i begge. Se ADR-001.2 for detaljer.
 
+**Kjente mangler i SQLite** (kun Supabase):
+- Vektorsok / semantisk sok (pgvector + Gemini embeddings)
+- Fuzzy matching av lovnavn (`pg_trgm`)
+- Hierarkisk struktur i innholdsfortegnelse (`lovdata_structure`)
+- `list_legal_areas()` / `rettsomrader()`-verktoy
+- AND→OR fallback i fulltekstsok
+- `legal_area` i sokeresultater
+- Token-aware snippets i sok
+
 ### Datapipeline
 ```
 Lovdata API (tar.bz2) -> Streaming download -> XML-parsing -> Upsert til DB
@@ -129,7 +138,7 @@ Prosjektet bruker Supabase-prosjektet **unified-timeline** (`iyetsvrteyzpirygxen
 
 | Tabell | Innhold | Antall |
 |--------|---------|--------|
-| `lovdata_documents` | Lover og forskrifter (inkl. is_amendment, legal_area, based_on) | ~4 450 |
+| `lovdata_documents` | Lover og forskrifter (is_amendment, legal_area, based_on). legal_area: 100% lov, ~83% forskrift (utledet fra hjemmelslov) | ~4 450 |
 | `lovdata_sections` | Paragrafer med tekst + embedding | ~92 000 (100% embedded) |
 | `lovdata_structure` | Hierarki (del/kapittel/avsnitt/vedlegg) | ~14 800 |
 | `lovdata_sync_meta` | Sync-tidspunkt per datasett | 2 |
@@ -153,6 +162,7 @@ Prosjektet bruker Supabase-prosjektet **unified-timeline** (`iyetsvrteyzpirygxen
 | `migrations/003_search_enhancements.sql` | doc_type/legal_area-filtre, based_on i resultater |
 | `migrations/004_fix_concatenated_metadata.sql` | Fiks "; "-delimiter i based_on/legal_area, dropp tomme kolonner |
 | `migrations/005_legal_area_in_search_results.sql` | legal_area i sokeresultater, stotter rettsomrader-verktoy |
+| `migrations/006_derive_forskrift_legal_area.sql` | Utled rettsomrade for forskrifter fra hjemmelslov |
 | `scripts/embed.py` | Embedding-generering |
 | `tests/test_mcp_tools.sh` | 75 integrasjonstester for alle 11 MCP-verktoy |
 
