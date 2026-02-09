@@ -35,11 +35,13 @@ Tilgang til norske lover og forskrifter fra Lovdata Public API (92 000+ paragraf
 
 | Verktøy | Bruk |
 |---------|------|
-| `lov(lov_id, paragraf?)` | Slå opp lov. Uten paragraf → hierarkisk innholdsfortegnelse (Del/Kapittel/§) |
-| `forskrift(id, paragraf?)` | Slå opp forskrift. Uten paragraf → hierarkisk innholdsfortegnelse |
-| `sok(query, limit=20)` | **FTS-søk** for juridiske termer (returnerer 500-tegn snippets) |
-| `semantisk_sok(query, limit?, doc_type?, ministry?)` | **AI-søk** for naturlig språk og synonymer |
+| `lov(lov_id, paragraf?)` | Slå opp lov. Uten paragraf → hierarkisk innholdsfortegnelse med metadata |
+| `forskrift(id, paragraf?)` | Slå opp forskrift. Uten paragraf → innholdsfortegnelse med hjemmelslov |
+| `sok(query, limit?, departement?, doc_type?, rettsomrade?, inkluder_endringslover?)` | **FTS-søk** med filtre |
+| `semantisk_sok(query, limit?, doc_type?, ministry?, rettsomrade?, inkluder_endringslover?)` | **AI-søk** for naturlig språk |
 | `hent_flere(lov_id, [paragrafer])` | Batch-henting (~80% raskere enn separate kall) |
+| `relaterte_forskrifter(lov_id)` | Finn forskrifter med hjemmel i en lov |
+| `departementer()` | List alle departementer (for filterverdier) |
 | `liste` | Vis aliaser (IKKE komplett liste - alle 770+ lover kan slås opp) |
 | `sjekk_storrelse` | Estimer tokens før henting |
 
@@ -51,7 +53,9 @@ Tilgang til norske lover og forskrifter fra Lovdata Public API (92 000+ paragraf
 | Vil kombinere/ekskludere | `sok("miljø OR klima -bil")` | FTS har full søkesyntaks |
 | Bruker spør med egne ord | `semantisk_sok("skjulte feil i boligen")` | AI forstår → finner "mangel" |
 | Synonym-problem | `semantisk_sok("oppsigelse")` | Finner også "avskjed"-paragrafer |
-| Filtrere på type/departement | `semantisk_sok(query, doc_type="lov")` | Kun semantisk har filter |
+| Filtrere på type/departement | `semantisk_sok(query, doc_type="lov")` eller `sok(query, departement="Klima")` | Begge har filter |
+| Filtrere på rettsområde | `sok(query, rettsomrade="Erstatningsrett")` | Begrenser til fagfelt |
+| Finne tilhørende forskrifter | `relaterte_forskrifter("aml")` | Viser forskrifter hjemlet i loven |
 
 **Kjerneforskjell:** FTS krever at ordene finnes i teksten. Semantisk finner relatert innhold selv om ordene er annerledes.
 
@@ -276,6 +280,33 @@ class MCPServer:
                             "description": "Maks antall resultater (standard: 20)",
                             "default": 20,
                         },
+                        "departement": {
+                            "type": "string",
+                            "description": (
+                                "Filtrer på departement (delvis match). "
+                                "Eks: 'Klima' matcher 'Klima- og miljødepartementet'"
+                            ),
+                        },
+                        "doc_type": {
+                            "type": "string",
+                            "enum": ["lov", "forskrift"],
+                            "description": "Filtrer på dokumenttype",
+                        },
+                        "rettsomrade": {
+                            "type": "string",
+                            "description": (
+                                "Filtrer på rettsområde (delvis match). "
+                                "Eks: 'Erstatningsrett', 'Arbeidsliv'"
+                            ),
+                        },
+                        "inkluder_endringslover": {
+                            "type": "boolean",
+                            "description": (
+                                "Inkluder endringslover i resultater. "
+                                "Standard: false (endringslover filtreres bort)"
+                            ),
+                            "default": False,
+                        },
                     },
                     "required": ["query"],
                 },
@@ -287,7 +318,7 @@ class MCPServer:
                     "Hybrid vektorsøk med AI-embeddings. Beste for naturlig språk og synonymer. "
                     "Finner relaterte paragrafer selv om ordene ikke matcher eksakt. "
                     "Eks: 'skjulte feil i boligen' → finner 'mangel'-paragrafer. "
-                    "Kan filtrere på doc_type og ministry."
+                    "Kan filtrere på doc_type, ministry, rettsområde og ekskludere endringslover."
                 ),
                 "inputSchema": {
                     "type": "object",
@@ -316,6 +347,21 @@ class MCPServer:
                                 "Filtrer på departement (delvis match). "
                                 "Eks: 'Klima' matcher 'Klima- og miljødepartementet'"
                             ),
+                        },
+                        "rettsomrade": {
+                            "type": "string",
+                            "description": (
+                                "Filtrer på rettsområde (delvis match). "
+                                "Eks: 'Erstatningsrett', 'Arbeidsliv'"
+                            ),
+                        },
+                        "inkluder_endringslover": {
+                            "type": "boolean",
+                            "description": (
+                                "Inkluder endringslover i resultater. "
+                                "Standard: false (endringslover filtreres bort)"
+                            ),
+                            "default": False,
                         },
                     },
                     "required": ["query"],
@@ -408,6 +454,35 @@ class MCPServer:
                     },
                     "required": ["lov_id", "paragraf"],
                 },
+            },
+            {
+                "name": "relaterte_forskrifter",
+                "title": "Forskrifter med hjemmel i lov",
+                "description": (
+                    "Finn forskrifter som har hjemmel i en gitt lov. "
+                    "Nyttig for å se hvilke forskrifter som utfyller en lov. "
+                    "Eks: relaterte_forskrifter('aml') → forskrifter hjemlet i arbeidsmiljøloven"
+                ),
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "lov_id": {
+                            "type": "string",
+                            "description": "Lovens kortnavn eller ID (f.eks. 'aml', 'pbl')",
+                        },
+                    },
+                    "required": ["lov_id"],
+                },
+            },
+            {
+                "name": "departementer",
+                "title": "Liste over departementer",
+                "description": (
+                    "List alle departementer som har lover/forskrifter. "
+                    "Bruk dette for å finne gyldige filterverdier for "
+                    "sok(departement=...) og semantisk_sok(ministry=...)."
+                ),
+                "inputSchema": {"type": "object", "properties": {}, "required": []},
             },
         ]
 
@@ -515,13 +590,33 @@ class MCPServer:
             elif tool_name == "sok":
                 query = arguments.get("query", "")
                 limit = arguments.get("limit", 20)
-                content = self.lovdata.search(query, limit)
+                departement = arguments.get("departement")
+                doc_type = arguments.get("doc_type")
+                rettsomrade = arguments.get("rettsomrade")
+                inkluder_endringslover = arguments.get("inkluder_endringslover", False)
+                content = self.lovdata.search(
+                    query,
+                    limit,
+                    exclude_amendments=not inkluder_endringslover,
+                    ministry_filter=departement,
+                    doc_type_filter=doc_type,
+                    legal_area_filter=rettsomrade,
+                )
             elif tool_name == "semantisk_sok":
                 query = arguments.get("query", "")
                 limit = arguments.get("limit", 10)
                 doc_type = arguments.get("doc_type")
                 ministry = arguments.get("ministry")
-                content = self._handle_semantic_search(query, limit, doc_type, ministry)
+                rettsomrade = arguments.get("rettsomrade")
+                inkluder_endringslover = arguments.get("inkluder_endringslover", False)
+                content = self._handle_semantic_search(
+                    query,
+                    limit,
+                    doc_type,
+                    ministry,
+                    not inkluder_endringslover,
+                    legal_area=rettsomrade,
+                )
             elif tool_name == "hent_flere":
                 lov_id = arguments.get("lov_id", "")
                 paragrafer = arguments.get("paragrafer", [])
@@ -545,6 +640,11 @@ class MCPServer:
                 content = self._format_size_check(
                     arguments.get("lov_id", ""), arguments.get("paragraf", ""), size_info
                 )
+            elif tool_name == "relaterte_forskrifter":
+                lov_id = arguments.get("lov_id", "")
+                content = self.lovdata.get_related_regulations(lov_id)
+            elif tool_name == "departementer":
+                content = self.lovdata.list_ministries()
             else:
                 content = f"Ukjent verktøy: {tool_name}"
                 logger.warning(f"Unknown tool requested: {tool_name}")
@@ -627,7 +727,13 @@ Kjør `sync()` for å laste ned lovdata fra Lovdata API.
 """
 
     def _handle_semantic_search(
-        self, query: str, limit: int = 10, doc_type: str | None = None, ministry: str | None = None
+        self,
+        query: str,
+        limit: int = 10,
+        doc_type: str | None = None,
+        ministry: str | None = None,
+        exclude_amendments: bool = True,
+        legal_area: str | None = None,
     ) -> str:
         """
         Handle semantic search using hybrid vector + FTS.
@@ -637,6 +743,8 @@ Kjør `sync()` for å laste ned lovdata fra Lovdata API.
             limit: Max results
             doc_type: Filter by "lov" or "forskrift"
             ministry: Filter by ministry (partial match)
+            exclude_amendments: Exclude amendment laws from results
+            legal_area: Filter by legal area (partial match)
 
         Returns:
             Formatted search results
@@ -644,7 +752,12 @@ Kjør `sync()` for å laste ned lovdata fra Lovdata API.
         try:
             vector_search = self._get_vector_search()
             results = vector_search.search(
-                query=query, limit=limit, doc_type=doc_type, ministry=ministry
+                query=query,
+                limit=limit,
+                doc_type=doc_type,
+                ministry=ministry,
+                exclude_amendments=exclude_amendments,
+                legal_area=legal_area,
             )
         except Exception as e:
             logger.warning(f"Semantic search failed, falling back to FTS: {e}")
@@ -655,12 +768,14 @@ Kjør `sync()` for å laste ned lovdata fra Lovdata API.
 
         lines = [f"## Semantisk søk: {query}\n"]
 
-        if doc_type or ministry:
+        if doc_type or ministry or legal_area:
             filters = []
             if doc_type:
                 filters.append(f"type={doc_type}")
             if ministry:
                 filters.append(f"departement={ministry}")
+            if legal_area:
+                filters.append(f"rettsomrade={legal_area}")
             lines.append(f"*Filter: {', '.join(filters)}*\n")
 
         lines.append(f"Fant {len(results)} relevante paragrafer:\n")

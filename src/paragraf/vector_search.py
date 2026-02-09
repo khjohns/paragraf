@@ -32,6 +32,7 @@ class VectorSearchResult:
     short_title: str
     doc_type: str
     ministry: str | None
+    based_on: str | None
     similarity: float
     fts_rank: float
     combined_score: float
@@ -51,6 +52,7 @@ class VectorSearchResult:
             "short_title": self.short_title,
             "doc_type": self.doc_type,
             "ministry": self.ministry,
+            "based_on": self.based_on,
             "similarity": self.similarity,
             "fts_rank": self.fts_rank,
             "combined_score": self.combined_score,
@@ -143,6 +145,7 @@ class LovdataVectorSearch:
                 short_title=row.get("short_title", ""),
                 doc_type=row.get("doc_type", ""),
                 ministry=row.get("ministry"),
+                based_on=row.get("based_on"),
                 similarity=0.0,
                 fts_rank=row.get("rank", 0.0),
                 combined_score=row.get("rank", 0.0),
@@ -159,6 +162,8 @@ class LovdataVectorSearch:
         ivfflat_probes: int = 10,
         doc_type: str | None = None,
         ministry: str | None = None,
+        exclude_amendments: bool = True,
+        legal_area: str | None = None,
     ) -> list[VectorSearchResult]:
         """
         Perform hybrid search with optional filters.
@@ -170,6 +175,8 @@ class LovdataVectorSearch:
             ivfflat_probes: IVFFlat probe count (higher = better recall, slower, default 10)
             doc_type: Filter by document type ("lov" or "forskrift")
             ministry: Filter by ministry (partial match, e.g., "Klima" matches "Klima- og miljødepartementet")
+            exclude_amendments: Exclude amendment laws from results (default True)
+            legal_area: Filter by legal area (partial match)
 
         Returns:
             List of VectorSearchResult sorted by relevance
@@ -192,6 +199,8 @@ class LovdataVectorSearch:
                 "ivfflat_probes": ivfflat_probes,
                 "doc_type_filter": doc_type,
                 "ministry_filter": ministry,
+                "exclude_amendments": exclude_amendments,
+                "legal_area_filter": legal_area,
             },
         ).execute()
 
@@ -207,6 +216,7 @@ class LovdataVectorSearch:
                 short_title=row["short_title"],
                 doc_type=row["doc_type"],
                 ministry=row.get("ministry"),
+                based_on=row.get("based_on"),
                 similarity=row["similarity"],
                 fts_rank=row["fts_rank"],
                 combined_score=row["combined_score"],
@@ -245,6 +255,7 @@ class LovdataVectorSearch:
                 short_title=row["short_title"],
                 doc_type=row["doc_type"],
                 ministry=row.get("ministry"),
+                based_on=row.get("based_on"),
                 similarity=row["similarity"],
                 fts_rank=0.0,
                 combined_score=row["similarity"],

@@ -39,7 +39,8 @@ scripts/
   embed.py             # Generer embeddings for alle seksjoner
 
 migrations/
-  001_complete_schema.sql  # Supabase-skjema
+  001_complete_schema.sql  # Supabase-skjema (tabeller, indekser, sokefunksjoner)
+  002_document_metadata.sql  # is_amendment, metadata-kolonner, oppdaterte sokefunksjoner
 
 web/
   app.py               # Standalone Flask-app (hosted deploy)
@@ -75,8 +76,8 @@ Lovdata API (tar.bz2) -> Streaming download -> XML-parsing -> Upsert til DB
 
 | Verktoy | Beskrivelse |
 |---------|-------------|
-| `sok(query)` | Fulltekstsok med norsk stemming |
-| `semantisk_sok(query)` | Hybrid vektorsok (naturlig sprak) |
+| `sok(query, departement?, inkluder_endringslover?)` | Fulltekstsok med norsk stemming + filtre |
+| `semantisk_sok(query, doc_type?, ministry?, inkluder_endringslover?)` | Hybrid vektorsok (naturlig sprak) |
 | `lov(id, paragraf)` | Hent lovtekst (uten paragraf = innholdsfortegnelse) |
 | `forskrift(id, paragraf)` | Hent forskriftstekst |
 | `hent_flere(id, paragrafer)` | Batch-henting (~80% raskere) |
@@ -124,7 +125,7 @@ Prosjektet bruker Supabase-prosjektet **unified-timeline** (`iyetsvrteyzpirygxen
 
 | Tabell | Innhold | Antall |
 |--------|---------|--------|
-| `lovdata_documents` | Lover og forskrifter | ~4 450 |
+| `lovdata_documents` | Lover og forskrifter (inkl. is_amendment, language, legal_area, based_on, date_end, keywords) | ~4 450 |
 | `lovdata_sections` | Paragrafer med tekst + embedding | ~92 000 (100% embedded) |
 | `lovdata_structure` | Hierarki (del/kapittel/avsnitt/vedlegg) | ~14 800 |
 | `lovdata_sync_meta` | Sync-tidspunkt per datasett | 2 |
@@ -132,6 +133,7 @@ Prosjektet bruker Supabase-prosjektet **unified-timeline** (`iyetsvrteyzpirygxen
 ### Viktige indekser
 - GIN pa `search_vector` (FTS)
 - GIN pa `short_title` (pg_trgm fuzzy)
+- B-tree pa `is_amendment` (endringslov-filter)
 - IVFFlat pa `embedding` (vektorsok, lists=100)
 
 ## Viktige filer
@@ -142,7 +144,8 @@ Prosjektet bruker Supabase-prosjektet **unified-timeline** (`iyetsvrteyzpirygxen
 | `src/paragraf/supabase_backend.py` | Sync, sok, oppslag mot Supabase |
 | `src/paragraf/server.py` | MCP JSON-RPC protokoll |
 | `docs/ADR-001.md` | Alle arkitekturbeslutninger |
-| `migrations/001_complete_schema.sql` | Database-skjema |
+| `migrations/001_complete_schema.sql` | Database-skjema (tabeller, sokefunksjoner) |
+| `migrations/002_document_metadata.sql` | Metadata-kolonner + oppdaterte sokefunksjoner |
 | `scripts/embed.py` | Embedding-generering |
 
 ## Begrensninger

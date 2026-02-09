@@ -110,6 +110,7 @@ class SearchResult:
     rank: float
     section_id: str | None = None
     search_mode: str | None = None  # 'and' or 'or_fallback'
+    based_on: str | None = None
 
     @property
     def estimated_tokens(self) -> int:
@@ -465,14 +466,22 @@ class LovdataSupabaseService:
                     dok_id = dok_id[len(prefix) :]
                     break
 
+            title = self._extract_meta(header, "title") or ""
+
             doc = {
                 "dok_id": dok_id,
                 "ref_id": self._extract_meta(header, "refid") or dok_id,
-                "title": self._extract_meta(header, "title") or "",
+                "title": title,
                 "short_title": self._extract_meta(header, "titleShort") or "",
                 "date_in_force": self._parse_date(self._extract_meta(header, "dateInForce")),
-                "ministry": self._extract_meta(header, "ministry"),
+                "ministry": self._extract_ministry(header),
                 "doc_type": doc_type,
+                "is_amendment": self._is_amendment_title(title),
+                "language": self._extract_meta(header, "doclang"),
+                "legal_area": self._extract_meta(header, "legalArea"),
+                "based_on": self._extract_meta(header, "basedOn"),
+                "date_end": self._parse_date(self._extract_meta(header, "dateInForceEnd")),
+                "keywords": self._extract_meta(header, "keywords"),
             }
 
             # Parse sections - try multiple strategies
@@ -727,6 +736,69 @@ class LovdataSupabaseService:
 
         dd = header.find("dd", class_=class_name)
         return dd.get_text(strip=True) if dd else None
+
+    def _extract_ministry(self, header) -> str | None:
+        """
+        Extract ministry from header, handling multi-ministry documents.
+
+        Some regulations (forskrifter) have multiple ministries listed as
+        separate <a> elements inside a single <dd class="ministry">.
+        Without this fix, get_text() concatenates them without separator:
+        "Helse- og omsorgsdepartementetLandbruks- og matdepartementet"
+
+        Strategy:
+        1. Find <dd class="ministry">
+        2. If multiple <a> elements → join with "; "
+        3. Fallback: split on known pattern (departementet + uppercase letter)
+        4. Last fallback: get_text(strip=True) as before
+        """
+        if not header:
+            return None
+
+        import re
+
+        # Find dd element with class "ministry"
+        dt = header.find("dt", class_="ministry")
+        dd = dt.find_next_sibling("dd") if dt else header.find("dd", class_="ministry")
+        if not dd:
+            return None
+
+        # Strategy 1: Multiple <a> elements
+        links = dd.find_all("a")
+        if len(links) > 1:
+            ministries = [a.get_text(strip=True) for a in links if a.get_text(strip=True)]
+            if ministries:
+                return "; ".join(ministries)
+
+        # Strategy 2: Split concatenated ministries on known pattern
+        text = dd.get_text(strip=True)
+        if text and "departementet" in text.lower():
+            # Split on "departementet" followed by uppercase letter
+            parts = re.split(r"(departementet)(?=[A-ZÆØÅ])", text)
+            if len(parts) > 2:
+                # Reassemble: ["Helse- og omsorgs", "departementet", "Landbruks-..."]
+                ministries = []
+                i = 0
+                while i < len(parts):
+                    if i + 1 < len(parts) and parts[i + 1] == "departementet":
+                        ministries.append(parts[i] + "departementet")
+                        i += 2
+                    else:
+                        if parts[i].strip():
+                            ministries.append(parts[i].strip())
+                        i += 1
+                if len(ministries) > 1:
+                    return "; ".join(ministries)
+
+        return text if text else None
+
+    @staticmethod
+    def _is_amendment_title(title: str) -> bool:
+        """Check if a document title indicates an amendment law."""
+        if not title:
+            return False
+        t = title.lower()
+        return "endring i " in t or "endringer i " in t or "endringslov" in t or "endr. i " in t
 
     def _parse_date(self, date_str: str | None) -> str | None:
         """
@@ -986,7 +1058,14 @@ class LovdataSupabaseService:
 
     @with_retry()
     def search(
-        self, query: str, limit: int = 20, max_tokens_per_result: int = 150
+        self,
+        query: str,
+        limit: int = 20,
+        max_tokens_per_result: int = 150,
+        exclude_amendments: bool = True,
+        ministry_filter: str | None = None,
+        doc_type_filter: str | None = None,
+        legal_area_filter: str | None = None,
     ) -> list[SearchResult]:
         """
         Full-text search with token-aware snippets.
@@ -995,13 +1074,25 @@ class LovdataSupabaseService:
             query: Search query
             limit: Maximum number of results
             max_tokens_per_result: Maximum tokens per snippet
+            exclude_amendments: Exclude amendment laws from results (default True)
+            ministry_filter: Filter by ministry (partial ILIKE match)
+            doc_type_filter: Filter by document type ("lov" or "forskrift")
+            legal_area_filter: Filter by legal area (partial ILIKE match)
 
         Returns:
             List of SearchResult objects
         """
         # Use fast PostgreSQL function for search (avoids slow ts_headline)
         result = self.client.rpc(
-            "search_lovdata_fast", {"query_text": query, "max_results": limit}
+            "search_lovdata_fast",
+            {
+                "query_text": query,
+                "max_results": limit,
+                "exclude_amendments": exclude_amendments,
+                "ministry_filter": ministry_filter,
+                "doc_type_filter": doc_type_filter,
+                "legal_area_filter": legal_area_filter,
+            },
         ).execute()
 
         if not result.data:
@@ -1026,10 +1117,70 @@ class LovdataSupabaseService:
                     rank=row.get("rank", 0.0),
                     section_id=row.get("section_id"),
                     search_mode=row.get("search_mode"),
+                    based_on=row.get("based_on"),
                 )
             )
 
         return results
+
+    def find_related_regulations(self, lov_id: str) -> list[dict]:
+        """
+        Find regulations (forskrifter) based on a given law.
+
+        Args:
+            lov_id: Law identifier (will be resolved via _find_document)
+
+        Returns:
+            List of dicts with dok_id, title, short_title, based_on, ministry
+        """
+        doc = self._find_document(lov_id)
+        if not doc:
+            return []
+
+        actual_id = doc["dok_id"]
+
+        @with_retry()
+        def _execute():
+            return (
+                self.client.table("lovdata_documents")
+                .select("dok_id, title, short_title, based_on, ministry")
+                .ilike("based_on", f"%{actual_id}%")
+                .eq("doc_type", "forskrift")
+                .execute()
+            )
+
+        result = safe_execute(
+            _execute, f"Failed to find related regulations for {lov_id}", default=None
+        )
+        if not result or not result.data:
+            return []
+
+        return result.data
+
+    def list_ministries(self) -> list[str]:
+        """
+        List all unique ministries across all documents.
+
+        Returns:
+            Sorted list of ministry names
+        """
+
+        @with_retry()
+        def _execute():
+            return (
+                self.client.table("lovdata_documents")
+                .select("ministry")
+                .not_.is_("ministry", "null")
+                .execute()
+            )
+
+        result = safe_execute(_execute, "Failed to list ministries", default=None)
+        if not result or not result.data:
+            return []
+
+        # Deduplicate and sort in Python (Supabase client doesn't support DISTINCT)
+        ministries = {row["ministry"] for row in result.data if row.get("ministry")}
+        return sorted(ministries)
 
     def get_document(self, dok_id: str) -> dict | None:
         """Get document metadata by ID."""

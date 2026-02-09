@@ -128,6 +128,12 @@ class LovdataSyncService:
                     date_in_force TEXT,
                     ministry TEXT,
                     doc_type TEXT,  -- 'lov' or 'forskrift'
+                    is_amendment BOOLEAN DEFAULT FALSE,
+                    language TEXT,
+                    legal_area TEXT,
+                    based_on TEXT,
+                    date_end TEXT,
+                    keywords TEXT,
                     xml_path TEXT,
                     indexed_at TEXT
                 );
@@ -170,6 +176,21 @@ class LovdataSyncService:
             cols = {row[1] for row in conn.execute("PRAGMA table_info(sections)").fetchall()}
             if "char_count" not in cols:
                 conn.execute("ALTER TABLE sections ADD COLUMN char_count INTEGER DEFAULT 0")
+
+            # Migration: add new document metadata columns if missing
+            doc_cols = {row[1] for row in conn.execute("PRAGMA table_info(documents)").fetchall()}
+            for col, col_type, default in [
+                ("is_amendment", "BOOLEAN", "FALSE"),
+                ("language", "TEXT", "NULL"),
+                ("legal_area", "TEXT", "NULL"),
+                ("based_on", "TEXT", "NULL"),
+                ("date_end", "TEXT", "NULL"),
+                ("keywords", "TEXT", "NULL"),
+            ]:
+                if col not in doc_cols:
+                    conn.execute(
+                        f"ALTER TABLE documents ADD COLUMN {col} {col_type} DEFAULT {default}"
+                    )
 
             # Migration: drop old documents_fts if it exists (replaced by sections_fts)
             tables = {
@@ -418,7 +439,7 @@ class LovdataSyncService:
             title = self._extract_meta(header, "title") or ""
             short_title = self._extract_meta(header, "titleShort") or ""
             date_in_force = self._extract_meta(header, "dateInForce")
-            ministry = self._extract_meta(header, "ministry")
+            ministry = self._extract_ministry(header)
 
             # Extract main content
             main = soup.find("main", class_="documentBody")
@@ -442,6 +463,49 @@ class LovdataSyncService:
             logger.error(f"Parse error for {xml_path}: {e}")
             return None
 
+    def _extract_ministry(self, header) -> str | None:
+        """
+        Extract ministry from header, handling multi-ministry documents.
+
+        Mirrors the logic in supabase_backend.py.
+        """
+        if not header:
+            return None
+
+        import re
+
+        dt = header.find("dt", class_="ministry")
+        dd = dt.find_next_sibling("dd") if dt else header.find("dd", class_="ministry")
+        if not dd:
+            return None
+
+        # Multiple <a> elements → join with "; "
+        links = dd.find_all("a")
+        if len(links) > 1:
+            ministries = [a.get_text(strip=True) for a in links if a.get_text(strip=True)]
+            if ministries:
+                return "; ".join(ministries)
+
+        # Split concatenated ministries on known pattern
+        text = dd.get_text(strip=True)
+        if text and "departementet" in text.lower():
+            parts = re.split(r"(departementet)(?=[A-ZÆØÅ])", text)
+            if len(parts) > 2:
+                ministries = []
+                i = 0
+                while i < len(parts):
+                    if i + 1 < len(parts) and parts[i + 1] == "departementet":
+                        ministries.append(parts[i] + "departementet")
+                        i += 2
+                    else:
+                        if parts[i].strip():
+                            ministries.append(parts[i].strip())
+                        i += 1
+                if len(ministries) > 1:
+                    return "; ".join(ministries)
+
+        return text if text else None
+
     def _extract_meta(self, header, class_name: str) -> str | None:
         """Extract metadata value from header by class name."""
         if not header:
@@ -461,17 +525,28 @@ class LovdataSyncService:
 
         return None
 
+    @staticmethod
+    def _is_amendment_title(title: str) -> bool:
+        """Check if a document title indicates an amendment law."""
+        if not title:
+            return False
+        t = title.lower()
+        return "endring i " in t or "endringer i " in t or "endringslov" in t or "endr. i " in t
+
     def _insert_document(self, conn: sqlite3.Connection, doc: LawDocument, doc_type: str) -> int:
         """Insert document and its sections into database.
 
         Returns number of sections inserted.
         """
+        is_amendment = self._is_amendment_title(doc.title)
+
         # Insert/update main document
         conn.execute(
             """
             INSERT OR REPLACE INTO documents
-            (dok_id, ref_id, title, short_title, date_in_force, ministry, doc_type, xml_path, indexed_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (dok_id, ref_id, title, short_title, date_in_force, ministry, doc_type,
+             is_amendment, xml_path, indexed_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
             (
                 doc.dok_id,
@@ -481,6 +556,7 @@ class LovdataSyncService:
                 doc.date_in_force,
                 doc.ministry,
                 doc_type,
+                is_amendment,
                 str(doc.xml_path),
                 datetime.now().isoformat(),
             ),
@@ -641,13 +717,25 @@ class LovdataSyncService:
                 )
         return None
 
-    def search(self, query: str, limit: int = 20) -> list[dict]:
+    def search(
+        self,
+        query: str,
+        limit: int = 20,
+        exclude_amendments: bool = True,
+        ministry_filter: str | None = None,
+        doc_type_filter: str | None = None,
+        legal_area_filter: str | None = None,
+    ) -> list[dict]:
         """
         Full-text search across all sections.
 
         Args:
             query: Search query
             limit: Maximum results
+            exclude_amendments: Exclude amendment laws from results (default True)
+            ministry_filter: Filter by ministry (partial match)
+            doc_type_filter: Filter by document type ("lov" or "forskrift")
+            legal_area_filter: Filter by legal area (partial match)
 
         Returns:
             List of matching sections with snippets and document metadata
@@ -655,26 +743,91 @@ class LovdataSyncService:
         with sqlite3.connect(self.db_path) as conn:
             conn.row_factory = sqlite3.Row
 
-            # FTS5 search at section level, joined with documents for metadata
+            # Build WHERE clause with optional filters
+            conditions = ["sections_fts MATCH ?"]
+            params: list = [query]
+
+            if exclude_amendments:
+                conditions.append("COALESCE(d.is_amendment, 0) = 0")
+
+            if ministry_filter:
+                conditions.append("d.ministry LIKE ?")
+                params.append(f"%{ministry_filter}%")
+
+            if doc_type_filter:
+                conditions.append("d.doc_type = ?")
+                params.append(doc_type_filter)
+
+            if legal_area_filter:
+                conditions.append("d.legal_area LIKE ?")
+                params.append(f"%{legal_area_filter}%")
+
+            where_clause = " AND ".join(conditions)
+            params.append(limit)
+
             rows = conn.execute(
-                """
+                f"""
                 SELECT
                     d.dok_id,
                     d.title,
                     d.short_title,
                     d.doc_type,
+                    d.based_on,
                     sf.section_id,
                     snippet(sections_fts, 3, '<mark>', '</mark>', '...', 32) as snippet
                 FROM sections_fts sf
                 JOIN documents d ON d.dok_id = sf.dok_id
-                WHERE sections_fts MATCH ?
+                WHERE {where_clause}
                 ORDER BY rank
                 LIMIT ?
             """,
-                (query, limit),
+                params,
             ).fetchall()
 
             return [dict(row) for row in rows]
+
+    def find_related_regulations(self, lov_id: str) -> list[dict]:
+        """
+        Find regulations (forskrifter) based on a given law.
+
+        Args:
+            lov_id: Law identifier (will be resolved via _find_document)
+
+        Returns:
+            List of dicts with dok_id, title, short_title, based_on, ministry
+        """
+        doc = self._find_document(lov_id)
+        if not doc:
+            return []
+
+        actual_id = doc["dok_id"]
+
+        with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            rows = conn.execute(
+                """
+                SELECT dok_id, title, short_title, based_on, ministry
+                FROM documents
+                WHERE based_on LIKE ? AND doc_type = 'forskrift'
+                """,
+                (f"%{actual_id}%",),
+            ).fetchall()
+
+            return [dict(row) for row in rows]
+
+    def list_ministries(self) -> list[str]:
+        """
+        List all unique ministries across all documents.
+
+        Returns:
+            Sorted list of ministry names
+        """
+        with sqlite3.connect(self.db_path) as conn:
+            rows = conn.execute(
+                "SELECT DISTINCT ministry FROM documents WHERE ministry IS NOT NULL ORDER BY ministry"
+            ).fetchall()
+
+            return [row[0] for row in rows if row[0]]
 
     def list_documents(self, doc_type: str | None = None) -> list[dict]:
         """

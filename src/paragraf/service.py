@@ -593,8 +593,37 @@ class LovdataService:
             f"### Innholdsfortegnelse: {title}",
             "",
             f"**Totalt:** {len(sections)} paragrafer (~{total_tokens:,} tokens)",
-            "",
         ]
+
+        # Document metadata block (gracefully degrades on SQLite)
+        meta_lines = []
+        ministry = doc.get("ministry")
+        if ministry:
+            meta_lines.append(f"**Departement:** {ministry}")
+        legal_area = doc.get("legal_area")
+        if legal_area:
+            meta_lines.append(f"**Rettsomrade:** {legal_area}")
+        language = doc.get("language")
+        if language and language != "Bokmål":
+            meta_lines.append(f"**Sprak:** {language}")
+        based_on = doc.get("based_on")
+        if based_on:
+            meta_lines.append(f"**Hjemmelslov:** {based_on}")
+        keywords = doc.get("keywords")
+        if keywords:
+            meta_lines.append(f"**Stikkord:** {keywords}")
+        date_end = doc.get("date_end")
+        if date_end:
+            meta_lines.append(f"**Utlopsdato:** {date_end}")
+        is_amendment = doc.get("is_amendment")
+        if is_amendment:
+            meta_lines.append("*Dette er en endringslov/-forskrift.*")
+
+        if meta_lines:
+            lines.append("")
+            lines.extend(meta_lines)
+
+        lines.append("")
 
         # Use hierarchical display if structures are available
         if structures:
@@ -829,7 +858,15 @@ Lovteksten er ikke tilgjengelig i lokal cache.
                 f"eller prøv fullt navn/ID."
             )
 
-    def search(self, query: str, limit: int = 20) -> str:
+    def search(
+        self,
+        query: str,
+        limit: int = 20,
+        exclude_amendments: bool = True,
+        ministry_filter: str | None = None,
+        doc_type_filter: str | None = None,
+        legal_area_filter: str | None = None,
+    ) -> str:
         """
         Search Norwegian laws and regulations.
 
@@ -838,6 +875,10 @@ Lovteksten er ikke tilgjengelig i lokal cache.
         Args:
             query: Search query
             limit: Maximum number of results
+            exclude_amendments: Exclude amendment laws from results (default True)
+            ministry_filter: Filter by ministry (partial match)
+            doc_type_filter: Filter by document type ("lov" or "forskrift")
+            legal_area_filter: Filter by legal area (partial match)
 
         Returns:
             Formatted search results
@@ -861,7 +902,14 @@ Lovteksten er ikke tilgjengelig i lokal cache.
         if self.is_synced():
             backend = _get_backend_service()
             try:
-                fts_results = backend.search(query, limit=limit)
+                fts_results = backend.search(
+                    query,
+                    limit=limit,
+                    exclude_amendments=exclude_amendments,
+                    ministry_filter=ministry_filter,
+                    doc_type_filter=doc_type_filter,
+                    legal_area_filter=legal_area_filter,
+                )
                 if fts_results:
                     return self._format_fts_results(query, fts_results)
             except Exception as e:
@@ -916,20 +964,24 @@ Fant {len(results)} treff (alias-søk):
             # Handle both dict and SearchResult dataclass
             if hasattr(r, "doc_type"):
                 # SearchResult dataclass
-                doc_type = "Lov" if r.doc_type == "lov" else "Forskrift"
+                doc_type_raw = r.doc_type
+                doc_type = "Lov" if doc_type_raw == "lov" else "Forskrift"
                 title = r.title or r.short_title or r.dok_id
                 snippet = r.snippet or ""
                 dok_id = r.dok_id
                 section_id = getattr(r, "section_id", None)
                 search_mode = getattr(r, "search_mode", None)
+                based_on = getattr(r, "based_on", None)
             else:
                 # Dict fallback
-                doc_type = "Lov" if r.get("doc_type") == "lov" else "Forskrift"
+                doc_type_raw = r.get("doc_type", "lov")
+                doc_type = "Lov" if doc_type_raw == "lov" else "Forskrift"
                 title = r.get("title") or r.get("short_title") or r.get("dok_id")
                 snippet = r.get("snippet", "")
                 dok_id = r["dok_id"]
                 section_id = r.get("section_id")
                 search_mode = r.get("search_mode")
+                based_on = r.get("based_on")
 
             if search_mode == "or_fallback":
                 used_or_fallback = True
@@ -940,8 +992,13 @@ Fant {len(results)} treff (alias-søk):
             # Include section_id if available
             section_info = f" § {section_id}" if section_id else ""
 
+            # Show hjemmelslov for forskrifter
+            based_on_line = ""
+            if doc_type == "Forskrift" and based_on:
+                based_on_line = f"\n**Hjemmelslov:** {based_on}"
+
             result_lines.append(f"""### {doc_type}: {title}{section_info}
-**ID:** `{dok_id}`{f" **Paragraf:** `{section_id}`" if section_id else ""}
+**ID:** `{dok_id}`{f" **Paragraf:** `{section_id}`" if section_id else ""}{based_on_line}
 
 {snippet}
 """)
@@ -1008,6 +1065,88 @@ Fant {len(results)} treff (fulltekstsøk):
         lines.append("---")
         lines.append(
             "*Eksempel: `lov('husleieloven', '9-2')` fungerer selv om husleieloven ikke er i listen.*"
+        )
+
+        return "\n".join(lines)
+
+    def get_related_regulations(self, lov_id: str) -> str:
+        """
+        Find regulations (forskrifter) that are based on a given law.
+
+        Args:
+            lov_id: Law identifier or alias
+
+        Returns:
+            Formatted list of related regulations
+        """
+        if not lov_id or not lov_id.strip():
+            return "**Feil:** Lov-ID kan ikke vaere tom."
+
+        resolved_id = self._resolve_id(lov_id)
+        backend = _get_backend_service()
+
+        if not hasattr(backend, "find_related_regulations"):
+            return "**Feil:** Denne funksjonen krever Supabase-backend."
+
+        try:
+            regulations = backend.find_related_regulations(resolved_id)
+        except Exception as e:
+            logger.warning(f"Failed to find related regulations for {lov_id}: {e}")
+            return f"**Feil:** Kunne ikke hente relaterte forskrifter for {lov_id}."
+
+        if not regulations:
+            return f"Ingen forskrifter funnet med hjemmel i **{lov_id}** (`{resolved_id}`)."
+
+        lines = [f"## Forskrifter med hjemmel i {lov_id}\n"]
+        lines.append(f"Fant {len(regulations)} forskrifter:\n")
+
+        for reg in regulations:
+            title = reg.get("short_title") or reg.get("title") or reg.get("dok_id")
+            dok_id = reg.get("dok_id", "")
+            ministry = reg.get("ministry")
+
+            line = f"- **{title}**\n  ID: `{dok_id}`"
+            if ministry:
+                line += f"\n  Departement: {ministry}"
+            lines.append(line)
+
+        lines.append("")
+        lines.append("---")
+        lines.append("*Bruk `forskrift('ID', 'paragraf')` for a sla opp en forskrift.*")
+
+        return "\n".join(lines)
+
+    def list_ministries(self) -> str:
+        """
+        List all ministries that have laws/regulations.
+
+        Returns:
+            Formatted list of ministries
+        """
+        backend = _get_backend_service()
+
+        if not hasattr(backend, "list_ministries"):
+            return "**Feil:** Denne funksjonen krever Supabase-backend."
+
+        try:
+            ministries = backend.list_ministries()
+        except Exception as e:
+            logger.warning(f"Failed to list ministries: {e}")
+            return "**Feil:** Kunne ikke hente departementsliste."
+
+        if not ministries:
+            return "Ingen departementer funnet. Data er kanskje ikke synkronisert."
+
+        lines = [f"## Departementer ({len(ministries)} stk)\n"]
+
+        for m in ministries:
+            lines.append(f"- {m}")
+
+        lines.append("")
+        lines.append("---")
+        lines.append(
+            "**Bruk med filter:** `sok('emne', departement='Klima')` "
+            "eller `semantisk_sok('emne', ministry='Justis')`"
         )
 
         return "\n".join(lines)
