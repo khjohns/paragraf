@@ -29,3 +29,7 @@ Thumbs.db
 # SQLite (local dev)
 *.db
 *.sqlite3
+
+# Misc
+*.pdf
+cloudflare-*.txt
