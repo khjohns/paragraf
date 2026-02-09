@@ -66,22 +66,30 @@ class LovdataVectorSearch:
     best results on both natural language and legal terminology.
     """
 
+    _EMBED_URL = (
+        f"https://generativelanguage.googleapis.com/v1beta/models/{EMBEDDING_MODEL}:embedContent"
+    )
+
     def __init__(self):
         self.supabase = get_shared_client()
-        self._genai_client = None
+        self._api_key: str | None = None
+        self._http_client = None
 
-    def _get_genai_client(self):
-        """Get or create Gemini API client lazily."""
-        if self._genai_client is not None:
-            return self._genai_client
-
-        from google.genai.client import Client
-
-        api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
-        if not api_key:
+    def _get_api_key(self) -> str:
+        if self._api_key is not None:
+            return self._api_key
+        self._api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
+        if not self._api_key:
             raise ValueError("GEMINI_API_KEY must be set for vector search")
-        self._genai_client = Client(api_key=api_key)
-        return self._genai_client
+        return self._api_key
+
+    def _get_http_client(self):
+        if self._http_client is not None:
+            return self._http_client
+        import httpx
+
+        self._http_client = httpx.Client(timeout=30.0)
+        return self._http_client
 
     @staticmethod
     def _normalize(embedding: list[float]) -> list[float]:
@@ -92,25 +100,26 @@ class LovdataVectorSearch:
     @lru_cache(maxsize=1000)
     def _generate_query_embedding(self, query: str) -> tuple[float, ...]:
         """
-        Generate embedding for search query.
+        Generate embedding via Gemini REST API (avoids google-genai SDK import issues).
 
         Caches results to avoid repeated API calls for same query.
         Returns tuple (immutable) for caching compatibility.
         Uses RETRIEVAL_QUERY task type for optimized search quality.
         """
-        from google.genai.types import EmbedContentConfig
-
-        client = self._get_genai_client()
-
-        result = client.models.embed_content(
-            model=EMBEDDING_MODEL,
-            contents=query,
-            config=EmbedContentConfig(
-                task_type=TASK_TYPE_QUERY, output_dimensionality=EMBEDDING_DIM
-            ),
+        client = self._get_http_client()
+        resp = client.post(
+            self._EMBED_URL,
+            params={"key": self._get_api_key()},
+            json={
+                "model": f"models/{EMBEDDING_MODEL}",
+                "content": {"parts": [{"text": query}]},
+                "taskType": TASK_TYPE_QUERY,
+                "outputDimensionality": EMBEDDING_DIM,
+            },
         )
-        # Normalize for correct cosine similarity (required for 1536 dim)
-        normalized = self._normalize(list(result.embeddings[0].values))
+        resp.raise_for_status()
+        values = resp.json()["embedding"]["values"]
+        normalized = self._normalize(values)
         return tuple(normalized)
 
     def _fallback_fts_search(self, query: str, limit: int) -> list[VectorSearchResult]:
