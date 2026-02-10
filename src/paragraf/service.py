@@ -289,6 +289,11 @@ class LovdataService:
 
         logger.info(f"Looking up law: {resolved_id}, section: {paragraf}, max_tokens: {max_tokens}")
 
+        # Get document metadata for is_current check
+        backend = _get_backend_service()
+        doc_meta = backend.get_document(resolved_id) if hasattr(backend, "get_document") else None
+        is_current = doc_meta.get("is_current", True) if doc_meta else None
+
         # Try to fetch from cache/API
         content = self._fetch_law_content(resolved_id, paragraf, max_tokens=max_tokens)
 
@@ -300,7 +305,12 @@ class LovdataService:
             )
         elif content:
             return self._format_response(
-                law_name=law_name, law_id=resolved_id, paragraf=paragraf, content=content, url=url
+                law_name=law_name,
+                law_id=resolved_id,
+                paragraf=paragraf,
+                content=content,
+                url=url,
+                is_current=is_current,
             )
         else:
             # Document not found at all
@@ -631,13 +641,24 @@ class LovdataService:
             Formatted table of contents with usage guidance
         """
         title = doc.get("title") or doc.get("short_title") or doc.get("dok_id")
+        is_current = doc.get("is_current", True)
+        if not is_current:
+            title = f"{title} (opphevet)"
         total_tokens = sum(s.get("estimated_tokens", 0) for s in sections)
 
         lines = [
             f"### Innholdsfortegnelse: {title}",
             "",
-            f"**Totalt:** {len(sections)} paragrafer (~{total_tokens:,} tokens)",
         ]
+
+        if not is_current:
+            lines.append(
+                "> **Denne loven/forskriften er opphevet.** "
+                "Resultatene kan vaere utdaterte. Bruk `sok()` for a finne gjeldende regelverk."
+            )
+            lines.append("")
+
+        lines.append(f"**Totalt:** {len(sections)} paragrafer (~{total_tokens:,} tokens)")
 
         # Document metadata block (gracefully degrades on SQLite)
         meta_lines = []
@@ -795,16 +816,33 @@ class LovdataService:
         return lines
 
     def _format_response(
-        self, law_name: str, law_id: str, paragraf: str | None, content: str, url: str
+        self,
+        law_name: str,
+        law_id: str,
+        paragraf: str | None,
+        content: str,
+        url: str,
+        is_current: bool | None = None,
     ) -> str:
         """Format successful lookup response."""
         section_header = f"§ {paragraf}" if paragraf else "(hele loven)"
 
-        return f"""## {law_name}
+        header = law_name
+        if is_current is False:
+            header = f"{law_name} (opphevet)"
+
+        warning = ""
+        if is_current is False:
+            warning = (
+                "\n> **Denne loven/forskriften er opphevet.** "
+                "Resultatene kan vaere utdaterte. Bruk `sok()` for a finne gjeldende regelverk.\n"
+            )
+
+        return f"""## {header}
 
 **Paragraf:** {section_header}
 **Lovdata ID:** {law_id}
-
+{warning}
 ---
 
 {content}
@@ -868,6 +906,11 @@ Lovteksten er ikke tilgjengelig i lokal cache.
             f"Looking up regulation: {resolved_id}, section: {paragraf}, max_tokens: {max_tokens}"
         )
 
+        # Get document metadata for is_current check
+        backend = _get_backend_service()
+        doc_meta = backend.get_document(resolved_id) if hasattr(backend, "get_document") else None
+        is_current = doc_meta.get("is_current", True) if doc_meta else None
+
         # Try to fetch from cache (same as laws - both stored in lovdata_sections)
         content = self._fetch_law_content(resolved_id, paragraf, max_tokens=max_tokens)
 
@@ -884,6 +927,7 @@ Lovteksten er ikke tilgjengelig i lokal cache.
                 paragraf=paragraf,
                 content=content,
                 url=url,
+                is_current=is_current,
             )
         else:
             # Document not found at all
@@ -1008,6 +1052,7 @@ Fant {len(results)} treff (alias-søk):
                 search_mode = getattr(r, "search_mode", None)
                 based_on = getattr(r, "based_on", None)
                 legal_area = getattr(r, "legal_area", None)
+                is_current = getattr(r, "is_current", None)
             else:
                 # Dict fallback
                 doc_type_raw = r.get("doc_type", "lov")
@@ -1019,6 +1064,7 @@ Fant {len(results)} treff (alias-søk):
                 search_mode = r.get("search_mode")
                 based_on = r.get("based_on")
                 legal_area = r.get("legal_area")
+                is_current = r.get("is_current")
 
             if search_mode == "or_fallback":
                 used_or_fallback = True
@@ -1028,6 +1074,9 @@ Fant {len(results)} treff (alias-søk):
 
             # Include section_id if available
             section_info = f" § {section_id}" if section_id else ""
+
+            # Mark opphevet documents
+            opphevet_marker = " (opphevet)" if is_current is False else ""
 
             # Show hjemmelslov for forskrifter
             based_on_line = ""
@@ -1039,7 +1088,7 @@ Fant {len(results)} treff (alias-søk):
             if legal_area:
                 legal_area_line = f" | *{legal_area}*"
 
-            result_lines.append(f"""### {doc_type}: {title}{section_info}
+            result_lines.append(f"""### {doc_type}: {title}{opphevet_marker}{section_info}
 **ID:** `{dok_id}`{f" **Paragraf:** `{section_id}`" if section_id else ""}{legal_area_line}{based_on_line}
 
 {snippet}

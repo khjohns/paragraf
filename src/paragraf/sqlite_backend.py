@@ -133,6 +133,7 @@ class LovdataSyncService:
                     is_amendment BOOLEAN DEFAULT FALSE,
                     legal_area TEXT,
                     based_on TEXT,
+                    is_current INTEGER DEFAULT 1,
                     xml_path TEXT,
                     indexed_at TEXT
                 );
@@ -182,6 +183,7 @@ class LovdataSyncService:
                 ("is_amendment", "BOOLEAN", "FALSE"),
                 ("legal_area", "TEXT", "NULL"),
                 ("based_on", "TEXT", "NULL"),
+                ("is_current", "INTEGER", "1"),
             ]:
                 if col not in doc_cols:
                     conn.execute(
@@ -377,6 +379,7 @@ class LovdataSyncService:
         doc_type = "lov" if dataset_name == "lover" else "forskrift"
         indexed = 0
         total_sections = 0
+        seen_dok_ids: set[str] = set()
         is_tty = hasattr(sys.stderr, "isatty") and sys.stderr.isatty()
         idx_start = time.time()
 
@@ -387,6 +390,7 @@ class LovdataSyncService:
                 try:
                     doc = self._parse_xml(xml_path)
                     if doc:
+                        seen_dok_ids.add(doc.dok_id)
                         section_count = self._insert_document(conn, doc, doc_type)
                         indexed += 1
                         total_sections += section_count
@@ -406,12 +410,37 @@ class LovdataSyncService:
             if is_tty and len(xml_files) >= 100:
                 print(file=sys.stderr)
 
+            # Mark documents not in the latest file as non-current
+            self._mark_non_current(conn, doc_type, seen_dok_ids)
+
             conn.commit()
 
             # Rebuild FTS index
             self._rebuild_fts_index(conn)
 
         return indexed, total_sections
+
+    def _mark_non_current(
+        self, conn: sqlite3.Connection, doc_type: str, current_dok_ids: set[str]
+    ) -> None:
+        """Mark documents not in the latest sync file as non-current."""
+        if not current_dok_ids:
+            return
+
+        placeholders = ",".join("?" * len(current_dok_ids))
+        # Mark missing docs as non-current
+        result = conn.execute(
+            f"UPDATE documents SET is_current = 0 WHERE doc_type = ? AND is_current = 1 AND dok_id NOT IN ({placeholders})",
+            [doc_type, *current_dok_ids],
+        )
+        if result.rowcount:
+            logger.info(f"Marked {result.rowcount} {doc_type} documents as non-current")
+
+        # Mark present docs as current (handles "resurrected")
+        conn.execute(
+            f"UPDATE documents SET is_current = 1 WHERE doc_type = ? AND is_current = 0 AND dok_id IN ({placeholders})",
+            [doc_type, *current_dok_ids],
+        )
 
     def _parse_xml(self, xml_path: Path) -> LawDocument | None:
         """
@@ -947,44 +976,47 @@ class LovdataSyncService:
             return dict(doc) if doc else None
 
     def _find_document_row(self, conn: sqlite3.Connection, identifier: str) -> sqlite3.Row | None:
-        """Find document row by various matching strategies."""
+        """Find document row by various matching strategies.
+
+        Prioritizes is_current documents (gjeldende > opphevet).
+        """
         normalized = self._normalize_id(identifier)
 
-        # Exact match on dok_id or ref_id
+        # Exact match on dok_id or ref_id (prioritize current)
         row = conn.execute(
-            "SELECT * FROM documents WHERE dok_id = ? OR ref_id = ?",
+            "SELECT * FROM documents WHERE dok_id = ? OR ref_id = ? ORDER BY is_current DESC LIMIT 1",
             (normalized, normalized),
         ).fetchone()
         if row:
             return row
 
-        # Short title exact match (case-insensitive)
+        # Short title exact match (case-insensitive, prioritize current)
         row = conn.execute(
-            "SELECT * FROM documents WHERE LOWER(short_title) = LOWER(?)",
+            "SELECT * FROM documents WHERE LOWER(short_title) = LOWER(?) ORDER BY is_current DESC LIMIT 1",
             (identifier,),
         ).fetchone()
         if row:
             return row
 
-        # LIKE match on short_title (starts with)
+        # LIKE match on short_title (starts with, prioritize current)
         row = conn.execute(
-            "SELECT * FROM documents WHERE short_title LIKE ? LIMIT 1",
+            "SELECT * FROM documents WHERE short_title LIKE ? ORDER BY is_current DESC LIMIT 1",
             (f"{identifier}%",),
         ).fetchone()
         if row:
             return row
 
-        # LIKE match on short_title (contains)
+        # LIKE match on short_title (contains, prioritize current)
         row = conn.execute(
-            "SELECT * FROM documents WHERE short_title LIKE ? LIMIT 1",
+            "SELECT * FROM documents WHERE short_title LIKE ? ORDER BY is_current DESC LIMIT 1",
             (f"%{identifier}%",),
         ).fetchone()
         if row:
             return row
 
-        # LIKE match on dok_id (contains)
+        # LIKE match on dok_id (contains, prioritize current)
         row = conn.execute(
-            "SELECT * FROM documents WHERE dok_id LIKE ? LIMIT 1",
+            "SELECT * FROM documents WHERE dok_id LIKE ? ORDER BY is_current DESC LIMIT 1",
             (f"%{normalized}%",),
         ).fetchone()
         return row

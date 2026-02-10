@@ -112,6 +112,7 @@ class SearchResult:
     search_mode: str | None = None  # 'and' or 'or_fallback'
     based_on: str | None = None
     legal_area: str | None = None
+    is_current: bool | None = None
 
     @property
     def estimated_tokens(self) -> int:
@@ -241,6 +242,9 @@ class LovdataSupabaseService:
 
         try:
             stats = self._stream_sync(url, doc_type)
+
+            # Mark documents not in the latest file as non-current
+            self._mark_non_current(doc_type, stats["seen_dok_ids"])
 
             # Update sync metadata
             self._set_sync_status(
@@ -392,7 +396,25 @@ class LovdataSupabaseService:
             "structures": total_structures,
             "errors": parse_errors + flush_errors,
             "elapsed": total_elapsed,
+            "seen_dok_ids": seen_dok_ids,
         }
+
+    def _mark_non_current(self, doc_type: str, current_dok_ids: set[str]) -> None:
+        """Mark documents not in the latest sync file as non-current.
+
+        Uses a PostgreSQL RPC function for efficiency (two UPDATE statements
+        instead of N+1 queries).
+        """
+        try:
+            result = self.client.rpc(
+                "mark_non_current_docs",
+                {"p_doc_type": doc_type, "p_current_ids": list(current_dok_ids)},
+            ).execute()
+            count = result.data if result.data else 0
+            if count:
+                logger.info(f"Marked {count} {doc_type} documents as non-current")
+        except Exception as e:
+            logger.warning(f"Failed to mark non-current {doc_type} documents: {e}")
 
     # Max rows per upsert to avoid Supabase statement timeout
     SECTION_CHUNK_SIZE = 50
@@ -1145,6 +1167,7 @@ class LovdataSupabaseService:
                     search_mode=row.get("search_mode"),
                     based_on=row.get("based_on"),
                     legal_area=row.get("legal_area"),
+                    is_current=row.get("is_current"),
                 )
             )
 
@@ -1359,11 +1382,13 @@ class LovdataSupabaseService:
                 return result.data[0]
 
         # Try ILIKE match for partial dok_id (handles year variations)
+        # Prioritize is_current documents
         for candidate in candidates:
             result = (
                 self.client.table("lovdata_documents")
                 .select("*")
                 .ilike("dok_id", f"%{candidate}%")
+                .order("is_current", desc=True)
                 .limit(1)
                 .execute()
             )
@@ -1378,6 +1403,7 @@ class LovdataSupabaseService:
                 self.client.table("lovdata_documents")
                 .select("*")
                 .ilike("short_title", pattern)
+                .order("is_current", desc=True)
                 .limit(10)
                 .execute()
             )
@@ -1393,30 +1419,34 @@ class LovdataSupabaseService:
         """Pick best document from multiple short_title matches.
 
         Ranking (highest wins):
+        is_current is the highest tiebreaker (gjeldende > opphevet).
+
+        Category score:
         5 - Exact title match
         4 - Title starts with identifier as complete word ("skatteloven – sktl")
         3 - Title starts with identifier but word continues ("straffelovens ...")
         2 - Contains identifier, not an amendment law
         1 - Amendment ("Endringslov til ...", "Endr. i ...")
 
-        Tiebreaker: shorter title wins (more likely the main law).
+        Final tiebreaker: shorter title wins (more likely the main law).
         """
         ident_lower = identifier.lower()
         ident_len = len(ident_lower)
 
-        def _score(doc: dict) -> tuple[int, int]:
+        def _score(doc: dict) -> tuple[int, int, int]:
+            is_current = 1 if doc.get("is_current", True) else 0
             title = (doc.get("short_title") or "").lower()
             if title == ident_lower:
-                return (5, -len(title))
+                return (is_current, 5, -len(title))
             if title.startswith(ident_lower):
                 # Check word boundary after identifier
                 next_char = title[ident_len] if len(title) > ident_len else ""
                 if next_char in ("", " ", "-", "\u2013", "\u2014", ",", "."):
-                    return (4, -len(title))
-                return (3, -len(title))
+                    return (is_current, 4, -len(title))
+                return (is_current, 3, -len(title))
             if not (title.startswith("endringslov") or title.startswith("endr.")):
-                return (2, -len(title))
-            return (1, -len(title))
+                return (is_current, 2, -len(title))
+            return (is_current, 1, -len(title))
 
         docs.sort(key=_score, reverse=True)
         return docs[0]
