@@ -77,6 +77,9 @@ ma finnes i begge. Se ADR-001.2 for detaljer.
 ```
 Lovdata API (tar.bz2) -> Streaming download -> XML-parsing -> Upsert til DB
                                                                   |
+                                                          mark_non_current_docs()
+                                                          (opphevede lover markeres)
+                                                                  |
                                                           embed.py (Gemini API)
                                                                   |
                                                           pgvector embeddings
@@ -138,7 +141,7 @@ Prosjektet bruker Supabase-prosjektet **unified-timeline** (`iyetsvrteyzpirygxen
 
 | Tabell | Innhold | Antall |
 |--------|---------|--------|
-| `lovdata_documents` | Lover og forskrifter (is_amendment, legal_area, based_on). legal_area: 100% lov, ~83% forskrift (utledet fra hjemmelslov) | ~4 450 |
+| `lovdata_documents` | Lover og forskrifter (is_amendment, is_current, legal_area, based_on). legal_area: 100% lov, ~83% forskrift (utledet fra hjemmelslov). is_current: markerer opphevede lover/forskrifter etter sync | ~4 450 |
 | `lovdata_sections` | Paragrafer med tekst + embedding | ~92 000 (100% embedded) |
 | `lovdata_structure` | Hierarki (del/kapittel/avsnitt/vedlegg) | ~14 800 |
 | `lovdata_sync_meta` | Sync-tidspunkt per datasett | 2 |
@@ -147,6 +150,7 @@ Prosjektet bruker Supabase-prosjektet **unified-timeline** (`iyetsvrteyzpirygxen
 - GIN pa `search_vector` (FTS)
 - GIN pa `short_title` (pg_trgm fuzzy)
 - B-tree pa `is_amendment` (endringslov-filter)
+- B-tree pa `is_current` (opphevet-filter)
 - IVFFlat pa `embedding` (vektorsok, lists=100)
 
 ## Viktige filer
@@ -163,6 +167,7 @@ Prosjektet bruker Supabase-prosjektet **unified-timeline** (`iyetsvrteyzpirygxen
 | `migrations/004_fix_concatenated_metadata.sql` | Fiks "; "-delimiter i based_on/legal_area, dropp tomme kolonner |
 | `migrations/005_legal_area_in_search_results.sql` | legal_area i sokeresultater, stotter rettsomrader-verktoy |
 | `migrations/006_derive_forskrift_legal_area.sql` | Utled rettsomrade for forskrifter fra hjemmelslov |
+| `migrations/007_is_current_flag.sql` | is_current-kolonne, mark_non_current_docs RPC, oppdaterte sokefunksjoner |
 | `scripts/embed.py` | Embedding-generering |
 | `tests/test_mcp_tools.sh` | 75 integrasjonstester for alle 11 MCP-verktoy |
 
