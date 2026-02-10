@@ -296,7 +296,7 @@ function ToolsAccordion() {
     <div className="mb-4 sm:mb-6">
       <button
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-1.5 text-xs text-pkt-text-body-subtle hover:text-pkt-text-body-dark transition-colors"
+        className="flex items-center gap-1.5 py-2 text-xs text-pkt-text-body-subtle hover:text-pkt-text-body-dark transition-colors"
       >
         <ChevronDownIcon
           className={`w-3.5 h-3.5 transition-transform duration-200 ${open ? 'rotate-0' : '-rotate-90'}`}
@@ -447,7 +447,7 @@ export function LandingPage() {
         style={{ background: 'radial-gradient(ellipse, var(--color-pkt-brand-blue-1000) 0%, transparent 70%)' }}
       />
       {/* Left side - Simulation only (hidden on mobile) */}
-      <div className="hidden lg:flex lg:w-1/2 xl:w-3/5 bg-pkt-brand-dark-blue-1000 relative overflow-hidden items-center justify-center">
+      <div className="hidden lg:flex lg:w-1/2 xl:w-3/5 lg:h-screen lg:sticky lg:top-0 bg-pkt-brand-dark-blue-1000 relative overflow-hidden items-center justify-center">
         {/* Grid pattern */}
         <div
           className="absolute inset-0 opacity-5"
