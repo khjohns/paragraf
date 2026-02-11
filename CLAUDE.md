@@ -168,6 +168,7 @@ Prosjektet bruker Supabase-prosjektet **unified-timeline** (`iyetsvrteyzpirygxen
 | `migrations/005_legal_area_in_search_results.sql` | legal_area i sokeresultater, stotter rettsomrader-verktoy |
 | `migrations/006_derive_forskrift_legal_area.sql` | Utled rettsomrade for forskrifter fra hjemmelslov |
 | `migrations/007_is_current_flag.sql` | is_current-kolonne, mark_non_current_docs RPC, oppdaterte sokefunksjoner |
+| `migrations/008_drop_unused_index_and_api_keys.sql` | Fjern ubrukt idx_lovdata_documents_search, dropp paragraf_api_keys |
 | `scripts/embed.py` | Embedding-generering |
 | `tests/test_mcp_tools.sh` | 75 integrasjonstester for alle 11 MCP-verktoy |
 
