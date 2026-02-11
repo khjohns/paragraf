@@ -18,7 +18,7 @@ Data synkroniseres fra Lovdata sitt gratis Public Data API (NLOD 2.0-lisens).
 | Vektorsok | pgvector IVFFlat + Gemini gemini-embedding-001 |
 | Sync | Streaming fra Lovdata API (tar.bz2) |
 | Hosting | GitHub Pages (paragraf.dev), Cloudflare DNS |
-| Linting | Ruff (pre-commit hook) |
+| Linting | Ruff (PostToolUse hook pa Edit/Write) |
 
 ## Mappestruktur
 
@@ -38,40 +38,45 @@ src/paragraf/
 scripts/
   embed.py             # Generer embeddings for alle seksjoner
 
-migrations/
-  001_complete_schema.sql  # Supabase-skjema (tabeller, indekser, sokefunksjoner)
-  002_document_metadata.sql  # is_amendment, metadata-kolonner, oppdaterte sokefunksjoner
-  003_search_enhancements.sql  # doc_type/legal_area-filtre, based_on i sok
+migrations/              # Referansekopi av Supabase-migrasjoner (001-008)
 
 web/
-  app.py               # Standalone Flask-app (hosted deploy)
+  app.py               # Flask blueprint for hosted MCP (unified-timeline)
 
 site/                    # GitHub Pages landingsside (paragraf.dev)
 
 docs/
-  ADR-001.md           # Arkitekturbeslutninger (les denne for dypere forstaelse)
+  ADR-001.md           # Arkitekturbeslutninger, skjemadetaljer, indekser
 ```
 
-## Arkitektur
+## Konvensjoner
 
-### Dual backend
+### Kodestil
+- **Sprak:** Norske MCP-verktoy og parameternavn (`sok`, `rettsomrade`, `inkluder_endringslover`). Engelsk i Python-kode (variabelnavn, docstrings, kommentarer).
+- **Formatering:** Ruff (kjores automatisk via PostToolUse hook pa Edit/Write av .py-filer)
+- **Typing:** Bruk type hints. Pyright brukes for statisk analyse.
+
+### Dual backend-paritet
 `service.py` velger backend basert pa `SUPABASE_URL`:
-- **Satt:** Bruker `LovdataSupabaseService` (PostgreSQL)
-- **Ikke satt:** Bruker `LovdataSyncService` (SQLite)
+- **Satt:** `LovdataSupabaseService` (PostgreSQL)
+- **Ikke satt:** `LovdataSyncService` (SQLite)
 
-**Viktig:** Begge backends ma holdes i paritet. Nar du legger til metoder, felt eller endrer
-datamodellen i en backend, oppdater den andre. `service.py` bruker `hasattr()`-sjekker for
-valgfrie metoder, men kritiske metoder (`get_section`, `search`, `list_sections`, `is_synced`)
-ma finnes i begge. Se ADR-001.2 for detaljer.
+Begge backends ma holdes i paritet. Nar du legger til metoder, felt eller endrer datamodellen
+i en backend, oppdater den andre. Kritiske metoder som ma finnes i begge:
+`get_section`, `search`, `list_sections`, `is_synced`. Se ADR-001.2 for detaljer.
 
-**Kjente mangler i SQLite** (kun Supabase):
-- Vektorsok / semantisk sok (pgvector + Gemini embeddings)
-- Fuzzy matching av lovnavn (`pg_trgm`)
-- Hierarkisk struktur i innholdsfortegnelse (`lovdata_structure`)
-- `list_legal_areas()` / `rettsomrader()`-verktoy
-- AND→OR fallback i fulltekstsok
-- `legal_area` i sokeresultater
-- Token-aware snippets i sok
+### Database/SQL
+- **Migrasjoner:** Kjores via Supabase MCP (`apply_migration`). Filene i `migrations/` er referansekopi - hold dem oppdatert. Historiske migrasjonsfiler skal ikke endres.
+- **RLS-policies:** Separate policies per operasjon (`SELECT`, `INSERT`, `UPDATE`, `DELETE`) - aldri `FOR ALL`. Unnga multiple permissive policies for samme rolle/action. Bruk `(select auth.role())` i stedet for `auth.role()` for a unnga re-evaluering per rad.
+- **SQL-funksjoner:** Alltid `SET search_path = ''` og `public.`-prefiks pa tabellreferanser.
+
+### Testing
+Ingen automatisert test-suite. Verifiser endringer med direkte SQL via Supabase MCP:
+- `execute_sql` for a sjekke data og sokefunksjoner
+- `get_advisors` (security + performance) etter DDL-endringer
+- `tests/test_mcp_tools.sh` finnes for integrasjonstester av MCP-verktoy (75 tester)
+
+## Arkitektur
 
 ### Datapipeline
 ```
@@ -127,50 +132,14 @@ paragraf status             # Vis sync-status
 python3 scripts/embed.py --dry-run    # Sjekk antall manglende + kostnad
 python3 scripts/embed.py              # Generer embeddings
 python3 scripts/embed.py --max-time 25  # Tidsbegrenset (Supabase free tier)
-
-# Linting (pre-commit hook kjorer automatisk)
-ruff check src/ scripts/
-ruff format src/ scripts/
 ```
 
 ## Supabase
 
 Prosjektet bruker Supabase-prosjektet **unified-timeline** (`iyetsvrteyzpirygxenu`).
 
-### Tabeller
-
-| Tabell | Innhold | Antall |
-|--------|---------|--------|
-| `lovdata_documents` | Lover og forskrifter (is_amendment, is_current, legal_area, based_on). legal_area: 100% lov, ~83% forskrift (utledet fra hjemmelslov). is_current: markerer opphevede lover/forskrifter etter sync | ~4 450 |
-| `lovdata_sections` | Paragrafer med tekst + embedding | ~92 000 (100% embedded) |
-| `lovdata_structure` | Hierarki (del/kapittel/avsnitt/vedlegg) | ~14 800 |
-| `lovdata_sync_meta` | Sync-tidspunkt per datasett | 2 |
-
-### Viktige indekser
-- GIN pa `search_vector` (FTS)
-- GIN pa `short_title` (pg_trgm fuzzy)
-- B-tree pa `is_amendment` (endringslov-filter)
-- B-tree pa `is_current` (opphevet-filter)
-- IVFFlat pa `embedding` (vektorsok, lists=100)
-
-## Viktige filer
-
-| Fil | Innhold |
-|-----|---------|
-| `src/paragraf/service.py` | Hovedfasade - all forretningslogikk |
-| `src/paragraf/supabase_backend.py` | Sync, sok, oppslag mot Supabase |
-| `src/paragraf/server.py` | MCP JSON-RPC protokoll |
-| `docs/ADR-001.md` | Alle arkitekturbeslutninger |
-| `migrations/001_complete_schema.sql` | Database-skjema (tabeller, sokefunksjoner) |
-| `migrations/002_document_metadata.sql` | Metadata-kolonner + oppdaterte sokefunksjoner |
-| `migrations/003_search_enhancements.sql` | doc_type/legal_area-filtre, based_on i resultater |
-| `migrations/004_fix_concatenated_metadata.sql` | Fiks "; "-delimiter i based_on/legal_area, dropp tomme kolonner |
-| `migrations/005_legal_area_in_search_results.sql` | legal_area i sokeresultater, stotter rettsomrader-verktoy |
-| `migrations/006_derive_forskrift_legal_area.sql` | Utled rettsomrade for forskrifter fra hjemmelslov |
-| `migrations/007_is_current_flag.sql` | is_current-kolonne, mark_non_current_docs RPC, oppdaterte sokefunksjoner |
-| `migrations/008_drop_unused_index_and_api_keys.sql` | Fjern ubrukt idx_lovdata_documents_search, dropp paragraf_api_keys |
-| `scripts/embed.py` | Embedding-generering |
-| `tests/test_mcp_tools.sh` | 75 integrasjonstester for alle 11 MCP-verktoy |
+Tabeller: `lovdata_documents`, `lovdata_sections`, `lovdata_structure`, `lovdata_sync_meta`.
+Se `docs/ADR-001.md` for skjemadetaljer, indekser og sokefunksjoner.
 
 ## Begrensninger
 
@@ -182,12 +151,12 @@ Kun **gjeldende lover og sentrale forskrifter** er tilgjengelig (gratis Lovdata 
 
 ## Vedlikehold av denne filen
 
-Nar du gjor endringer som pavirker arkitektur, kommandoer, datamodell eller verktoy, vurder om CLAUDE.md bor oppdateres. Foreslaa endringer til brukeren nar:
-- Nye MCP-verktoy legges til eller endres
-- Mappestruktur eller viktige filer endres
-- Nye scripts eller kommandoer introduseres
-- Tech stack eller avhengigheter endres vesentlig
-- Begrensninger eller datadekning endres
+**Oppdater CLAUDE.md** nar du endrer:
+- MCP-verktoy (navn, parametere, nye verktoy)
+- Mappestruktur eller viktige filer
+- Kommandoer eller scripts
+- Datamodell, migrasjoner eller konvensjoner
+- Tech stack eller begrensninger
 
 ## Relaterte prosjekter
 

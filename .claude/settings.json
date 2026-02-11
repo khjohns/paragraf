@@ -1,0 +1,24 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "FILE_PATH=$(echo \"$TOOL_INPUT\" | jq -r '.file_path // empty'); if [[ \"$FILE_PATH\" == *.py ]]; then RUFF=\"${CLAUDE_PROJECT_DIR}/venv/bin/ruff\"; if [ ! -f \"$RUFF\" ]; then RUFF=ruff; fi; $RUFF check --fix \"$FILE_PATH\" 2>&1 && $RUFF format \"$FILE_PATH\" 2>&1; fi"
+          }
+        ]
+      },
+      {
+        "matcher": "mcp__plugin_supabase_supabase__apply_migration",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '{\"systemMessage\": \"VIKTIG: Migrasjon kjort i Supabase. Husk a lagre en kopi av SQL-en i migrations/-mappen med neste ledige nummer (se eksisterende filer for format). Oppdater ogsa CLAUDE.md hvis migrasjonen endrer skjema, verktoy eller konvensjoner.\"}'"
+          }
+        ]
+      }
+    ]
+  }
+}
