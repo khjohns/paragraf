@@ -332,6 +332,18 @@ assert_contains "2.10a has multiple depts" "$TEXT" "departement"
 echo ""
 
 # ============================================================
+# 2.10b rettsomrader
+# ============================================================
+echo "--- 2.10b rettsomrader ---"
+
+OUT=$(call_tool "rettsomrader" '{}')
+TEXT=$(extract_text "$OUT")
+assert_no_error "2.10b rettsomrader() no error" "$OUT"
+assert_contains "2.10b has legal areas" "$TEXT" "rett"
+
+echo ""
+
+# ============================================================
 # 2.11 liste
 # ============================================================
 echo "--- 2.11 liste ---"
