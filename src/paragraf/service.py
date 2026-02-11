@@ -23,6 +23,7 @@ import logging
 import os
 import re
 from pathlib import Path
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -221,7 +222,7 @@ class LovdataService:
         MIN_FUZZY_LENGTH = 8
         if len(alias) >= MIN_FUZZY_LENGTH and hasattr(backend, "find_similar_law"):
             try:
-                similar = backend.find_similar_law(alias, threshold=0.4)
+                similar = backend.find_similar_law(alias, threshold=0.4)  # type: ignore[attr-defined]
                 if similar:
                     logger.info(
                         f"Fuzzy match: '{alias}' -> '{similar['short_title']}' (similarity: {similar['similarity']:.2f})"
@@ -388,7 +389,7 @@ class LovdataService:
                 if doc:
                     sections = backend.list_sections(lov_id)
                     structures = (
-                        backend.list_structures(lov_id)
+                        backend.list_structures(lov_id)  # type: ignore[attr-defined]
                         if hasattr(backend, "list_structures")
                         else []
                     )
@@ -1034,7 +1035,7 @@ Fant {len(results)} treff (alias-søk):
 **Søk på Lovdata:** https://lovdata.no/sok?q={query.replace(" ", "+")}
 """
 
-    def _format_fts_results(self, query: str, results: list[dict]) -> str:
+    def _format_fts_results(self, query: str, results: list[Any]) -> str:
         """Format full-text search results."""
         result_lines = []
         used_or_fallback = False
@@ -1255,7 +1256,7 @@ Fant {len(results)} treff (fulltekstsøk):
             return "**Feil:** Denne funksjonen krever Supabase-backend."
 
         try:
-            areas = backend.list_legal_areas()
+            areas = backend.list_legal_areas()  # type: ignore[attr-defined]
         except Exception as e:
             logger.warning(f"Failed to list legal areas: {e}")
             return "**Feil:** Kunne ikke hente rettsområdeliste."

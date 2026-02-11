@@ -181,7 +181,7 @@ def extract_structure_hierarchy(
     # Find all section elements with class="section"
     for section_elem in soup.find_all("section", class_="section"):
         # Skip if this is a legalArticle (paragraph, not structure)
-        classes = section_elem.get("class", [])
+        classes = section_elem.get("class") or []
         if isinstance(classes, str):
             classes = classes.split()
         if "legalArticle" in classes:
@@ -217,7 +217,8 @@ def extract_structure_hierarchy(
         # Create structure record
         # Note: API XML uses 'id' attribute, not 'data-absoluteaddress'
         structure_key = f"{match.structure_type}:{match.structure_id}"
-        element_id = section_elem.get("id") or section_elem.get("data-absoluteaddress")
+        raw_id = section_elem.get("id") or section_elem.get("data-absoluteaddress")
+        element_id = raw_id if isinstance(raw_id, str) else None
         record = StructureRecord(
             dok_id=dok_id,
             structure_type=match.structure_type,
@@ -236,7 +237,7 @@ def extract_structure_hierarchy(
         # Use 'id' attribute for matching (paragraphs have id starting with section id)
         for article in section_elem.find_all("article", class_="legalArticle"):
             article_id = article.get("id") or article.get("data-absoluteaddress")
-            if article_id:
+            if isinstance(article_id, str):
                 section_mapping[article_id] = structure_key
 
     return structures, section_mapping

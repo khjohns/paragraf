@@ -188,7 +188,7 @@ def generate_embeddings_batch(
         config=types.EmbedContentConfig(task_type=task_type, output_dimensionality=EMBEDDING_DIM),
     )
     # Normalize embeddings (required for 768/1536 dim)
-    return [normalize_embedding(list(emb.values)) for emb in result.embeddings]
+    return [normalize_embedding(list(emb.values or [])) for emb in (result.embeddings or [])]
 
 
 def update_section_embeddings(supabase, updates: list[dict], max_retries: int = 3) -> int:

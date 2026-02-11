@@ -10,6 +10,7 @@ import math
 import os
 from dataclasses import dataclass
 from functools import lru_cache
+from typing import Any
 
 from paragraf._supabase_utils import get_shared_client, with_retry
 
@@ -135,9 +136,10 @@ class LovdataVectorSearch:
             "search_lovdata", {"query_text": query, "max_results": limit}
         ).execute()
 
-        if not result.data:
+        if not result.data or not isinstance(result.data, list):
             return []
 
+        rows: list[dict[str, Any]] = result.data  # type: ignore[assignment]
         return [
             VectorSearchResult(
                 dok_id=row["dok_id"],
@@ -153,7 +155,7 @@ class LovdataVectorSearch:
                 fts_rank=row.get("rank", 0.0),
                 combined_score=row.get("rank", 0.0),
             )
-            for row in result.data
+            for row in rows
         ]
 
     @with_retry()
@@ -207,9 +209,10 @@ class LovdataVectorSearch:
             },
         ).execute()
 
-        if not result.data:
+        if not result.data or not isinstance(result.data, list):
             return []
 
+        rows: list[dict[str, Any]] = result.data  # type: ignore[assignment]
         return [
             VectorSearchResult(
                 dok_id=row["dok_id"],
@@ -225,7 +228,7 @@ class LovdataVectorSearch:
                 fts_rank=row["fts_rank"],
                 combined_score=row["combined_score"],
             )
-            for row in result.data
+            for row in rows
         ]
 
     def search_semantic_only(
@@ -247,9 +250,10 @@ class LovdataVectorSearch:
             },
         ).execute()
 
-        if not result.data:
+        if not result.data or not isinstance(result.data, list):
             return []
 
+        rows: list[dict[str, Any]] = result.data  # type: ignore[assignment]
         return [
             VectorSearchResult(
                 dok_id=row["dok_id"],
@@ -265,7 +269,7 @@ class LovdataVectorSearch:
                 fts_rank=0.0,
                 combined_score=row["similarity"],
             )
-            for row in result.data
+            for row in rows
         ]
 
     def search_fts_only(self, query: str, limit: int = 10) -> list[VectorSearchResult]:
@@ -274,17 +278,19 @@ class LovdataVectorSearch:
 
     def get_embedding_stats(self) -> dict:
         """Get statistics about embeddings in database."""
-        total = self.supabase.table("lovdata_sections").select("id", count="exact").execute()
+        total = self.supabase.table("lovdata_sections").select("id", count="exact").execute()  # type: ignore[arg-type]
 
         embedded = (
             self.supabase.table("lovdata_sections")
-            .select("id", count="exact")
+            .select("id", count="exact")  # type: ignore[arg-type]
             .not_.is_("embedding", "null")
             .execute()
         )
 
+        total_count = total.count or 0
+        embedded_count = embedded.count or 0
         return {
-            "total_sections": total.count,
-            "embedded_sections": embedded.count,
-            "coverage_pct": (embedded.count / total.count * 100) if total.count > 0 else 0,
+            "total_sections": total_count,
+            "embedded_sections": embedded_count,
+            "coverage_pct": (embedded_count / total_count * 100) if total_count > 0 else 0,
         }

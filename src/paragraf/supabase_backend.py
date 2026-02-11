@@ -157,7 +157,7 @@ class LovdataSupabaseService:
                 "Set SUPABASE_URL and SUPABASE_SECRET_KEY environment variables."
             )
 
-        self.client: Client = create_client(self.url, self.key)
+        self.client: Client = create_client(self.url, self.key)  # type: ignore[possibly-undefined]
         logger.info("LovdataSupabaseService initialized")
 
     # -------------------------------------------------------------------------
@@ -492,6 +492,7 @@ class LovdataSupabaseService:
         Returns:
             (document, sections, structures) tuple
         """
+        dok_id = "unknown"
         try:
             soup = BeautifulSoup(content, "html.parser")
 
@@ -537,7 +538,7 @@ class LovdataSupabaseService:
             return doc, sections, structures
 
         except Exception as e:
-            logger.error(f"Parse error for {dok_id if 'dok_id' in dir() else 'unknown'}: {e}")
+            logger.error(f"Parse error for {dok_id}: {e}")
             return None, [], []
 
     def _extract_sections(self, soup: BeautifulSoup, dok_id: str) -> list[dict]:
@@ -559,7 +560,9 @@ class LovdataSupabaseService:
         # Strategy 2: Find elements with data-absoluteaddress containing /paragraf/
         if not sections:
             for elem in soup.find_all(attrs={"data-absoluteaddress": True}):
-                addr = elem.get("data-absoluteaddress", "")
+                addr = elem.get("data-absoluteaddress")
+                if not isinstance(addr, str):
+                    continue
                 if "/paragraf/" in addr and "/ledd/" not in addr:
                     section = self._parse_element_by_address(elem, dok_id, addr)
                     if section and section["section_id"] not in seen_ids:
