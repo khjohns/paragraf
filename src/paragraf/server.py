@@ -207,6 +207,7 @@ class MCPServer:
             {
                 "name": "lov",
                 "title": "Lovoppslag",
+                "annotations": {"readOnlyHint": True},
                 "description": (
                     "Slå opp norsk lov eller spesifikk paragraf fra Lovdata. "
                     "Støtter kortnavn (avhendingslova, buofl, pbl, aml) eller full ID. "
@@ -246,6 +247,7 @@ class MCPServer:
             {
                 "name": "forskrift",
                 "title": "Forskriftsoppslag",
+                "annotations": {"readOnlyHint": True},
                 "description": (
                     "Slå opp norsk forskrift fra Lovdata. "
                     "Eksempel: forskrift('byggherreforskriften', '5')"
@@ -269,6 +271,7 @@ class MCPServer:
             {
                 "name": "sok",
                 "title": "Søk i Lovdata (FTS)",
+                "annotations": {"readOnlyHint": True},
                 "description": (
                     "Fulltekstsøk i norske lover. Raskt og presist når du kjenner termene. "
                     'Støtter: OR, "frase", -ekskluder. '
@@ -325,6 +328,7 @@ class MCPServer:
             {
                 "name": "semantisk_sok",
                 "title": "Semantisk søk (AI)",
+                "annotations": {"readOnlyHint": True},
                 "description": (
                     "Hybrid vektorsøk med AI-embeddings. Beste for naturlig språk og synonymer. "
                     "Finner relaterte paragrafer selv om ordene ikke matcher eksakt. "
@@ -381,6 +385,7 @@ class MCPServer:
             {
                 "name": "hent_flere",
                 "title": "Hent flere paragrafer",
+                "annotations": {"readOnlyHint": True},
                 "description": (
                     "Hent flere paragrafer fra samme lov i ett kall. "
                     "Mer effektivt enn flere separate lov()-kall. "
@@ -409,6 +414,7 @@ class MCPServer:
             {
                 "name": "liste",
                 "title": "Aliaser",
+                "annotations": {"readOnlyHint": True},
                 "description": (
                     "Vis forhåndsdefinerte aliaser (snarveier) for vanlige lover. "
                     "MERK: Dette er IKKE en komplett liste - alle 770+ lover i Lovdata "
@@ -419,6 +425,7 @@ class MCPServer:
             {
                 "name": "sync",
                 "title": "Synkroniser",
+                "annotations": {"destructiveHint": True, "readOnlyHint": False},
                 "description": (
                     "Synkroniser lovdata fra Lovdata API. "
                     "Laster ned gjeldende lover og forskrifter til lokal cache. "
@@ -439,6 +446,7 @@ class MCPServer:
             {
                 "name": "status",
                 "title": "Synkroniseringsstatus",
+                "annotations": {"readOnlyHint": True},
                 "description": (
                     "Vis status for synkronisert lovdata. "
                     "Viser når data sist ble synkronisert og antall dokumenter."
@@ -448,6 +456,7 @@ class MCPServer:
             {
                 "name": "sjekk_storrelse",
                 "title": "Sjekk paragrafstørrelse",
+                "annotations": {"readOnlyHint": True},
                 "description": (
                     "Sjekk størrelsen på en paragraf før henting. "
                     "Returnerer estimert antall tokens. "
@@ -469,6 +478,7 @@ class MCPServer:
             {
                 "name": "relaterte_forskrifter",
                 "title": "Forskrifter med hjemmel i lov",
+                "annotations": {"readOnlyHint": True},
                 "description": (
                     "Finn forskrifter som har hjemmel i en gitt lov. "
                     "Nyttig for å se hvilke forskrifter som utfyller en lov. "
@@ -488,6 +498,7 @@ class MCPServer:
             {
                 "name": "departementer",
                 "title": "Liste over departementer",
+                "annotations": {"readOnlyHint": True},
                 "description": (
                     "List alle departementer som har lover/forskrifter. "
                     "Bruk dette for å finne gyldige filterverdier for "
@@ -498,6 +509,7 @@ class MCPServer:
             {
                 "name": "rettsomrader",
                 "title": "Liste over rettsområder",
+                "annotations": {"readOnlyHint": True},
                 "description": (
                     "List alle rettsområder (juridiske fagfelt) som finnes i databasen. "
                     "Bruk dette for å finne gyldige filterverdier for "
