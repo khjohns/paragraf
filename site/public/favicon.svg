@@ -12,6 +12,6 @@
     <text x="60" y="82" font-family="Georgia, 'Times New Roman', serif" font-size="72" font-weight="700" fill="white" text-anchor="middle">§</text>
   </g>
   <g clip-path="url(#r)" transform="translate(3, 3)">
-    <text x="60" y="82" font-family="Georgia, 'Times New Roman', serif" font-size="72" font-weight="700" fill="#4ADE80" text-anchor="middle">§</text>
+    <text x="60" y="82" font-family="Georgia, 'Times New Roman', serif" font-size="72" font-weight="700" fill="#DC2626" text-anchor="middle">§</text>
   </g>
 </svg>

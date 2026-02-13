@@ -618,12 +618,21 @@ function InfoCard({ onShowGuide }: { onShowGuide: () => void }) {
             <clipPath id="logo-r"><rect x="60" y="0" width="60" height="120"/></clipPath>
           </defs>
           <rect width="120" height="120" rx="20" fill="#1B2A4A"/>
-          <g clipPath="url(#logo-l)" transform="translate(-3, -3)">
+          {/* White half — slow terminal blink, stays in split position */}
+          <g clipPath="url(#logo-l)" transform="translate(-3 -3)">
+            <animate attributeName="opacity" values="1;0;1;0;1;1" keyTimes="0;0.15;0.3;0.45;0.55;1" calcMode="discrete" dur="2.5s" begin="0.5s" repeatCount="1" fill="freeze"/>
             <text x="60" y="82" fontFamily="Georgia, 'Times New Roman', serif" fontSize="72" fontWeight="700" fill="white" textAnchor="middle">§</text>
           </g>
-          <g clipPath="url(#logo-r)" transform="translate(3, 3)">
-            <text x="60" y="82" fontFamily="Georgia, 'Times New Roman', serif" fontSize="72" fontWeight="700" fill="#4ADE80" textAnchor="middle">§</text>
+          {/* Red half — slides in from below, lands at split position */}
+          <g clipPath="url(#logo-r)" transform="translate(8 20)" opacity="0">
+            <animate attributeName="opacity" from="0" to="1" begin="1.2s" dur="0.4s" fill="freeze"/>
+            <animateTransform attributeName="transform" type="translate" from="8 20" to="3 3" begin="1.2s" dur="1.3s" fill="freeze" calcMode="spline" keySplines="0.16 1 0.3 1"/>
+            <text x="60" y="82" fontFamily="Georgia, 'Times New Roman', serif" fontSize="72" fontWeight="700" fill="#DC2626" textAnchor="middle">§</text>
           </g>
+          {/* Arrival flash */}
+          <rect width="120" height="120" rx="20" fill="white" opacity="0">
+            <animate attributeName="opacity" values="0;0.12;0" keyTimes="0;0.4;1" begin="2.3s" dur="0.4s" repeatCount="1" fill="freeze"/>
+          </rect>
         </svg>
         <div>
           <h1 className="text-xl font-bold text-pkt-text-body-dark">Paragraf</h1>
