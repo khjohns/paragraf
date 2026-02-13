@@ -2,7 +2,8 @@
  * Paragraf Landing Page
  *
  * Split layout with animated law lookup simulation on the left
- * and info card on the right.
+ * and info card on the right. "Se eksempler" transitions the left
+ * panel from terminal to a readable examples view.
  */
 
 import { useEffect, useState, useMemo } from 'react';
@@ -14,6 +15,7 @@ import {
   CopyIcon,
   InfoCircledIcon,
   ChevronDownIcon,
+  ArrowLeftIcon,
 } from '@radix-ui/react-icons';
 
 const MCP_URL = import.meta.env.VITE_MCP_URL || '';
@@ -138,6 +140,289 @@ function LawLookupSimulation() {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// Guide Panel (replaces left side when "Mer informasjon" is clicked)
+// ============================================================================
+
+const examples = [
+  {
+    question: 'Hva sier loven om prøvetid?',
+    tag: 'Direkte oppslag',
+    how: 'Paragraf slår opp arbeidsmiljøloven § 15-6 direkte og returnerer lovteksten.',
+    tool: 'lov("aml", "15-6")',
+    result:
+      '§ 15-6 Oppsigelsesvern i arbeidsavtaler med bestemt prøvetid\n\n' +
+      'Blir arbeidstaker som skriftlig er ansatt på en bestemt prøvetid, sagt opp, ' +
+      'må oppsigelsen være begrunnet i arbeidstakers tilpasning til arbeidet, ' +
+      'faglige dyktighet eller pålitelighet.',
+  },
+  {
+    question: 'Hvilke lover regulerer personvern?',
+    tag: 'Fulltekstsøk',
+    how: 'Paragraf søker på tvers av alle 92 000 paragrafer og finner relevante treff i flere lover.',
+    tool: 'sok("personvern")',
+    result:
+      'Finner treff i personopplysningsloven (GDPR), helseregisterloven, ' +
+      'politiregisterloven, pasientjournalloven m.fl. — med lenke til hver paragraf ' +
+      'slik at du kan lese videre.',
+  },
+  {
+    question: 'What are the rules if I discover hidden defects after buying a house?',
+    tag: 'KI-søk',
+    how: 'KI-søk forstår spørsmål på tvers av språk. Et engelsk spørsmål om «hidden defects» ' +
+      'matcher «mangel» i norsk lovtekst.',
+    tool: 'semantisk_sok("skjulte feil ved boligkjøp")',
+    result:
+      'Finner avhendingslova § 4-12 om prisavslag og § 3-9 om «som den er»-forbehold, ' +
+      'selv om brukeren ikke kjenner de juridiske termene.',
+  },
+];
+
+const setupSteps = [
+  {
+    client: 'Claude.ai',
+    steps: 'Settings \u2192 Integrations \u2192 Add MCP server \u2192 lim inn URL',
+  },
+  {
+    client: 'Claude Code',
+    steps: 'claude mcp add paragraf https://api.paragraf.dev/mcp/paragraf/',
+  },
+  {
+    client: 'ChatGPT Plus',
+    steps: 'Settings \u2192 Connectors \u2192 Add connector \u2192 lim inn URL',
+  },
+  {
+    client: 'Cursor / Windsurf',
+    steps: 'Legg til i MCP-config med type "streamable-http" og URL',
+  },
+];
+
+function GuidePanel({ onBack }: { onBack: () => void }) {
+  const [expandedExample, setExpandedExample] = useState<number | null>(null);
+
+  return (
+    <div className="w-full max-w-xl mx-auto px-8 xl:px-12 py-12">
+      {/* Back button */}
+      <button
+        onClick={onBack}
+        className="flex items-center gap-2 text-sm text-pkt-text-body-subtle hover:text-pkt-text-body-dark transition-colors mb-10"
+      >
+        <ArrowLeftIcon className="w-4 h-4" />
+        <span>Tilbake</span>
+      </button>
+
+      {/* Section 1: What is Paragraf */}
+      <section className="mb-10">
+        <h2 className="text-lg font-bold text-pkt-text-body-dark mb-3">
+          Hva er Paragraf?
+        </h2>
+        <p className="text-sm text-pkt-text-body-default leading-relaxed mb-3">
+          Paragraf gir KI-assistenter direkte tilgang til 92 000+ paragrafer
+          fra norsk lov og forskrift via Lovdata. I stedet for å gjette
+          juridiske referanser kan assistenten slå opp eksakt lovtekst
+          — og gi presise, kildebaserte svar.
+        </p>
+        <p className="text-sm text-pkt-text-body-default leading-relaxed">
+          Nyttig for alle som jobber med norsk lov: jurister, offentlig sektor,
+          næringsliv, studenter og privatpersoner. Tjenesten er gratis og
+          åpen kildekode.
+        </p>
+      </section>
+
+      {/* Section 2: What is MCP */}
+      <section className="mb-10">
+        <h2 className="text-lg font-bold text-pkt-text-body-dark mb-3">
+          Hva er MCP?
+        </h2>
+        <p className="text-sm text-pkt-text-body-default leading-relaxed mb-3">
+          <strong>MCP</strong> (Model Context Protocol) er en åpen standard som lar
+          KI-assistenter slå opp informasjon fra pålitelige kilder. Tenk på det
+          som et oppslagsverk assistenten kan bruke underveis i samtalen.
+        </p>
+        <p className="text-sm text-pkt-text-body-default leading-relaxed mb-3">
+          Uten MCP må assistenten basere seg på det den «husker» fra treningen,
+          som kan være utdatert eller upresist. Med Paragraf koblet til kan den
+          hente den gjeldende lovteksten der og da.
+        </p>
+        <div className="p-4 rounded-lg bg-white border border-pkt-border-subtle">
+          <div className="flex items-start gap-3">
+            <div className="w-8 h-8 rounded bg-pkt-bg-subtle flex items-center justify-center flex-shrink-0 text-sm">
+              ?
+            </div>
+            <div className="flex-1">
+              <div className="text-xs text-pkt-text-body-subtle mb-1">Du spør</div>
+              <div className="text-sm text-pkt-text-body-dark">"Hva sier loven om oppsigelse?"</div>
+            </div>
+          </div>
+          <div className="ml-11 my-2 border-l-2 border-pkt-border-subtle h-4" />
+          <div className="flex items-start gap-3">
+            <div className="w-8 h-8 rounded bg-pkt-bg-subtle flex items-center justify-center flex-shrink-0 text-sm font-mono">
+              §
+            </div>
+            <div className="flex-1">
+              <div className="text-xs text-pkt-text-body-subtle mb-1">Assistenten bruker Paragraf</div>
+              <div className="text-sm text-pkt-text-body-dark">Slår opp arbeidsmiljøloven § 15-3 og svarer med eksakt lovtekst</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Section 3: Getting started */}
+      <section className="mb-10">
+        <h2 className="text-lg font-bold text-pkt-text-body-dark mb-3">
+          Kom i gang
+        </h2>
+        <p className="text-sm text-pkt-text-body-default leading-relaxed mb-4">
+          Kopier adressen under og legg den til i din KI-assistent.
+          Ingen registrering eller API-nøkkel kreves.
+        </p>
+
+        {MCP_URL && (
+          <div className="mb-4">
+            <CopyableUrl url={MCP_URL} />
+          </div>
+        )}
+
+        <div className="space-y-2">
+          {setupSteps.map((s) => (
+            <div key={s.client} className="p-3 rounded-lg bg-white border border-pkt-border-subtle">
+              <span className="text-xs font-medium text-pkt-text-body-dark">{s.client}</span>
+              <p className="text-xs text-pkt-text-body-subtle mt-0.5 font-mono">{s.steps}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Section 4: Examples */}
+      <section className="mb-10">
+        <h2 className="text-lg font-bold text-pkt-text-body-dark mb-3">
+          Eksempler
+        </h2>
+        <p className="text-sm text-pkt-text-body-default leading-relaxed mb-4">
+          Tre typiske bruksmåter — klikk for å se hva som skjer bak kulissene.
+        </p>
+
+        <div className="space-y-3">
+          {examples.map((ex, i) => {
+            const isExpanded = expandedExample === i;
+            return (
+              <div
+                key={i}
+                className="rounded-lg border border-pkt-border-subtle bg-white overflow-hidden transition-shadow hover:shadow-md"
+              >
+                <button
+                  onClick={() => setExpandedExample(isExpanded ? null : i)}
+                  className="w-full flex items-start gap-3 p-4 text-left"
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-pkt-bg-subtle text-pkt-text-body-subtle border border-pkt-border-subtle">
+                        {ex.tag}
+                      </span>
+                    </div>
+                    <span className="text-sm font-medium text-pkt-text-body-dark leading-snug">
+                      «{ex.question}»
+                    </span>
+                  </div>
+                  <ChevronDownIcon
+                    className={`w-4 h-4 mt-1 flex-shrink-0 text-pkt-text-body-subtle transition-transform duration-200 ${isExpanded ? 'rotate-0' : '-rotate-90'}`}
+                  />
+                </button>
+                {isExpanded && (
+                  <div className="px-4 pb-4 animate-fade-in">
+                    <div className="space-y-3">
+                      <p className="text-xs text-pkt-text-body-subtle leading-relaxed">
+                        {ex.how}
+                      </p>
+                      <div className="flex items-center gap-2 text-xs">
+                        <span className="text-pkt-brand-dark-green-1000 font-mono">{'>'}</span>
+                        <code className="font-mono text-pkt-text-body-default">{ex.tool}</code>
+                      </div>
+                      <div className="p-3 rounded bg-pkt-bg-subtle text-xs text-pkt-text-body-default leading-relaxed whitespace-pre-line">
+                        {ex.result}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* Section 5: What's available */}
+      <section className="mb-10">
+        <h2 className="text-lg font-bold text-pkt-text-body-dark mb-3">
+          Hva er tilgjengelig?
+        </h2>
+        <div className="grid grid-cols-3 gap-3 mb-4">
+          <div className="p-3 rounded-lg bg-white border border-pkt-border-subtle text-center">
+            <div className="text-lg font-bold text-pkt-text-body-dark">770</div>
+            <div className="text-xs text-pkt-text-body-subtle">Lover</div>
+          </div>
+          <div className="p-3 rounded-lg bg-white border border-pkt-border-subtle text-center">
+            <div className="text-lg font-bold text-pkt-text-body-dark">3 600</div>
+            <div className="text-xs text-pkt-text-body-subtle">Forskrifter</div>
+          </div>
+          <div className="p-3 rounded-lg bg-white border border-pkt-border-subtle text-center">
+            <div className="text-lg font-bold text-pkt-text-body-dark">92k</div>
+            <div className="text-xs text-pkt-text-body-subtle">Paragrafer</div>
+          </div>
+        </div>
+        <p className="text-sm text-pkt-text-body-default leading-relaxed mb-3">
+          Paragraf dekker alle gjeldende norske lover og sentrale forskrifter
+          fra Lovdata sitt åpne API. Dataene oppdateres daglig.
+        </p>
+        <div className="p-4 rounded-lg bg-white border border-pkt-border-subtle">
+          <p className="text-xs font-medium text-pkt-text-body-dark mb-2">
+            Ikke tilgjengelig
+          </p>
+          <ul className="text-xs text-pkt-text-body-subtle space-y-1">
+            <li>Rettsavgjørelser (Høyesterett, lagmannsrett, tingrett)</li>
+            <li>Forarbeider (NOU, Prop., Ot.prp.)</li>
+            <li>Juridiske artikler og kommentarutgaver</li>
+            <li>Lokale forskrifter</li>
+          </ul>
+          <p className="text-xs text-pkt-text-body-subtle mt-2">
+            For disse kildene, se{' '}
+            <a href="https://lovdata.no" className="underline hover:text-pkt-text-body-dark" target="_blank" rel="noopener noreferrer">lovdata.no</a>.
+          </p>
+        </div>
+      </section>
+
+      {/* Section 6: Data source */}
+      <section>
+        <h2 className="text-lg font-bold text-pkt-text-body-dark mb-3">
+          Om dataene
+        </h2>
+        <p className="text-sm text-pkt-text-body-default leading-relaxed mb-3">
+          All lovtekst hentes fra{' '}
+          <a href="https://lovdata.no" className="underline hover:text-pkt-text-body-dark" target="_blank" rel="noopener noreferrer">Lovdata</a>
+          {' '}og er offentlig tilgjengelig under{' '}
+          <a href="https://data.norge.no/nlod/no/2.0" className="underline hover:text-pkt-text-body-dark" target="_blank" rel="noopener noreferrer">NLOD 2.0</a>
+          {' '}(Norsk lisens for offentlige data).
+        </p>
+        <p className="text-sm text-pkt-text-body-default leading-relaxed">
+          Paragraf er et uavhengig prosjekt med åpen kildekode.
+          Spørsmål eller feil kan rapporteres på{' '}
+          <a href="https://github.com/khjohns/paragraf/issues" className="underline hover:text-pkt-text-body-dark" target="_blank" rel="noopener noreferrer">GitHub</a>.
+        </p>
+      </section>
+    </div>
+  );
+}
+
+// Mobile overlay for guide (left panel is hidden on mobile)
+function GuideOverlay({ open, onClose }: { open: boolean; onClose: () => void }) {
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 bg-pkt-bg-subtle overflow-y-auto lg:hidden">
+      <GuidePanel onBack={onClose} />
     </div>
   );
 }
@@ -322,7 +607,7 @@ function ToolsAccordion() {
 // Info Card
 // ============================================================================
 
-function InfoCard() {
+function InfoCard({ onShowGuide }: { onShowGuide: () => void }) {
   return (
     <div className="bg-pkt-bg-card rounded-lg border border-pkt-grays-gray-200 shadow-xl shadow-pkt-brand-dark-blue-1000/5 p-5 sm:p-8">
       {/* Header */}
@@ -408,6 +693,15 @@ function InfoCard() {
         </a>
       </div>
 
+      {/* Guide link */}
+      <button
+        onClick={onShowGuide}
+        className="mt-3 w-full flex items-center justify-center gap-2 py-2 text-sm text-pkt-text-body-subtle hover:text-pkt-text-body-dark border border-pkt-border-subtle hover:border-pkt-grays-gray-300 rounded-lg transition-colors"
+      >
+        <InfoCircledIcon className="w-4 h-4" />
+        Mer informasjon
+      </button>
+
       {/* Supported clients */}
       <div className="mt-4 pt-4 sm:mt-6 sm:pt-6 border-t border-pkt-border-subtle">
         <p className="text-xs text-pkt-text-body-subtle mb-2">Støtter MCP</p>
@@ -433,6 +727,7 @@ function InfoCard() {
 export function LandingPage() {
   const [mounted, setMounted] = useState(false);
   const [privacyOpen, setPrivacyOpen] = useState(false);
+  const [showExamples, setShowExamples] = useState(false);
 
   useEffect(() => {
     const timer = setTimeout(() => setMounted(true), 50);
@@ -446,11 +741,16 @@ export function LandingPage() {
         className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] opacity-[0.07] blur-3xl pointer-events-none lg:hidden"
         style={{ background: 'radial-gradient(ellipse, var(--color-pkt-brand-blue-1000) 0%, transparent 70%)' }}
       />
-      {/* Left side - Simulation only (hidden on mobile) */}
-      <div className="hidden lg:flex lg:w-1/2 xl:w-3/5 lg:h-screen lg:sticky lg:top-0 bg-pkt-brand-dark-blue-1000 relative overflow-hidden items-center justify-center">
-        {/* Grid pattern */}
+
+      {/* Left side - Simulation or Examples (hidden on mobile) */}
+      <div
+        className={`hidden lg:flex lg:w-1/2 xl:w-3/5 lg:h-screen lg:sticky lg:top-0 relative overflow-hidden items-center justify-center transition-colors duration-500 ${
+          showExamples ? 'bg-pkt-bg-subtle' : 'bg-pkt-brand-dark-blue-1000'
+        }`}
+      >
+        {/* Grid pattern - fades out when showing examples */}
         <div
-          className="absolute inset-0 opacity-5"
+          className={`absolute inset-0 transition-opacity duration-500 ${showExamples ? 'opacity-0' : 'opacity-5'}`}
           style={{
             backgroundImage: `
               linear-gradient(to right, white 1px, transparent 1px),
@@ -460,25 +760,40 @@ export function LandingPage() {
           }}
         />
 
-        {/* Gradient accents */}
+        {/* Gradient accents - fade out when showing examples */}
         <div
-          className="absolute top-0 right-0 w-96 h-96 opacity-20 blur-3xl"
+          className={`absolute top-0 right-0 w-96 h-96 blur-3xl transition-opacity duration-500 ${showExamples ? 'opacity-0' : 'opacity-20'}`}
           style={{ background: 'radial-gradient(circle, var(--color-pkt-brand-blue-1000) 0%, transparent 70%)' }}
         />
         <div
-          className="absolute bottom-0 left-0 w-80 h-80 opacity-15 blur-3xl"
+          className={`absolute bottom-0 left-0 w-80 h-80 blur-3xl transition-opacity duration-500 ${showExamples ? 'opacity-0' : 'opacity-15'}`}
           style={{ background: 'radial-gradient(circle, var(--color-pkt-brand-green-1000) 0%, transparent 70%)' }}
         />
 
-        {/* Terminal simulation - centered */}
+        {/* Terminal simulation - visible when not showing examples */}
         <div
-          className={`relative z-10 w-full max-w-2xl px-12 xl:px-16 transition-all duration-700 ease-out ${
-            mounted ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-8'
+          className={`absolute inset-0 flex items-center justify-center transition-all duration-500 ease-out ${
+            showExamples
+              ? 'opacity-0 -translate-x-8 pointer-events-none'
+              : mounted ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-8'
           }`}
         >
-          <div className="bg-black/30 backdrop-blur-sm rounded-lg border border-white/10 p-6">
-            <LawLookupSimulation />
+          <div className="w-full max-w-2xl px-12 xl:px-16">
+            <div className="bg-black/30 backdrop-blur-sm rounded-lg border border-white/10 p-6">
+              <LawLookupSimulation />
+            </div>
           </div>
+        </div>
+
+        {/* Guide panel - visible when showing guide, scrollable */}
+        <div
+          className={`absolute inset-0 overflow-y-auto transition-all duration-500 ease-out ${
+            showExamples
+              ? 'opacity-100 translate-x-0'
+              : 'opacity-0 translate-x-8 pointer-events-none'
+          }`}
+        >
+          <GuidePanel onBack={() => setShowExamples(false)} />
         </div>
       </div>
 
@@ -490,7 +805,7 @@ export function LandingPage() {
           }`}
           style={{ transitionDelay: '100ms' }}
         >
-          <InfoCard />
+          <InfoCard onShowGuide={() => setShowExamples(true)} />
 
           {/* Footer */}
           <p className="mt-4 sm:mt-6 text-center text-xs text-pkt-text-body-subtle">
@@ -505,7 +820,9 @@ export function LandingPage() {
           </p>
         </div>
       </div>
+
       <PrivacyDialog open={privacyOpen} onClose={() => setPrivacyOpen(false)} />
+      <GuideOverlay open={showExamples} onClose={() => setShowExamples(false)} />
     </div>
   );
 }
