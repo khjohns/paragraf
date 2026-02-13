@@ -578,10 +578,10 @@ function ToolsAccordion() {
   const [open, setOpen] = useState(false);
 
   return (
-    <div className="mb-4 sm:mb-6">
+    <div className="mb-2 sm:mb-3">
       <button
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-1.5 py-2 text-xs text-pkt-text-body-subtle hover:text-pkt-text-body-dark transition-colors"
+        className="flex items-center gap-1.5 py-1 text-xs text-pkt-text-body-subtle hover:text-pkt-text-body-dark transition-colors"
       >
         <ChevronDownIcon
           className={`w-3.5 h-3.5 transition-transform duration-200 ${open ? 'rotate-0' : '-rotate-90'}`}
@@ -648,7 +648,7 @@ function InfoCard({ onShowGuide }: { onShowGuide: () => void }) {
       </div>
 
       {/* How to connect */}
-      <div className="mb-4 sm:mb-6">
+      <div className="mb-2 sm:mb-3">
         <p className="text-sm font-medium text-pkt-text-body-dark mb-1.5 sm:mb-2">
           Koble til din KI-assistent via MCP<McpTooltip />
         </p>
