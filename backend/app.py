@@ -1,6 +1,7 @@
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from traversal import build_traversal_response
+from cases import get_case_detail
 
 app = Flask(__name__)
 CORS(app)
@@ -28,6 +29,14 @@ def traverse():
         return jsonify(result)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/cases/<path:sak_nr>")
+def case_detail(sak_nr):
+    result = get_case_detail(sak_nr)
+    if result is None:
+        return jsonify({"error": "Case not found"}), 404
+    return jsonify(result)
 
 
 if __name__ == "__main__":
