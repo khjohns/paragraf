@@ -52,6 +52,14 @@ def get_case_detail(sak_nr: str) -> dict | None:
 
     return {
         "sak_nr": sak_nr,
+        "avgjoerelse": case.get("avgjoerelse"),
+        "saken_gjelder": case.get("saken_gjelder"),
+        "avsluttet": str(case["avsluttet"]) if case.get("avsluttet") else None,
+        "innklaget": case.get("innklaget"),
+        "klager": case.get("klager"),
+        "sakstype": case.get("sakstype"),
+        "regelverk": case.get("regelverk"),
+        "summary": case.get("summary"),
         "paragraphs": text_result.data or [],
         "law_references": [
             {

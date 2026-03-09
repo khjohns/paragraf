@@ -55,7 +55,7 @@ def get_provision_detail(dok_id: str, section_id: str) -> dict | None:
         client.table("kofa_law_references")
         .select("sak_nr", count="exact")
         .eq("law_name", dok_id)
-        .like("law_section", f"{section_id}%")
+        .or_(f"law_section.eq.{section_id},law_section.like.{section_id} %")
         .limit(0)
         .execute()
     )

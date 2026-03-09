@@ -3,6 +3,14 @@ from __future__ import annotations
 from db import get_client
 
 
+def _section_filter(query, column: str, law_section: str):
+    """Match exact section OR section with sub-section suffix (space-separated).
+
+    Prevents '16-1' from matching '16-10' — only matches '16-1' or '16-1 (1)'.
+    """
+    return query.or_(f"{column}.eq.{law_section},{column}.like.{law_section} %")
+
+
 def parse_provision(provision_id: str) -> tuple[str, str]:
     """Parse 'anskaffelsesforskriften:16-10' -> ('anskaffelsesforskriften', '16-10')."""
     parts = provision_id.split(":", 1)
@@ -28,13 +36,12 @@ def collect_reference_signal(
     for provision_id in provisions:
         law_name, law_section = parse_provision(provision_id)
 
-        result = (
+        result = _section_filter(
             client.table("kofa_law_references")
             .select("sak_nr, regulation_version")
-            .eq("law_name", law_name)
-            .like("law_section", f"{law_section}%")
-            .execute()
-        )
+            .eq("law_name", law_name),
+            "law_section", law_section,
+        ).execute()
 
         for row in result.data or []:
             ref_cases.setdefault(row["sak_nr"], set()).add(provision_id)
@@ -101,7 +108,6 @@ def _build_provision_nodes(client, provisions: list[str]) -> list[dict]:
             "label": f"§{law_section}",
             "subtitle": title,
             "citations": 0,
-            "regulation": "new",
             "iteration": 1,
             "isSeed": True,
             "isDelimitation": False,
@@ -111,11 +117,13 @@ def _build_provision_nodes(client, provisions: list[str]) -> list[dict]:
 
 
 def _build_edges(
-    client, case_sak_nrs: set[str], provisions: list[str]
+    client, case_sak_nrs: set[str], provisions: list[str],
+    law_refs_data: list[dict],
 ) -> tuple[list[dict], list[dict], list[dict]]:
     """Build edges and collect EU + forarbeider nodes.
 
     Returns (edges, eu_nodes, prep_nodes).
+    law_refs_data is pre-fetched from kofa_law_references (avoids duplicate query).
     """
     sak_list = list(case_sak_nrs)
     edges: list[dict] = []
@@ -125,18 +133,13 @@ def _build_edges(
     seen_eu: set[str] = set()
     seen_prep: set[str] = set()
 
-    # --- Case → Provision edges (from law references) ---
-    law_refs = (
-        client.table("kofa_law_references")
-        .select("sak_nr, law_name, law_section")
-        .in_("sak_nr", sak_list)
-        .execute()
-    )
+    # --- Case → Provision edges (from pre-fetched law references) ---
     provision_set = set(provisions)
-    for ref in law_refs.data or []:
+    for ref in law_refs_data:
         for prov_id in provision_set:
             law_name, law_section = parse_provision(prov_id)
-            if ref["law_name"] == law_name and (ref.get("law_section") or "").startswith(law_section):
+            ref_section = ref.get("law_section") or ""
+            if ref["law_name"] == law_name and (ref_section == law_section or ref_section.startswith(law_section + " ")):
                 key = (f"kofa:{ref['sak_nr']}", prov_id)
                 if key not in seen_edges:
                     seen_edges.add(key)
@@ -205,13 +208,12 @@ def _build_edges(
     # --- Forarbeider → Provision edges ---
     for prov_id in provisions:
         law_name, law_section = parse_provision(prov_id)
-        prep_refs = (
+        prep_refs = _section_filter(
             client.table("kofa_forarbeider_law_refs")
             .select("doc_id, section_number")
-            .eq("law_name", law_name)
-            .like("law_section", f"{law_section}%")
-            .execute()
-        )
+            .eq("law_name", law_name),
+            "law_section", law_section,
+        ).execute()
         prep_doc_ids = set()
         for ref in prep_refs.data or []:
             doc_id = ref["doc_id"]
@@ -290,7 +292,7 @@ def build_traversal_response(
     fts_terms: list[str],
     vector_query: str,
     seed_cases: list[str],
-    regulation_filter: str,
+    regulation_filter: str,  # TODO: apply filter to exclude old-regulation cases
 ) -> dict:
     """Core traversal algorithm. Returns full TraversalResponse dict."""
     client = get_client()
@@ -321,16 +323,19 @@ def build_traversal_response(
     )
     case_map = {c["sak_nr"]: c for c in (case_data.data or [])}
 
-    # --- 4. Batch-fetch regulation versions for all discovered cases ---
-    reg_result = (
+    # --- 4. Batch-fetch law references for all discovered cases ---
+    # Used for both regulation version detection AND edge building (avoids duplicate query)
+    all_law_refs = (
         client.table("kofa_law_references")
-        .select("sak_nr, regulation_version")
+        .select("sak_nr, law_name, law_section, regulation_version")
         .in_("sak_nr", sak_list)
         .execute()
     )
+    all_law_refs_data = all_law_refs.data or []
+
     # A case's regulation = 'new' if ANY of its references are 'new'
     case_reg: dict[str, str] = {}
-    for row in reg_result.data or []:
+    for row in all_law_refs_data:
         sak = row["sak_nr"]
         if row.get("regulation_version") == "new":
             case_reg[sak] = "new"
@@ -359,7 +364,7 @@ def build_traversal_response(
 
         reg = case_reg.get(sak_nr)
 
-        case_nodes.append({
+        node: dict = {
             "id": f"kofa:{sak_nr}",
             "type": "kofa_case",
             "label": sak_nr,
@@ -369,17 +374,19 @@ def build_traversal_response(
             "category": category,
             "signals": signals,
             "citations": 0,  # Filled in edge-building step
-            "regulation": reg,
             "iteration": 1,
             "isSeed": sak_nr in seed_cases,
             "isDelimitation": False,
-        })
+        }
+        if reg:
+            node["regulation"] = reg
+        case_nodes.append(node)
 
     # --- 6. Build provision nodes ---
     provision_nodes = _build_provision_nodes(client, provisions)
 
     # --- 7. Build edges + compute citations ---
-    edges, eu_nodes, prep_nodes = _build_edges(client, all_sak_nrs, provisions)
+    edges, eu_nodes, prep_nodes = _build_edges(client, all_sak_nrs, provisions, all_law_refs_data)
 
     # Count incoming citations per case
     citation_counts: dict[str, int] = {}
