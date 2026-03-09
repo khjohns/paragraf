@@ -9,9 +9,14 @@ class UiState {
 	listFilter = $state<ListFilter>('all');
 	listSort = $state<ListSort>('category');
 	regulationFilter = $state(true); // true = only new (2017+)
+	scrollToTarget = $state<number | null>(null); // paragraph number for cross-ref navigation
 
 	selectNode(id: string | null) {
 		this.selectedNodeId = id;
+	}
+
+	clearScrollTarget() {
+		this.scrollToTarget = null;
 	}
 
 	setViewMode(mode: ViewMode) {

@@ -1,9 +1,75 @@
 <script lang="ts">
 	import { createCaseDetailQuery } from '$lib/queries/cases';
+	import type { Curation, Highlight, CrossReference } from '$lib/types/curation';
+	import { analysisState } from '$lib/stores/analysis.svelte';
+	import { uiState } from '$lib/stores/ui.svelte';
+	import { toastState } from '$lib/stores/toast.svelte';
 
-	let { sakNr, onBack }: { sakNr: string; onBack: () => void } = $props();
+	let {
+		sakNr,
+		onBack,
+		curation = null,
+		curationLoading = false,
+	}: {
+		sakNr: string;
+		onBack: () => void;
+		curation?: Curation | null;
+		curationLoading?: boolean;
+	} = $props();
 
 	const caseQuery = createCaseDetailQuery(() => sakNr);
+
+	// Build highlight lookup by paragraph number
+	let highlightMap = $derived(
+		new Map((curation?.highlights ?? []).map(h => [h.paragraph, h]))
+	);
+
+	// Highlighted paragraph numbers for pills
+	let highlightedParagraphs = $derived(
+		(curation?.highlights ?? []).map(h => h.paragraph).sort((a, b) => a - b)
+	);
+
+	// Show/hide toggle for non-highlighted paragraphs
+	let showAllText = $state(true);
+
+	// Apply char-offset highlights to a paragraph's text
+	function applyHighlight(text: string, hl: Highlight): Array<{ text: string; highlighted: boolean }> {
+		const start = Math.max(0, Math.min(hl.start_char, text.length));
+		const end = Math.max(start, Math.min(hl.end_char, text.length));
+		if (start === end) return [{ text, highlighted: false }];
+
+		const segments: Array<{ text: string; highlighted: boolean }> = [];
+		if (start > 0) segments.push({ text: text.slice(0, start), highlighted: false });
+		segments.push({ text: text.slice(start, end), highlighted: true });
+		if (end < text.length) segments.push({ text: text.slice(end), highlighted: false });
+		return segments;
+	}
+
+	function scrollToParagraph(num: number) {
+		const el = document.getElementById(`para-${num}`);
+		el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+	}
+
+	// Handle cross-ref scroll target from another case's navigateTo
+	$effect(() => {
+		if (uiState.scrollToTarget !== null && caseQuery.data) {
+			const target = uiState.scrollToTarget;
+			uiState.clearScrollTarget();
+			requestAnimationFrame(() => scrollToParagraph(target));
+		}
+	});
+
+	function navigateTo(ref: CrossReference) {
+		const targetNode = analysisState.nodes.find(
+			n => n.label === ref.target_case || n.id.includes(ref.target_case)
+		);
+		if (targetNode) {
+			uiState.selectNode(targetNode.id);
+			uiState.scrollToTarget = ref.target_paragraph;
+		} else {
+			toastState.show(`Saken ${ref.target_case} er ikke i analysen`, 'info');
+		}
+	}
 </script>
 
 <div class="case-reader">
@@ -33,11 +99,70 @@
 			{/if}
 		</div>
 
+		<!-- Paragraph navigation pills -->
+		{#if highlightedParagraphs.length > 0}
+			<div class="pill-bar">
+				<span class="pills-label">Markerte avsnitt:</span>
+				{#each highlightedParagraphs as num}
+					<button class="pill" onclick={() => scrollToParagraph(num)}>§{num}</button>
+				{/each}
+				<button class="text-toggle" onclick={() => (showAllText = !showAllText)}>
+					{showAllText ? 'Vis bare markerte' : 'Vis all tekst'}
+				</button>
+			</div>
+		{:else if curationLoading}
+			<div class="pill-bar shimmer">
+				<span class="pills-label">AI-kuratering laster...</span>
+			</div>
+		{/if}
+
 		<div class="paragraphs">
 			{#each detail.paragraphs as para}
-				<div class="paragraph" id="para-{para.paragraph_number}">
+				{@const hl = highlightMap.get(para.paragraph_number)}
+				{@const isHighlighted = !!hl}
+				{@const isDimmed = !showAllText && !isHighlighted && highlightedParagraphs.length > 0}
+				<div
+					class="paragraph"
+					class:has-highlight={isHighlighted}
+					class:dimmed={isDimmed}
+					id="para-{para.paragraph_number}"
+				>
 					<span class="para-num">{para.paragraph_number}</span>
-					<p class="para-text">{para.text}</p>
+					<div class="para-content">
+						{#if hl}
+							{@const segments = applyHighlight(para.text, hl)}
+							<p class="para-text">
+								{#each segments as seg}
+									{#if seg.highlighted}
+										<mark class="ai-highlight">{seg.text}</mark>
+									{:else}
+										{seg.text}
+									{/if}
+								{/each}
+							</p>
+						{:else}
+							<p class="para-text">{para.text}</p>
+						{/if}
+
+						<!-- AI comment block after highlighted paragraph -->
+						{#if hl}
+							<div class="ai-comment" class:fade-in={!curationLoading}>
+								{#if hl.relevance}
+									<p class="ai-relevance">{hl.relevance}</p>
+								{/if}
+								{#each hl.cross_references as ref}
+									<div class="ai-crossref-row">
+										<button class="ai-crossref" onclick={() => navigateTo(ref)}>
+											→ Gå til {ref.target_case} §{ref.target_paragraph}
+										</button>
+										{#if ref.note}
+											<p class="ai-crossref-note">{ref.note}</p>
+										{/if}
+									</div>
+								{/each}
+							</div>
+						{/if}
+					</div>
 				</div>
 			{/each}
 		</div>
@@ -134,7 +259,54 @@
 		color: var(--p-ink3);
 	}
 
-	/* Paragraph layout — matches mock: number + text */
+	/* Paragraph navigation pills */
+	.pill-bar {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		flex-wrap: wrap;
+		padding: 8px 0;
+		border-bottom: 1px solid var(--p-border);
+		position: sticky;
+		top: 0;
+		background: var(--p-panel);
+		z-index: 1;
+	}
+	.pill-bar.shimmer {
+		opacity: 0.5;
+	}
+	.pills-label {
+		font-size: 0.6875rem;
+		color: var(--p-ink3);
+		font-weight: 500;
+	}
+	.pill {
+		all: unset;
+		cursor: pointer;
+		font-family: var(--font-data);
+		font-size: 0.6875rem;
+		font-weight: 500;
+		padding: 2px 8px;
+		border-radius: 10px;
+		background: var(--p-highlight);
+		color: var(--p-ai-border);
+		border: 1px solid var(--p-highlight-strong);
+	}
+	.pill:hover {
+		background: var(--p-highlight-strong);
+	}
+	.text-toggle {
+		all: unset;
+		cursor: pointer;
+		font-size: 0.6875rem;
+		color: var(--p-ink4);
+		margin-left: auto;
+	}
+	.text-toggle:hover {
+		color: var(--p-ink2);
+	}
+
+	/* Paragraph layout */
 	.paragraphs {
 		display: flex;
 		flex-direction: column;
@@ -143,6 +315,19 @@
 		display: flex;
 		gap: var(--spacing-2);
 		padding: var(--spacing-1) 0;
+		transition: opacity 0.2s ease;
+	}
+	.paragraph.has-highlight {
+		border-left: 2px solid var(--p-highlight-strong);
+		padding-left: 12px;
+		margin-left: -14px;
+	}
+	.paragraph.dimmed {
+		opacity: 0.4;
+		cursor: pointer;
+	}
+	.paragraph.dimmed:hover {
+		opacity: 0.7;
 	}
 	.para-num {
 		font-family: var(--font-data);
@@ -154,10 +339,61 @@
 		padding-top: 2px;
 		flex-shrink: 0;
 	}
+	.para-content {
+		flex: 1;
+		min-width: 0;
+	}
 	.para-text {
 		font-size: 0.8125rem;
 		line-height: 1.6;
 		color: var(--p-ink);
+	}
+
+	/* AI highlight */
+	.ai-highlight {
+		background: var(--p-highlight);
+		padding: 1px 2px;
+		border-radius: 2px;
+	}
+
+	/* AI comment — trust boundary: gold-brown left border */
+	.ai-comment {
+		border-left: 3px solid var(--p-ai-border);
+		background: var(--p-ai-bg);
+		padding: 8px 12px;
+		margin: 6px 0 8px;
+		border-radius: 0 4px 4px 0;
+	}
+	.ai-comment.fade-in {
+		animation: fadeIn 0.3s ease;
+	}
+	.ai-relevance {
+		font-size: 0.8125rem;
+		line-height: 1.5;
+		color: var(--p-ai-text);
+	}
+	.ai-crossref-row {
+		margin-top: 4px;
+	}
+	.ai-crossref {
+		all: unset;
+		cursor: pointer;
+		color: var(--p-ai-border);
+		font-weight: 500;
+		font-size: 0.75rem;
+	}
+	.ai-crossref:hover {
+		text-decoration: underline;
+	}
+	.ai-crossref-note {
+		font-size: 0.75rem;
+		color: var(--p-ai-text);
+		margin-top: 2px;
+	}
+
+	@keyframes fadeIn {
+		from { opacity: 0; }
+		to { opacity: 1; }
 	}
 
 	/* References */

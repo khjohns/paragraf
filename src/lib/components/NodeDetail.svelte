@@ -2,6 +2,7 @@
 	import type { GraphNode } from '$lib/types/graph';
 	import { uiState } from '$lib/stores/ui.svelte';
 	import { analysisState } from '$lib/stores/analysis.svelte';
+	import { createCurationQuery } from '$lib/queries/curation';
 	import CaseReader from './CaseReader.svelte';
 	import ProvisionDetail from './ProvisionDetail.svelte';
 	import NodeTypeIcon from './NodeTypeIcon.svelte';
@@ -27,6 +28,13 @@
 
 	// Has readable text (KOFA cases)
 	let hasText = $derived(selectedNode?.type === 'kofa_case');
+
+	// AI curation query (only for KOFA cases with a problem statement)
+	const curationQuery = createCurationQuery(() => ({
+		sakNr: selectedNode?.type === 'kofa_case' ? selectedNode.label : null,
+		problemStatement: analysisState.analysis.problemStatement,
+		seedProvisions: analysisState.analysis.seeds.provisions,
+	}));
 
 	// Connected nodes (use Set for O(1) lookups)
 	let connectedNodes = $derived.by(() => {
@@ -150,6 +158,8 @@
 				<CaseReader
 					sakNr={selectedNode.label}
 					onBack={() => (mode = 'overview')}
+					curation={curationQuery.data ?? null}
+					curationLoading={curationQuery.isLoading}
 				/>
 			{:else}
 				<!-- Detail / Summary text -->
@@ -157,6 +167,31 @@
 					<div class="detail-section">
 						<div class="section-label">{selectedNode.type === 'provision' ? 'Ordlyd' : 'Sammendrag'}</div>
 						<div class="detail-text">{selectedNode.detail}</div>
+					</div>
+				{/if}
+
+				<!-- AI-curated summary (KOFA cases only) -->
+				{#if selectedNode.type === 'kofa_case' && (curationQuery.data || curationQuery.isLoading)}
+					<div class="detail-section">
+						<div class="section-label">AI-markerte avsnitt</div>
+						{#if curationQuery.isLoading}
+							<div class="ai-shimmer">Henter AI-kuratering...</div>
+						{:else if curationQuery.data}
+							{#if curationQuery.data.summary_note}
+								<div class="ai-summary-note">{curationQuery.data.summary_note}</div>
+							{/if}
+							{#each curationQuery.data.highlights.slice(0, 3) as hl}
+								<div class="ai-preview">
+									<div class="ai-preview-num">Avsnitt {hl.paragraph}</div>
+									<p class="ai-preview-text">
+										{hl.relevance.length > 150 ? hl.relevance.slice(0, 150) + '...' : hl.relevance}
+									</p>
+									<button class="ai-preview-link" onclick={() => { mode = 'reading'; }}>
+										Les i kontekst →
+									</button>
+								</div>
+							{/each}
+						{/if}
 					</div>
 				{/if}
 
@@ -515,5 +550,51 @@
 		color: var(--p-delim);
 		line-height: 1.4;
 		text-align: center;
+	}
+
+	/* AI summary in overview */
+	.ai-shimmer {
+		font-size: 0.75rem;
+		color: var(--p-ink4);
+		font-style: italic;
+		padding: 4px 0;
+	}
+	.ai-summary-note {
+		border-left: 3px solid var(--p-ai-border);
+		background: var(--p-ai-bg);
+		padding: 8px 12px;
+		margin-bottom: 8px;
+		border-radius: 0 4px 4px 0;
+		font-size: 0.8125rem;
+		line-height: 1.5;
+		color: var(--p-ai-text);
+	}
+	.ai-preview {
+		padding: 6px 0;
+		border-bottom: 1px solid var(--p-border);
+	}
+	.ai-preview-num {
+		font-family: var(--font-data);
+		font-size: 0.6875rem;
+		font-weight: 600;
+		color: var(--p-ai-border);
+		margin-bottom: 2px;
+	}
+	.ai-preview-text {
+		font-size: 0.75rem;
+		line-height: 1.4;
+		color: var(--p-ink2);
+	}
+	.ai-preview-link {
+		all: unset;
+		cursor: pointer;
+		font-size: 0.6875rem;
+		font-weight: 500;
+		color: var(--p-ai-border);
+		margin-top: 4px;
+		display: inline-block;
+	}
+	.ai-preview-link:hover {
+		text-decoration: underline;
 	}
 </style>

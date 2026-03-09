@@ -3,6 +3,7 @@ from flask_cors import CORS
 from traversal import build_traversal_response
 from cases import get_case_detail
 from provisions import get_provision_detail
+from curation import generate_curation
 
 app = Flask(__name__)
 CORS(app)
@@ -52,6 +53,25 @@ def case_detail(sak_nr):
     if result is None:
         return jsonify({"error": "Case not found"}), 404
     return jsonify(result)
+
+
+@app.route("/api/curate/<path:sak_nr>", methods=["POST"])
+def curate_case(sak_nr):
+    body = request.get_json()
+    if not body:
+        return jsonify({"error": "Request body required"}), 400
+
+    problem_statement = body.get("problem_statement", "")
+    seed_provisions = body.get("seed_provisions", [])
+
+    if not problem_statement:
+        return jsonify({"error": "problem_statement is required"}), 400
+
+    try:
+        result = generate_curation(sak_nr, problem_statement, seed_provisions)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 if __name__ == "__main__":

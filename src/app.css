@@ -78,10 +78,12 @@
 	--p-signal-on: #1A1814;
 	--p-signal-off: #D5D0C8;
 
-	/* AI (Phase 2, but tokens defined now) */
+	/* AI curation (Phase 2) — trust boundary styling */
 	--p-highlight: #FBF5E8;
-	--p-ai-accent: #8B6914;
-	--p-ai-comment-bg: rgba(139,105,20,0.04);
+	--p-highlight-strong: #F5EBD6;
+	--p-ai-border: #A68B5B;
+	--p-ai-bg: rgba(166,139,91,0.06);
+	--p-ai-text: #7A6B4F;
 }
 
 /* Global resets */
