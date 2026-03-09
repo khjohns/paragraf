@@ -1,131 +1,137 @@
 <script lang="ts">
+	import AppShell from '$lib/components/AppShell.svelte';
+	import SeedInput from '$lib/components/SeedInput.svelte';
+	import NodeList from '$lib/components/NodeList.svelte';
+	import NodeDetail from '$lib/components/NodeDetail.svelte';
 	import { analysisState } from '$lib/stores/analysis.svelte';
 	import { uiState } from '$lib/stores/ui.svelte';
-	import { mockTraversalResponse } from '$lib/mocks/traversal';
+	import { createTraversalQuery } from '$lib/queries/traversal';
 
-	// Load mock data into store on mount
+	const traversal = createTraversalQuery(() => ({
+		provisions: analysisState.analysis.seeds.provisions,
+		ftsTerms: analysisState.analysis.seeds.ftsTerms,
+		vectorQuery: analysisState.analysis.seeds.vectorQuery,
+		cases: analysisState.analysis.seeds.cases,
+		regulationFilter: uiState.regulationFilter ? 'new' : 'all',
+	}));
+
+	// Sync query results to store
 	$effect(() => {
-		analysisState.setResults(
-			mockTraversalResponse.nodes,
-			mockTraversalResponse.edges,
-			mockTraversalResponse.gaps,
-		);
-		analysisState.setProblemStatement(
-			'Er ESPD fra st\u00f8ttende virksomhet tilstrekkelig til \u00e5 dokumentere r\u00e5dighet over dennes ressurser, eller m\u00e5 forpliktelseserkl\u00e6ring foreligge ved tilbudsfrist?',
-		);
+		const data = traversal.data;
+		if (data) {
+			analysisState.setResults(data.nodes, data.edges, data.gaps);
+		}
 	});
 
-	function handleNodeClick(id: string) {
-		uiState.selectNode(id);
-	}
+	// Load persisted state on mount
+	$effect(() => {
+		analysisState.load();
+	});
+
+	// Save on changes (debounced)
+	$effect(() => {
+		// Touch all reactive fields to track them
+		analysisState.analysis;
+		analysisState.nodes;
+		analysisState.debouncedSave();
+	});
 </script>
 
-<main>
-	<h1>Paragraf</h1>
-	<p class="problem">{analysisState.analysis.problemStatement}</p>
+<AppShell>
+	{#snippet leftPanel()}
+		<SeedInput />
 
-	<div class="stats">
-		<span>Noder: {analysisState.nodes.length}</span>
-		<span>Kanter: {analysisState.edges.length}</span>
-		<span>Visning: {uiState.viewMode}</span>
-	</div>
+		{#if traversal.data}
+			<div class="stats-box">
+				<h3 class="stats-title">Resultater</h3>
+				<div class="stat-row">
+					<span class="stat-label">Totalt</span>
+					<span class="stat-value">{traversal.data.stats.total}</span>
+				</div>
+				<div class="stat-row">
+					<span class="stat-badge badge-a">A</span>
+					<span class="stat-desc">Ref + FTS + Vektor</span>
+					<span class="stat-value">{traversal.data.stats.categoryA}</span>
+				</div>
+				<div class="stat-row">
+					<span class="stat-badge badge-b">B</span>
+					<span class="stat-desc">To av tre signaler</span>
+					<span class="stat-value">{traversal.data.stats.categoryB}</span>
+				</div>
+				<div class="stat-row">
+					<span class="stat-badge badge-c">C</span>
+					<span class="stat-desc">Ett signal</span>
+					<span class="stat-value">{traversal.data.stats.categoryC}</span>
+				</div>
+			</div>
+		{/if}
 
-	<ul class="node-list">
-		{#each analysisState.nodes as node}
-			<li class:selected={uiState.selectedNodeId === node.id}>
-				<button onclick={() => handleNodeClick(node.id)}>
-					<span class="label">{node.label}</span>
-					<span class="meta">
-						{node.type} · {node.category ?? '\u2014'} · {node.citations} sit.
-					</span>
-				</button>
-			</li>
-		{/each}
-	</ul>
+		{#if traversal.isFetching}
+			<p class="loading">Søker...</p>
+		{/if}
+	{/snippet}
 
-	{#if uiState.selectedNodeId}
-		<aside>
-			<h2>Valgt: {uiState.selectedNodeId}</h2>
-			<button onclick={() => uiState.selectNode(null)}>Lukk</button>
-		</aside>
-	{/if}
-</main>
+	{#snippet middlePanel()}
+		<NodeList />
+	{/snippet}
+
+	{#snippet rightPanel()}
+		<NodeDetail />
+	{/snippet}
+</AppShell>
 
 <style>
-	main {
-		max-width: 800px;
-		margin: 0 auto;
-		padding: var(--spacing-6);
-	}
-	h1 {
-		font-size: 1.5rem;
-		font-weight: 600;
-		color: var(--p-ink);
-	}
-	.problem {
-		color: var(--p-ink2);
-		font-style: italic;
-		margin-bottom: var(--spacing-4);
-	}
-	.stats {
-		display: flex;
-		gap: var(--spacing-4);
-		color: var(--p-ink3);
-		font-size: 0.875rem;
-		margin-bottom: var(--spacing-4);
-	}
-	.node-list {
-		list-style: none;
-		padding: 0;
-		display: flex;
-		flex-direction: column;
-		gap: var(--spacing-2);
-	}
-	.node-list button {
-		all: unset;
-		cursor: pointer;
-		display: flex;
-		flex-direction: column;
-		width: 100%;
-		padding: var(--spacing-3) var(--spacing-4);
+	.stats-box {
+		margin-top: var(--spacing-4);
+		padding: var(--spacing-3);
 		background: var(--p-surface);
 		border: 1px solid var(--p-border);
 		border-radius: var(--radius-md);
 	}
-	.node-list button:hover {
-		background: var(--p-hover);
+	.stats-title {
+		font-size: 0.75rem;
+		font-weight: 600;
+		color: var(--p-ink2);
+		margin-bottom: var(--spacing-2);
 	}
-	.selected button {
-		border-color: var(--p-kofa-accent);
-		background: var(--p-kofa-bg);
+	.stat-row {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-2);
+		padding: 2px 0;
+		font-size: 0.8125rem;
 	}
-	.label {
+	.stat-label {
+		color: var(--p-ink2);
+		flex: 1;
+	}
+	.stat-desc {
+		font-size: 0.6875rem;
+		color: var(--p-ink4);
+		flex: 1;
+	}
+	.stat-value {
 		font-family: var(--font-data);
 		font-weight: 600;
 		color: var(--p-ink);
 	}
-	.meta {
-		font-size: 0.75rem;
-		color: var(--p-ink3);
-	}
-	aside {
-		margin-top: var(--spacing-6);
-		padding: var(--spacing-4);
-		background: var(--p-panel);
-		border: 1px solid var(--p-border);
-		border-radius: var(--radius-md);
-	}
-	aside h2 {
-		font-family: var(--font-data);
-		font-size: 0.875rem;
-	}
-	aside button {
-		margin-top: var(--spacing-2);
-		padding: var(--spacing-1) var(--spacing-3);
-		background: none;
-		border: 1px solid var(--p-border-s);
+	.stat-badge {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 20px;
+		height: 20px;
 		border-radius: var(--radius-sm);
-		cursor: pointer;
-		color: var(--p-ink2);
+		font-size: 0.6875rem;
+		font-weight: 700;
+		font-family: var(--font-data);
+	}
+	.badge-a { background: var(--p-success-bg); color: var(--p-success); }
+	.badge-b { background: var(--p-warn-bg); color: var(--p-warn); }
+	.badge-c { background: var(--p-hover); color: var(--p-ink3); }
+	.loading {
+		font-size: 0.8125rem;
+		color: var(--p-ink3);
+		margin-top: var(--spacing-2);
 	}
 </style>

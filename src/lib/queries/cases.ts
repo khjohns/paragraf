@@ -7,14 +7,7 @@ export function createCaseDetailQuery(getSakNr: () => string | null) {
 		const sakNr = getSakNr();
 		return {
 			queryKey: ['case-detail', sakNr],
-			queryFn: async () => {
-				try {
-					return await fetchCaseDetail(sakNr!);
-				} catch {
-					const { mockCaseDetail } = await import('$lib/mocks/cases');
-					return mockCaseDetail(sakNr!);
-				}
-			},
+			queryFn: () => fetchCaseDetail(sakNr!),
 			enabled: !!sakNr,
 		};
 	});

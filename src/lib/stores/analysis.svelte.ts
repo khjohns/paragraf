@@ -54,6 +54,13 @@ class AnalysisState {
 
 	// --- Persistence ---
 
+	private saveTimeout: ReturnType<typeof setTimeout> | null = null;
+
+	debouncedSave() {
+		if (this.saveTimeout) clearTimeout(this.saveTimeout);
+		this.saveTimeout = setTimeout(() => this.save(), 500);
+	}
+
 	save() {
 		try {
 			const data = {

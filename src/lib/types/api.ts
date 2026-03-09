@@ -26,6 +26,14 @@ export interface DecisionParagraph {
 
 export interface CaseDetailResponse {
 	sak_nr: string;
+	avgjoerelse: string | null;
+	saken_gjelder: string | null;
+	avsluttet: string | null;
+	innklaget: string | null;
+	klager: string | null;
+	sakstype: string | null;
+	regelverk: string | null;
+	summary: string | null;
 	paragraphs: DecisionParagraph[];
 	law_references: Array<{
 		law_name: string;
