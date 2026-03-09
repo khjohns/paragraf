@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { uiState } from '$lib/stores/ui.svelte';
 	import { analysisState } from '$lib/stores/analysis.svelte';
-	import Toolbar from './Toolbar.svelte';
 	import NodeRow from './NodeRow.svelte';
 
 	const categoryOrder: Record<string, number> = { A: 0, B: 1, C: 2 };
@@ -36,8 +35,6 @@
 </script>
 
 <div class="node-list">
-	<Toolbar />
-
 	<div class="list-body">
 		{#each filteredNodes as node (node.id)}
 			<NodeRow {node} />

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import AppShell from '$lib/components/AppShell.svelte';
 	import LeftPanel from '$lib/components/LeftPanel.svelte';
+	import Toolbar from '$lib/components/Toolbar.svelte';
 	import NodeList from '$lib/components/NodeList.svelte';
 	import GraphView from '$lib/components/GraphView.svelte';
 	import NodeDetail from '$lib/components/NodeDetail.svelte';
@@ -35,6 +36,7 @@
 	{/snippet}
 
 	{#snippet middlePanel()}
+		<Toolbar />
 		{#if uiState.viewMode === 'graph'}
 			<GraphView />
 		{:else}
