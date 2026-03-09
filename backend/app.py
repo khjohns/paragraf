@@ -2,6 +2,7 @@ from flask import Flask, jsonify, request
 from flask_cors import CORS
 from traversal import build_traversal_response
 from cases import get_case_detail
+from provisions import get_provision_detail
 
 app = Flask(__name__)
 CORS(app)
@@ -29,6 +30,14 @@ def traverse():
         return jsonify(result)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/provisions/<path:dok_id>/<path:section_id>")
+def provision_detail(dok_id, section_id):
+    result = get_provision_detail(dok_id, section_id)
+    if result is None:
+        return jsonify({"error": "Provision not found"}), 404
+    return jsonify(result)
 
 
 @app.route("/api/cases/<path:sak_nr>")
