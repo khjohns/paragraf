@@ -28,7 +28,8 @@ class AnalysisState {
 		this.gaps = gaps;
 		this.debouncedSave();
 		if (nodes.length > 0) {
-			toastState.show(`Analyse fullført — ${nodes.length} treff`, 'success');
+			// Defer toast to avoid effect_update_depth_exceeded when called from $effect
+			queueMicrotask(() => toastState.show(`Analyse fullført — ${nodes.length} treff`, 'success'));
 		}
 	}
 
