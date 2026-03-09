@@ -1,9 +1,13 @@
-from flask import Flask, jsonify, request
+import os
+
+from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
 from traversal import build_traversal_response
 from cases import get_case_detail
 from provisions import get_provision_detail
 from curation import generate_curation
+
+STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
 
 app = Flask(__name__)
 CORS(app)
@@ -72,6 +76,16 @@ def curate_case(sak_nr):
         return jsonify(result)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+# SPA fallback — serve static frontend in production
+@app.route("/", defaults={"path": ""})
+@app.route("/<path:path>")
+def serve_spa(path):
+    file_path = os.path.join(STATIC_DIR, path)
+    if path and os.path.isfile(file_path):
+        return send_from_directory(STATIC_DIR, path)
+    return send_from_directory(STATIC_DIR, "index.html")
 
 
 if __name__ == "__main__":
