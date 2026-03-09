@@ -12,6 +12,7 @@
 	let isSelected = $derived(uiState.selectedNodeId === node.id);
 	let isRead = $derived(!!analysisState.analysis.readStatus[node.id]);
 	let isDelimitation = $derived(node.isDelimitation || !!analysisState.analysis.delimitations[node.id]);
+	let isDimmed = $derived(uiState.regulationFilter && node.regulation === 'old');
 
 	let accent = $derived(NODE_TYPE_ACCENT[node.type]);
 
@@ -46,6 +47,7 @@
 <button
 	class="node-row"
 	class:selected={isSelected}
+	class:dimmed={isDimmed}
 	style:border-left-color={isSelected ? accent : 'transparent'}
 	onclick={() => uiState.selectNode(node.id)}
 >
@@ -138,6 +140,9 @@
 	}
 	.node-row.selected {
 		background: var(--p-active);
+	}
+	.node-row.dimmed {
+		opacity: 0.2;
 	}
 
 	.row-main {

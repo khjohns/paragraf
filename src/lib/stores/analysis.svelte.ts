@@ -1,5 +1,6 @@
 import type { GraphNode, GraphEdge, GapPair } from '$lib/types/graph';
 import type { Analysis, Seeds } from '$lib/types/analysis';
+import { toastState } from './toast.svelte';
 
 const STORAGE_KEY = 'paragraf-analysis';
 
@@ -25,6 +26,10 @@ class AnalysisState {
 		this.nodes = nodes;
 		this.edges = edges;
 		this.gaps = gaps;
+		this.debouncedSave();
+		if (nodes.length > 0) {
+			toastState.show(`Analyse fullført — ${nodes.length} treff`, 'success');
+		}
 	}
 
 	setProblemStatement(text: string) {
@@ -56,7 +61,7 @@ class AnalysisState {
 
 	private saveTimeout: ReturnType<typeof setTimeout> | null = null;
 
-	debouncedSave() {
+	private debouncedSave() {
 		if (this.saveTimeout) clearTimeout(this.saveTimeout);
 		this.saveTimeout = setTimeout(() => this.save(), 500);
 	}
@@ -64,6 +69,7 @@ class AnalysisState {
 	save() {
 		try {
 			const data = {
+				version: 1,
 				analysis: this.analysis,
 				nodes: this.nodes,
 				edges: this.edges,
@@ -91,7 +97,13 @@ class AnalysisState {
 
 	private touch() {
 		this.analysis.updatedAt = new Date().toISOString();
+		this.debouncedSave();
 	}
 }
 
 export const analysisState = new AnalysisState();
+
+// Flush pending save on tab close
+if (typeof window !== 'undefined') {
+	window.addEventListener('beforeunload', () => analysisState.save());
+}

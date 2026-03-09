@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { QueryClientProvider, QueryClient } from '@tanstack/svelte-query';
+	import Toast from '$lib/components/Toast.svelte';
 	import '../app.css';
 
 	let { children } = $props();
@@ -17,3 +18,4 @@
 <QueryClientProvider client={queryClient}>
 	{@render children()}
 </QueryClientProvider>
+<Toast />

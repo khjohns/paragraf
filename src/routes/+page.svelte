@@ -2,7 +2,9 @@
 	import AppShell from '$lib/components/AppShell.svelte';
 	import LeftPanel from '$lib/components/LeftPanel.svelte';
 	import NodeList from '$lib/components/NodeList.svelte';
+	import GraphView from '$lib/components/GraphView.svelte';
 	import NodeDetail from '$lib/components/NodeDetail.svelte';
+	import { onMount } from 'svelte';
 	import { analysisState } from '$lib/stores/analysis.svelte';
 	import { uiState } from '$lib/stores/ui.svelte';
 	import { createTraversalQuery } from '$lib/queries/traversal';
@@ -23,18 +25,8 @@
 		}
 	});
 
-	// Load persisted state on mount
-	$effect(() => {
-		analysisState.load();
-	});
-
-	// Save on changes (debounced)
-	$effect(() => {
-		// Touch all reactive fields to track them
-		analysisState.analysis;
-		analysisState.nodes;
-		analysisState.debouncedSave();
-	});
+	// Load persisted state on mount (saves are handled by touch() in store)
+	onMount(() => analysisState.load());
 </script>
 
 <AppShell>
@@ -43,7 +35,11 @@
 	{/snippet}
 
 	{#snippet middlePanel()}
-		<NodeList />
+		{#if uiState.viewMode === 'graph'}
+			<GraphView />
+		{:else}
+			<NodeList />
+		{/if}
 	{/snippet}
 
 	{#snippet rightPanel()}

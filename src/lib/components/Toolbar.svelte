@@ -26,31 +26,45 @@
 			>Liste</button>
 			<button
 				class="view-btn"
-				disabled
-				title="Grafvisning (Sprint 4)"
+				class:active={uiState.viewMode === 'graph'}
+				onclick={() => uiState.setViewMode('graph')}
 			>Graf</button>
 		</div>
 
-		<span class="toolbar-sep"></span>
+		{#if uiState.viewMode === 'list'}
+			<span class="toolbar-sep"></span>
 
-		<!-- Filters -->
-		<div class="filters">
-			<button class="filter-btn" class:active={uiState.listFilter === 'all'} onclick={() => uiState.setListFilter('all')}>Alle</button>
-			<button class="filter-btn filter-delim" class:active={uiState.listFilter === 'delimitation'} onclick={() => uiState.setListFilter('delimitation')}>Avgrensning</button>
-			<button class="filter-btn" class:active={uiState.listFilter === 'unread'} onclick={() => uiState.setListFilter('unread')}>Ulest</button>
-		</div>
+			<!-- Filters -->
+			<div class="filters">
+				<button class="filter-btn" class:active={uiState.listFilter === 'all'} onclick={() => uiState.setListFilter('all')}>Alle</button>
+				<button class="filter-btn filter-delim" class:active={uiState.listFilter === 'delimitation'} onclick={() => uiState.setListFilter('delimitation')}>Avgrensning</button>
+				<button class="filter-btn" class:active={uiState.listFilter === 'unread'} onclick={() => uiState.setListFilter('unread')}>Ulest</button>
+			</div>
+		{/if}
 	</div>
 
 	<div class="toolbar-right">
-		<!-- Sort -->
-		<div class="sort">
-			<label class="sort-label" for="sort-select">Sorter:</label>
-			<select id="sort-select" onchange={(e) => uiState.setListSort(e.currentTarget.value as ListSort)}>
-				<option value="category" selected={uiState.listSort === 'category'}>Kategori</option>
-				<option value="citations" selected={uiState.listSort === 'citations'}>Siteringer</option>
-				<option value="date" selected={uiState.listSort === 'date'}>Dato</option>
-			</select>
-		</div>
+		{#if uiState.viewMode === 'list'}
+			<!-- Sort -->
+			<div class="sort">
+				<label class="sort-label" for="sort-select">Sorter:</label>
+				<select id="sort-select" onchange={(e) => uiState.setListSort(e.currentTarget.value as ListSort)}>
+					<option value="category" selected={uiState.listSort === 'category'}>Kategori</option>
+					<option value="citations" selected={uiState.listSort === 'citations'}>Siteringer</option>
+					<option value="date" selected={uiState.listSort === 'date'}>Dato</option>
+				</select>
+			</div>
+		{/if}
+
+		<!-- Regulation filter -->
+		<button
+			class="reg-filter"
+			class:active={uiState.regulationFilter}
+			onclick={() => uiState.toggleRegulationFilter()}
+			title={uiState.regulationFilter ? 'Viser kun FOA 2017+' : 'Viser alle FOA-versjoner'}
+		>
+			{uiState.regulationFilter ? 'FOA 2017–' : 'Alle FOA'}
+		</button>
 
 		<!-- Node type legend (compact, from mock) -->
 		<div class="legend">
@@ -202,6 +216,25 @@
 		width: 6px;
 		height: 6px;
 		border-radius: 50%;
+	}
+
+	.reg-filter {
+		all: unset;
+		cursor: pointer;
+		padding: 3px 8px;
+		font-size: 10px;
+		font-weight: 500;
+		border-radius: 4px;
+		color: var(--p-ink3);
+		border: 1px solid var(--p-border);
+	}
+	.reg-filter:hover {
+		background: var(--p-hover);
+	}
+	.reg-filter.active {
+		background: var(--p-warn-bg);
+		color: var(--p-warn);
+		border-color: rgba(166,123,46,0.15);
 	}
 
 	.sort-warning {
