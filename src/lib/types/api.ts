@@ -1,10 +1,7 @@
 import type { GraphNode, GraphEdge, GapPair } from './graph';
+import type { Seeds } from './analysis';
 
-export interface TraversalRequest {
-	provisions: string[];
-	ftsTerms: string[];
-	vectorQuery: string;
-	cases: string[];
+export interface TraversalRequest extends Seeds {
 	regulationFilter: 'new' | 'all';
 }
 
