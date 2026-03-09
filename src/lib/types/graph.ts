@@ -36,6 +36,14 @@ export interface GraphEdge {
 	context?: string;
 }
 
+export const NODE_TYPE_ACCENT: Record<NodeType, string> = {
+	provision: 'var(--p-provision-accent)',
+	kofa_case: 'var(--p-kofa-accent)',
+	eu_case: 'var(--p-eu-accent)',
+	court_case: 'var(--p-court-accent)',
+	prep_work: 'var(--p-prep-accent)',
+};
+
 export interface GapPair {
 	provision1: string;
 	provision2: string;

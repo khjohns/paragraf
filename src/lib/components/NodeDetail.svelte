@@ -4,6 +4,10 @@
 	import { analysisState } from '$lib/stores/analysis.svelte';
 	import CaseReader from './CaseReader.svelte';
 	import ProvisionDetail from './ProvisionDetail.svelte';
+	import NodeTypeIcon from './NodeTypeIcon.svelte';
+	import CategoryBadge from './CategoryBadge.svelte';
+	import DelimBadge from './DelimBadge.svelte';
+	import ValencePip from './ValencePip.svelte';
 
 	let selectedNode = $derived(
 		analysisState.nodes.find(n => n.id === uiState.selectedNodeId) ?? null
@@ -19,12 +23,45 @@
 		selectedNode ? (analysisState.analysis.notes[selectedNode.id] ?? '') : ''
 	);
 
-	let showReading = $state(false);
+	let mode = $state<'overview' | 'reading'>('overview');
 
-	// Reset reading mode when node changes
+	// Has readable text (KOFA cases)
+	let hasText = $derived(selectedNode?.type === 'kofa_case');
+
+	// Connected nodes (use Set for O(1) lookups)
+	let connectedNodes = $derived.by(() => {
+		if (!selectedNode?.connectedTo) return [];
+		const idSet = new Set(selectedNode.connectedTo);
+		return analysisState.nodes.filter(n => idSet.has(n.id));
+	});
+
+	// Build valence map once per selection (avoids O(N) per relation)
+	let valenceMap = $derived.by(() => {
+		if (!selectedNode) return new Map<string, string>();
+		const map = new Map<string, string>();
+		// Check selected node's valence first
+		if (selectedNode.valence) {
+			for (const [id, v] of Object.entries(selectedNode.valence)) {
+				if (v !== 'unknown') map.set(id, v);
+			}
+		}
+		// Check reverse valence from connected nodes
+		for (const cn of connectedNodes) {
+			if (!map.has(cn.id) && cn.valence?.[selectedNode.id] && cn.valence[selectedNode.id] !== 'unknown') {
+				map.set(cn.id, cn.valence[selectedNode.id]);
+			}
+		}
+		return map;
+	});
+
+	function getValence(targetId: string) {
+		return valenceMap.get(targetId) ?? 'unknown';
+	}
+
+	// Reset mode when node changes
 	$effect(() => {
 		uiState.selectedNodeId;
-		showReading = false;
+		mode = 'overview';
 	});
 
 	const typeMeta: Record<string, { label: string; bgVar: string; accentVar: string }> = {
@@ -43,24 +80,34 @@
 		<!-- Header with node-type background color -->
 		<div class="detail-header" style:background="var({meta.bgVar})">
 			<div class="header-top">
-				<span class="type-label">{meta.label}</span>
+				<div class="header-type">
+					<NodeTypeIcon type={selectedNode.type} size={13} />
+					<span class="type-label" style:color="var({meta.accentVar})">{meta.label}</span>
+				</div>
 				<button class="close-btn" onclick={() => uiState.selectNode(null)}>&times;</button>
 			</div>
-			<h2 class="node-title" style:color="var({meta.accentVar})">{selectedNode.label}</h2>
+			<h2 class="node-title">{selectedNode.label}</h2>
 			{#if selectedNode.subtitle}
 				<p class="node-subtitle">{selectedNode.subtitle}</p>
 			{/if}
 
 			<div class="meta-row">
 				{#if selectedNode.category}
-					<span class="cat-badge cat-{selectedNode.category.toLowerCase()}">{selectedNode.category}</span>
+					<CategoryBadge category={selectedNode.category} />
 				{/if}
 				{#if selectedNode.signals}
-					<span class="signal-info">
-						{#if selectedNode.signals.ref}R{/if}
-						{#if selectedNode.signals.fts}F{/if}
-						{#if selectedNode.signals.vec}V{/if}
+					<span class="signal-dots" title="R: Referanse  F: Fulltekst  V: Vektor">
+						{#each [
+							{ key: 'ref', on: selectedNode.signals.ref },
+							{ key: 'fts', on: selectedNode.signals.fts },
+							{ key: 'vec', on: selectedNode.signals.vec },
+						] as sig}
+							<span class="sig-dot" class:on={sig.on}></span>
+						{/each}
 					</span>
+				{/if}
+				{#if selectedNode.isDelimitation}
+					<DelimBadge />
 				{/if}
 				{#if selectedNode.date}
 					<span class="meta-item">{selectedNode.date}</span>
@@ -73,53 +120,119 @@
 					>{selectedNode.outcome}</span>
 				{/if}
 				{#if selectedNode.citations > 0}
-					<span class="meta-item mono">{selectedNode.citations} siteringer</span>
+					<span class="meta-item mono">{selectedNode.citations} sit.</span>
+				{/if}
+				{#if selectedNode.directive}
+					<span class="meta-item directive">{selectedNode.directive}</span>
 				{/if}
 			</div>
+
+			<!-- Tab bar for nodes with readable text -->
+			{#if hasText}
+				<div class="tab-bar">
+					<button
+						class="tab-btn"
+						class:active={mode === 'overview'}
+						onclick={() => (mode = 'overview')}
+					>Oversikt</button>
+					<button
+						class="tab-btn"
+						class:active={mode === 'reading'}
+						onclick={() => (mode = 'reading')}
+					>Les avgjørelsen</button>
+				</div>
+			{/if}
 		</div>
 
-		<!-- Actions -->
-		<div class="detail-actions">
-			<button class="action-btn" class:active={isRead} onclick={() => analysisState.toggleRead(selectedNode!.id)}>
-				{isRead ? 'Lest' : 'Merk som lest'}
-			</button>
-			<button class="action-btn action-delim" class:active={isDelimitation} onclick={() => analysisState.toggleDelimitation(selectedNode!.id)}>
-				{isDelimitation ? 'Avgrenset' : 'Avgrens'}
-			</button>
-		</div>
+		<!-- Content area -->
+		<div class="detail-body">
+			{#if mode === 'reading' && selectedNode.type === 'kofa_case'}
+				<CaseReader
+					sakNr={selectedNode.label}
+					onBack={() => (mode = 'overview')}
+				/>
+			{:else}
+				<!-- Detail / Summary text -->
+				{#if selectedNode.detail}
+					<div class="detail-section">
+						<div class="section-label">{selectedNode.type === 'provision' ? 'Ordlyd' : 'Sammendrag'}</div>
+						<div class="detail-text">{selectedNode.detail}</div>
+					</div>
+				{/if}
 
-		<!-- Reading mode link (KOFA cases only) -->
-		{#if selectedNode.type === 'kofa_case' && !showReading}
-			<button class="read-link" onclick={() => { showReading = true; }}>
-				Les avgjørelsen →
-			</button>
-		{/if}
+				<!-- Signals detail -->
+				{#if selectedNode.signals}
+					<div class="detail-section">
+						<div class="section-label">Treffsignaler</div>
+						{#each [
+							{ key: 'ref' as const, label: 'Referansetabell', on: selectedNode.signals.ref },
+							{ key: 'fts' as const, label: 'Fulltekstsøk', on: selectedNode.signals.fts },
+							{ key: 'vec' as const, label: 'Vektorsøk', on: selectedNode.signals.vec },
+						] as sig}
+							<div class="signal-row" class:signal-on={sig.on}>
+								<span class="sig-indicator" class:on={sig.on}></span>
+								<span class:signal-label-on={sig.on}>{sig.label}</span>
+							</div>
+						{/each}
+					</div>
+				{/if}
 
-		<!-- Reading mode content -->
-		{#if showReading && selectedNode.type === 'kofa_case'}
-			<CaseReader
-				sakNr={selectedNode.label}
-				onBack={() => { showReading = false; }}
-			/>
-		{/if}
+				<!-- Relations -->
+				{#if connectedNodes.length > 0}
+					<div class="detail-section">
+						<div class="section-label">Relasjoner ({connectedNodes.length})</div>
+						{#each connectedNodes as cn}
+							{@const v = getValence(cn.id)}
+							<button class="relation-row" onclick={() => uiState.selectNode(cn.id)}>
+								<NodeTypeIcon type={cn.type} size={10} />
+								<span class="relation-label">{cn.label}</span>
+								{#if v !== 'unknown'}
+									<ValencePip valence={v} size={9} />
+								{/if}
+								<span class="relation-subtitle">{cn.subtitle?.slice(0, 28)}</span>
+							</button>
+						{/each}
+					</div>
+				{/if}
 
-		<!-- Provision detail -->
-		{#if selectedNode.type === 'provision'}
-			{@const parts = selectedNode.id.split(':')}
-			<ProvisionDetail dokId="forskrift/2016-08-12-974" sectionId={parts[1] ?? ''} />
-		{/if}
+				<!-- Provision detail -->
+				{#if selectedNode.type === 'provision'}
+					{@const parts = selectedNode.id.split(':')}
+					<ProvisionDetail dokId="forskrift/2016-08-12-974" sectionId={parts[1] ?? ''} />
+				{/if}
 
-		<!-- Notes -->
-		<div class="detail-notes">
-			<label class="notes-label" for="notes-field">Mine notater</label>
-			<textarea
-				id="notes-field"
-				class="notes-field"
-				value={note}
-				oninput={(e) => analysisState.setNote(selectedNode!.id, e.currentTarget.value)}
-				placeholder="Skriv notater her..."
-				rows="4"
-			></textarea>
+				<!-- Notes -->
+				<div class="detail-section">
+					<label class="section-label" for="notes-field">Mine notater</label>
+					<textarea
+						id="notes-field"
+						class="notes-field"
+						value={note}
+						oninput={(e) => analysisState.setNote(selectedNode!.id, e.currentTarget.value)}
+						placeholder="Skriv notater om denne rettskilden..."
+						rows="3"
+					></textarea>
+				</div>
+
+				<!-- Actions -->
+				<div class="detail-actions">
+					<button
+						class="action-btn"
+						class:active={isRead}
+						onclick={() => analysisState.toggleRead(selectedNode!.id)}
+					>
+						{isRead ? '✓ Lest og vurdert' : 'Marker som lest'}
+					</button>
+					<button class="action-btn action-seed">
+						Bruk som seed i neste iterasjon
+					</button>
+					{#if selectedNode.isDelimitation}
+						<div class="delim-notice">
+							Avgrensningspraksis — bestemmelsen ble vurdert som ikke-anvendelig
+						</div>
+					{/if}
+				</div>
+			{/if}
 		</div>
 	</div>
 {/if}
@@ -128,54 +241,65 @@
 	.detail-panel {
 		display: flex;
 		flex-direction: column;
-		gap: var(--spacing-3);
+		height: 100%;
+		overflow: hidden;
 	}
 
-	/* Header — node-type bg color, matching mock */
+	/* Header */
 	.detail-header {
-		padding: 12px 16px;
-		display: flex;
-		flex-direction: column;
-		gap: var(--spacing-1);
+		padding: 14px 16px;
+		border-bottom: 1px solid var(--p-border);
+		flex-shrink: 0;
 	}
 	.header-top {
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
+		margin-bottom: 6px;
+	}
+	.header-type {
+		display: flex;
+		align-items: center;
+		gap: 5px;
 	}
 	.type-label {
-		font-size: 0.6875rem;
-		font-weight: 500;
-		color: var(--p-ink3);
-		text-transform: uppercase;
-		letter-spacing: 0.05em;
+		font-size: 11px;
+		font-weight: 600;
+		letter-spacing: 0.03em;
 	}
 	.close-btn {
 		all: unset;
 		cursor: pointer;
-		font-size: 1.25rem;
+		width: 22px;
+		height: 22px;
+		border-radius: 4px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		font-size: 15px;
 		color: var(--p-ink3);
-		line-height: 1;
-		padding: var(--spacing-1);
 	}
 	.close-btn:hover {
+		background: var(--p-hover);
 		color: var(--p-ink);
 	}
 	.node-title {
 		font-family: var(--font-data);
 		font-size: 15px;
 		font-weight: 700;
+		color: var(--p-ink);
+		margin-bottom: 3px;
 	}
 	.node-subtitle {
-		font-size: 13px;
+		font-size: 12.5px;
 		color: var(--p-ink2);
 	}
 	.meta-row {
 		display: flex;
-		gap: var(--spacing-2);
+		gap: 6px;
 		align-items: center;
 		flex-wrap: wrap;
-		margin-top: var(--spacing-1);
+		margin-top: 8px;
 	}
 	.meta-item {
 		font-size: 11px;
@@ -184,31 +308,33 @@
 	.mono {
 		font-family: var(--font-data);
 	}
-	.signal-info {
-		font-family: var(--font-data);
-		font-size: 10px;
-		font-weight: 600;
-		color: var(--p-ink3);
-		letter-spacing: 0.05em;
+	.directive {
+		color: var(--p-eu-accent);
+		font-weight: 500;
 	}
-	.cat-badge {
+
+	.signal-dots {
 		display: inline-flex;
 		align-items: center;
-		justify-content: center;
-		padding: 2px 7px;
-		border-radius: 3px;
-		font-size: 10px;
-		font-weight: 600;
-		font-family: var(--font-data);
+		gap: 3px;
 	}
-	.cat-a { background: var(--p-success-bg); color: var(--p-success); }
-	.cat-b { background: var(--p-warn-bg); color: var(--p-warn); }
-	.cat-c { background: rgba(26,24,20,0.06); color: var(--p-ink2); }
+	.sig-dot {
+		width: 6px;
+		height: 6px;
+		border-radius: 50%;
+		background: transparent;
+		border: 1.5px solid var(--p-signal-off);
+	}
+	.sig-dot.on {
+		background: var(--p-signal-on);
+		border-color: var(--p-signal-on);
+	}
+
 	.outcome-badge {
-		font-size: 10px;
+		font-size: 11px;
 		font-weight: 600;
-		padding: 2px 6px;
-		border-radius: 3px;
+		padding: 2px 7px;
+		border-radius: 4px;
 	}
 	.outcome-badge.brudd {
 		background: var(--p-warn-bg);
@@ -219,76 +345,175 @@
 		color: var(--p-success);
 	}
 
-	/* Actions */
-	.detail-actions {
+	/* Tab bar */
+	.tab-bar {
 		display: flex;
-		gap: var(--spacing-2);
-		padding: 0 16px;
+		margin-top: 10px;
+		border-radius: 5px;
+		border: 1px solid var(--p-border-m);
+		overflow: hidden;
 	}
-	.action-btn {
+	.tab-btn {
 		all: unset;
 		cursor: pointer;
-		padding: var(--spacing-1) var(--spacing-3);
-		font-size: 0.75rem;
-		border: 1px solid var(--p-border-m);
-		border-radius: var(--radius-sm);
-		color: var(--p-ink2);
+		flex: 1;
+		padding: 5px 0;
+		text-align: center;
+		font-size: 11px;
+		font-weight: 400;
+		color: var(--p-ink3);
+		background: transparent;
 	}
-	.action-btn:hover {
-		background: var(--p-hover);
-	}
-	.action-btn.active {
-		background: var(--p-success-bg);
-		border-color: var(--p-success);
-		color: var(--p-success);
-	}
-	.action-delim.active {
-		background: var(--p-delim-bg);
-		border-color: var(--p-delim);
-		color: var(--p-delim);
+	.tab-btn.active {
+		background: var(--p-ink);
+		color: var(--p-panel);
+		font-weight: 600;
 	}
 
-	/* Reading link */
-	.read-link {
+	/* Body */
+	.detail-body {
+		flex: 1;
+		overflow-y: auto;
+	}
+
+	.detail-section {
+		padding: 12px 16px;
+		border-bottom: 1px solid var(--p-border);
+	}
+	.section-label {
+		font-size: 10px;
+		font-weight: 600;
+		color: var(--p-ink3);
+		letter-spacing: 0.05em;
+		text-transform: uppercase;
+		margin-bottom: 6px;
+	}
+
+	/* Detail text */
+	.detail-text {
+		font-size: 13px;
+		line-height: 1.6;
+		color: var(--p-ink);
+	}
+
+	/* Signals detail */
+	.signal-row {
+		display: flex;
+		align-items: center;
+		gap: 7px;
+		padding: 4px 6px;
+		border-radius: 3px;
+		margin-bottom: 2px;
+		font-size: 11.5px;
+		color: var(--p-ink4);
+		font-weight: 400;
+	}
+	.signal-row.signal-on {
+		background: rgba(26,24,20,0.025);
+	}
+	.signal-label-on {
+		font-weight: 600;
+		color: var(--p-ink);
+	}
+	.sig-indicator {
+		width: 6px;
+		height: 6px;
+		border-radius: 50%;
+		background: transparent;
+		border: 1.5px solid var(--p-signal-off);
+		flex-shrink: 0;
+	}
+	.sig-indicator.on {
+		background: var(--p-signal-on);
+		border-color: var(--p-signal-on);
+	}
+
+	/* Relations */
+	.relation-row {
 		all: unset;
 		cursor: pointer;
-		font-size: 0.8125rem;
-		color: var(--p-kofa-accent);
-		font-weight: 500;
-		padding: 0 16px;
+		display: flex;
+		align-items: center;
+		gap: 5px;
+		padding: 4px 6px;
+		border-radius: 4px;
+		margin-bottom: 1px;
+		width: 100%;
 	}
-	.read-link:hover {
-		text-decoration: underline;
+	.relation-row:hover {
+		background: var(--p-hover);
+	}
+	.relation-label {
+		font-family: var(--font-data);
+		font-weight: 500;
+		font-size: 11.5px;
+	}
+	.relation-subtitle {
+		color: var(--p-ink4);
+		font-size: 10px;
+		flex: 1;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
 	}
 
 	/* Notes */
-	.detail-notes {
-		display: flex;
-		flex-direction: column;
-		gap: var(--spacing-1);
-		padding: 0 16px 16px;
-	}
-	.notes-label {
-		font-size: 0.6875rem;
-		font-weight: 500;
-		color: var(--p-ink3);
-		text-transform: uppercase;
-		letter-spacing: 0.05em;
-	}
 	.notes-field {
 		width: 100%;
-		padding: var(--spacing-2);
-		font-size: 0.8125rem;
+		padding: 7px 10px;
+		font-size: 12.5px;
+		line-height: 1.5;
 		font-family: var(--font-ui);
 		background: var(--p-input);
-		border: 1px solid var(--p-border);
-		border-radius: var(--radius-md);
+		border: 1px solid var(--p-border-m);
+		border-radius: 5px;
 		color: var(--p-ink);
 		resize: vertical;
 	}
 	.notes-field:focus {
 		outline: none;
-		border-color: var(--p-border-s);
+		border-color: var(--p-kofa-accent);
 	}
 
+	/* Actions */
+	.detail-actions {
+		padding: 12px 16px;
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
+	}
+	.action-btn {
+		all: unset;
+		cursor: pointer;
+		width: 100%;
+		padding: 7px 12px;
+		border-radius: 5px;
+		border: 1px solid var(--p-border-m);
+		color: var(--p-ink2);
+		font-size: 12px;
+		font-weight: 500;
+		text-align: center;
+	}
+	.action-btn:hover {
+		border-color: var(--p-border-s);
+		color: var(--p-ink);
+	}
+	.action-btn.active {
+		background: var(--p-success-bg);
+		border-color: rgba(61,122,74,0.18);
+		color: var(--p-success);
+	}
+	.action-seed {
+		background: transparent;
+	}
+	.delim-notice {
+		padding: 7px 10px;
+		border-radius: 5px;
+		background: var(--p-delim-bg);
+		border: 1px solid rgba(196,101,10,0.1);
+		font-size: 11px;
+		color: var(--p-delim);
+		line-height: 1.4;
+		text-align: center;
+	}
 </style>

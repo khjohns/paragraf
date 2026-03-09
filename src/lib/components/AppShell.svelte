@@ -49,8 +49,9 @@
 		min-width: 300px;
 		border-right: 1px solid var(--p-border);
 		background: var(--p-panel);
-		overflow-y: auto;
-		padding: var(--spacing-4);
+		overflow: hidden;
+		display: flex;
+		flex-direction: column;
 	}
 	.middle-panel {
 		flex: 1;
