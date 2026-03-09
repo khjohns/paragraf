@@ -68,18 +68,21 @@
 		font-size: 0.8125rem;
 	}
 	.empty-state {
-		padding: var(--spacing-8) var(--spacing-6);
+		padding: 64px var(--spacing-6) var(--spacing-8);
 		text-align: center;
+		max-width: 280px;
+		margin: 0 auto;
 	}
 	.empty-title {
-		font-size: 0.875rem;
+		font-size: 15px;
 		font-weight: 600;
-		color: var(--p-ink2);
-		margin-bottom: var(--spacing-1);
+		color: var(--p-ink);
+		margin-bottom: var(--spacing-2);
+		letter-spacing: -0.01em;
 	}
 	.empty-desc {
-		font-size: 0.8125rem;
+		font-size: 13px;
 		color: var(--p-ink3);
-		line-height: 1.5;
+		line-height: 1.55;
 	}
 </style>

@@ -104,3 +104,18 @@ body {
 code, .mono {
 	font-family: var(--font-data);
 }
+
+/* Keyboard focus — all: unset kills default outlines, restore them */
+*:focus-visible {
+	outline: 1.5px solid var(--p-ink3);
+	outline-offset: 2px;
+	border-radius: var(--radius-sm);
+}
+
+/* Press feedback for interactive elements */
+button:active:not(:disabled),
+[role="button"]:active,
+[role="checkbox"]:active {
+	opacity: 0.75;
+	transition: opacity 0.06s ease;
+}

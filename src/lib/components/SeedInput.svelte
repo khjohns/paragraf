@@ -57,8 +57,6 @@
 </script>
 
 <div class="seed-input">
-	<h2 class="panel-title">Utgangspunkt</h2>
-
 	<section>
 		<label class="field-label" for="provision-input">Bestemmelser</label>
 		<div class="chip-input">
@@ -106,13 +104,6 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--spacing-4);
-	}
-	.panel-title {
-		font-size: 0.8125rem;
-		font-weight: 600;
-		color: var(--p-ink);
-		text-transform: uppercase;
-		letter-spacing: 0.05em;
 	}
 	section {
 		display: flex;

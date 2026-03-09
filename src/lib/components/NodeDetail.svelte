@@ -92,7 +92,11 @@
 					<NodeTypeIcon type={selectedNode.type} size={13} />
 					<span class="type-label" style:color="var({meta.accentVar})">{meta.label}</span>
 				</div>
-				<button class="close-btn" onclick={() => uiState.selectNode(null)}>&times;</button>
+				<button class="close-btn" onclick={() => uiState.selectNode(null)}>
+					<svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+						<path d="M3.5 3.5L10.5 10.5M10.5 3.5L3.5 10.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+					</svg>
+				</button>
 			</div>
 			<h2 class="node-title">{selectedNode.label}</h2>
 			{#if selectedNode.subtitle}
@@ -305,13 +309,12 @@
 	.close-btn {
 		all: unset;
 		cursor: pointer;
-		width: 22px;
-		height: 22px;
-		border-radius: 4px;
+		width: 24px;
+		height: 24px;
+		border-radius: var(--radius-sm);
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		font-size: 15px;
 		color: var(--p-ink3);
 	}
 	.close-btn:hover {
@@ -326,7 +329,7 @@
 		margin-bottom: 3px;
 	}
 	.node-subtitle {
-		font-size: 12.5px;
+		font-size: 13px;
 		color: var(--p-ink2);
 	}
 	.meta-row {
@@ -380,7 +383,7 @@
 		color: var(--p-success);
 	}
 
-	/* Tab bar */
+	/* Tab bar — matches view-switcher pattern */
 	.tab-bar {
 		display: flex;
 		margin-top: 10px;
@@ -392,12 +395,15 @@
 		all: unset;
 		cursor: pointer;
 		flex: 1;
-		padding: 5px 0;
+		padding: 4px 0;
 		text-align: center;
 		font-size: 11px;
-		font-weight: 400;
+		font-weight: 500;
 		color: var(--p-ink3);
 		background: transparent;
+	}
+	.tab-btn:hover:not(.active) {
+		background: var(--p-hover);
 	}
 	.tab-btn.active {
 		background: var(--p-ink);
@@ -437,9 +443,9 @@
 		align-items: center;
 		gap: 7px;
 		padding: 4px 6px;
-		border-radius: 3px;
+		border-radius: var(--radius-sm);
 		margin-bottom: 2px;
-		font-size: 11.5px;
+		font-size: 12px;
 		color: var(--p-ink4);
 		font-weight: 400;
 	}
@@ -481,7 +487,7 @@
 	.relation-label {
 		font-family: var(--font-data);
 		font-weight: 500;
-		font-size: 11.5px;
+		font-size: 12px;
 	}
 	.relation-subtitle {
 		color: var(--p-ink4);
@@ -496,7 +502,7 @@
 	.notes-field {
 		width: 100%;
 		padding: 7px 10px;
-		font-size: 12.5px;
+		font-size: 13px;
 		line-height: 1.5;
 		font-family: var(--font-ui);
 		background: var(--p-input);

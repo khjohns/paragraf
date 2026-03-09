@@ -15,7 +15,7 @@
 		align-items: center;
 		justify-content: center;
 		padding: 2px 6px;
-		border-radius: 3px;
+		border-radius: var(--radius-sm);
 		font-size: 11px;
 		font-weight: 600;
 		letter-spacing: 0.03em;

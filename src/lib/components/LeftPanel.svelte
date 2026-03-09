@@ -387,7 +387,7 @@
 	}
 	.progress-bar {
 		flex: 1;
-		height: 3px;
+		height: 4px;
 		border-radius: 2px;
 		background: var(--p-input);
 		overflow: hidden;

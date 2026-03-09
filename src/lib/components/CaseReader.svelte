@@ -319,8 +319,7 @@
 	}
 	.paragraph.has-highlight {
 		border-left: 2px solid var(--p-highlight-strong);
-		padding-left: 12px;
-		margin-left: -14px;
+		padding-left: 10px;
 	}
 	.paragraph.dimmed {
 		opacity: 0.4;

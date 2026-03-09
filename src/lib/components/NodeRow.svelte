@@ -156,7 +156,7 @@
 		width: 15px;
 		height: 15px;
 		min-width: 15px;
-		border-radius: 3px;
+		border-radius: var(--radius-sm);
 		border: 1.5px solid var(--p-border-s);
 		display: flex;
 		align-items: center;
@@ -194,7 +194,7 @@
 	.node-label {
 		font-family: var(--font-data);
 		font-weight: 600;
-		font-size: 12.5px;
+		font-size: 13px;
 		color: var(--p-ink);
 		flex-shrink: 0;
 	}
@@ -217,7 +217,7 @@
 	}
 
 	.iter-badge {
-		font-size: 9px;
+		font-size: 10px;
 		font-weight: 600;
 		color: var(--p-success);
 		background: var(--p-success-bg);
@@ -227,7 +227,7 @@
 	}
 
 	.subtitle {
-		font-size: 11.5px;
+		font-size: 12px;
 		color: var(--p-ink2);
 		white-space: nowrap;
 		overflow: hidden;
@@ -239,7 +239,7 @@
 		display: flex;
 		align-items: center;
 		gap: 7px;
-		font-size: 10.5px;
+		font-size: 11px;
 		color: var(--p-ink3);
 		margin-top: 3px;
 		flex-wrap: wrap;
@@ -248,7 +248,7 @@
 	.outcome-badge {
 		font-weight: 600;
 		padding: 1px 5px;
-		border-radius: 3px;
+		border-radius: var(--radius-sm);
 		font-size: 10px;
 	}
 	.outcome-badge.brudd {
@@ -276,6 +276,6 @@
 	}
 	.valence-label {
 		font-family: var(--font-data);
-		font-size: 9.5px;
+		font-size: 10px;
 	}
 </style>
