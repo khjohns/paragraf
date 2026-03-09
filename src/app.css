@@ -1,0 +1,104 @@
+@import "tailwindcss";
+
+@theme inline {
+	--font-ui: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+	--font-data: 'JetBrains Mono', 'SF Mono', monospace;
+
+	--spacing-1: 4px;
+	--spacing-2: 8px;
+	--spacing-3: 12px;
+	--spacing-4: 16px;
+	--spacing-5: 20px;
+	--spacing-6: 24px;
+	--spacing-8: 32px;
+
+	--radius-sm: 2px;
+	--radius-md: 4px;
+	--radius-lg: 6px;
+
+	--color-bg: var(--p-bg);
+	--color-panel: var(--p-panel);
+	--color-surface: var(--p-surface);
+	--color-ink: var(--p-ink);
+	--color-ink2: var(--p-ink2);
+	--color-ink3: var(--p-ink3);
+	--color-ink4: var(--p-ink4);
+	--color-border: var(--p-border);
+	--color-border-m: var(--p-border-m);
+	--color-border-s: var(--p-border-s);
+}
+
+:root {
+	--p-bg: #F5F3EE;
+	--p-panel: #FAF9F6;
+	--p-surface: #FFFFFF;
+	--p-input: #EFECE5;
+	--p-hover: rgba(26,24,20,0.03);
+	--p-active: rgba(26,24,20,0.06);
+
+	--p-ink: #1A1814;
+	--p-ink2: #5C564D;
+	--p-ink3: #8C8578;
+	--p-ink4: #B0A99E;
+
+	--p-border: rgba(26,24,20,0.08);
+	--p-border-m: rgba(26,24,20,0.13);
+	--p-border-s: rgba(26,24,20,0.22);
+
+	/* Node types — spec section 17 */
+	--p-provision-bg: #E8EEF0;
+	--p-provision-accent: #4A6670;
+	--p-provision-border: #C5D3D8;
+	--p-kofa-bg: #F0EBD8;
+	--p-kofa-accent: #8B6914;
+	--p-kofa-border: #DDD3B0;
+	--p-eu-bg: #E4F0EC;
+	--p-eu-accent: #2D6A5D;
+	--p-eu-border: #BDD9CF;
+	--p-court-bg: #EDE4EE;
+	--p-court-accent: #6B4C6E;
+	--p-court-border: #D4C4D6;
+	--p-prep-bg: #EDE8E0;
+	--p-prep-accent: #7A6B5D;
+	--p-prep-border: #D5CEC3;
+
+	/* Semantic */
+	--p-success: #3D7A4A;
+	--p-success-bg: #EBF5ED;
+	--p-warn: #A67B2E;
+	--p-warn-bg: #FBF5E8;
+	--p-danger: #A63D3D;
+	--p-danger-bg: #F5EBEB;
+	--p-gap: #9B4DCA;
+	--p-gap-bg: #F3ECF8;
+	--p-delim: #C4650A;
+	--p-delim-bg: #FDF2E7;
+
+	/* Signals */
+	--p-signal-on: #1A1814;
+	--p-signal-off: #D5D0C8;
+
+	/* AI (Phase 2, but tokens defined now) */
+	--p-highlight: #FBF5E8;
+	--p-ai-accent: #8B6914;
+	--p-ai-comment-bg: rgba(139,105,20,0.04);
+}
+
+/* Global resets */
+*,
+*::before,
+*::after {
+	box-sizing: border-box;
+}
+
+body {
+	margin: 0;
+	font-family: var(--font-ui);
+	color: var(--p-ink);
+	background: var(--p-bg);
+	-webkit-font-smoothing: antialiased;
+}
+
+code, .mono {
+	font-family: var(--font-data);
+}
