@@ -32,8 +32,14 @@ def traverse():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/provisions/<path:dok_id>/<path:section_id>")
-def provision_detail(dok_id, section_id):
+@app.route("/api/provisions/<path:provision_path>")
+def provision_detail(provision_path):
+    # Split on last '/' — dok_id can contain slashes (e.g. 'forskrift/2016-08-12-974')
+    sep = provision_path.rfind("/")
+    if sep == -1:
+        return jsonify({"error": "URL must be /api/provisions/{dok_id}/{section_id}"}), 400
+    dok_id = provision_path[:sep]
+    section_id = provision_path[sep + 1:]
     result = get_provision_detail(dok_id, section_id)
     if result is None:
         return jsonify({"error": "Provision not found"}), 404
