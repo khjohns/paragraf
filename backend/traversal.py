@@ -113,15 +113,176 @@ def _build_provision_nodes(client, provisions: list[str]) -> list[dict]:
 def _build_edges(
     client, case_sak_nrs: set[str], provisions: list[str]
 ) -> tuple[list[dict], list[dict], list[dict]]:
-    """Build edges and collect EU + forarbeider nodes. (Stub — Task 4.)"""
-    return [], [], []
+    """Build edges and collect EU + forarbeider nodes.
+
+    Returns (edges, eu_nodes, prep_nodes).
+    """
+    sak_list = list(case_sak_nrs)
+    edges: list[dict] = []
+    seen_edges: set[tuple[str, str]] = set()
+    eu_nodes: list[dict] = []
+    prep_nodes: list[dict] = []
+    seen_eu: set[str] = set()
+    seen_prep: set[str] = set()
+
+    # --- Case → Provision edges (from law references) ---
+    law_refs = (
+        client.table("kofa_law_references")
+        .select("sak_nr, law_name, law_section")
+        .in_("sak_nr", sak_list)
+        .execute()
+    )
+    provision_set = set(provisions)
+    for ref in law_refs.data or []:
+        for prov_id in provision_set:
+            law_name, law_section = parse_provision(prov_id)
+            if ref["law_name"] == law_name and (ref.get("law_section") or "").startswith(law_section):
+                key = (f"kofa:{ref['sak_nr']}", prov_id)
+                if key not in seen_edges:
+                    seen_edges.add(key)
+                    edges.append({"from": key[0], "to": key[1], "valence": "unknown"})
+                break
+
+    # --- Case → Case edges ---
+    case_refs = (
+        client.table("kofa_case_references")
+        .select("from_sak_nr, to_sak_nr, context")
+        .in_("from_sak_nr", sak_list)
+        .execute()
+    )
+    for ref in case_refs.data or []:
+        if ref["to_sak_nr"] in case_sak_nrs:
+            key = (f"kofa:{ref['from_sak_nr']}", f"kofa:{ref['to_sak_nr']}")
+            if key not in seen_edges:
+                seen_edges.add(key)
+                edges.append({
+                    "from": key[0],
+                    "to": key[1],
+                    "valence": "unknown",
+                    "context": ref.get("context"),
+                })
+
+    # --- Case → EU edges ---
+    eu_refs = (
+        client.table("kofa_eu_references")
+        .select("sak_nr, eu_case_id, eu_case_name, context")
+        .in_("sak_nr", sak_list)
+        .execute()
+    )
+    eu_ids = set()
+    for ref in eu_refs.data or []:
+        eu_id = ref["eu_case_id"]
+        eu_ids.add(eu_id)
+        key = (f"kofa:{ref['sak_nr']}", f"eu:{eu_id}")
+        if key not in seen_edges:
+            seen_edges.add(key)
+            edges.append({"from": key[0], "to": key[1], "valence": "unknown"})
+
+    # Batch-fetch EU case metadata
+    if eu_ids:
+        eu_data = (
+            client.table("kofa_eu_case_law")
+            .select("eu_case_id, case_name, judgment_date, subject")
+            .in_("eu_case_id", list(eu_ids))
+            .execute()
+        )
+        for eu in eu_data.data or []:
+            node_id = f"eu:{eu['eu_case_id']}"
+            if node_id not in seen_eu:
+                seen_eu.add(node_id)
+                eu_nodes.append({
+                    "id": node_id,
+                    "type": "eu_case",
+                    "label": eu["eu_case_id"],
+                    "subtitle": eu.get("case_name") or "",
+                    "date": str(eu["judgment_date"]) if eu.get("judgment_date") else None,
+                    "citations": 0,
+                    "iteration": 1,
+                    "isSeed": False,
+                    "isDelimitation": False,
+                })
+
+    # --- Forarbeider → Provision edges ---
+    for prov_id in provisions:
+        law_name, law_section = parse_provision(prov_id)
+        prep_refs = (
+            client.table("kofa_forarbeider_law_refs")
+            .select("doc_id, section_number")
+            .eq("law_name", law_name)
+            .like("law_section", f"{law_section}%")
+            .execute()
+        )
+        prep_doc_ids = set()
+        for ref in prep_refs.data or []:
+            doc_id = ref["doc_id"]
+            prep_doc_ids.add(doc_id)
+            node_id = f"forarbeid:{doc_id}:{ref['section_number']}"
+            key = (node_id, prov_id)
+            if key not in seen_edges:
+                seen_edges.add(key)
+                edges.append({"from": key[0], "to": key[1], "valence": "unknown"})
+
+        # Batch-fetch forarbeider metadata
+        if prep_doc_ids:
+            prep_data = (
+                client.table("kofa_forarbeider")
+                .select("doc_id, title, full_title")
+                .in_("doc_id", list(prep_doc_ids))
+                .execute()
+            )
+            prep_map = {p["doc_id"]: p for p in (prep_data.data or [])}
+            for ref in prep_refs.data or []:
+                node_id = f"forarbeid:{ref['doc_id']}:{ref['section_number']}"
+                if node_id not in seen_prep:
+                    seen_prep.add(node_id)
+                    meta = prep_map.get(ref["doc_id"], {})
+                    prep_nodes.append({
+                        "id": node_id,
+                        "type": "prep_work",
+                        "label": meta.get("title") or ref["doc_id"],
+                        "subtitle": meta.get("full_title") or "",
+                        "citations": 0,
+                        "iteration": 1,
+                        "isSeed": False,
+                        "isDelimitation": False,
+                    })
+
+    return edges, eu_nodes, prep_nodes
 
 
 def _compute_gaps(
     provisions: list[str], ref_cases: dict[str, set[str]]
 ) -> list[dict]:
-    """Compute gap matrix. (Stub — Task 4.)"""
-    return []
+    """Compute gap matrix — provision pairs with shared case counts.
+
+    For each pair of provisions, count cases that reference both.
+    Gaps (count=0) are the interesting analytical finding.
+    """
+    if len(provisions) < 2:
+        return []
+
+    # Invert: provision → set of sak_nrs
+    prov_to_cases: dict[str, set[str]] = {}
+    for sak_nr, prov_set in ref_cases.items():
+        for prov_id in prov_set:
+            prov_to_cases.setdefault(prov_id, set()).add(sak_nr)
+
+    for prov_id in provisions:
+        prov_to_cases.setdefault(prov_id, set())
+
+    gaps = []
+    for i, p1 in enumerate(provisions):
+        for p2 in provisions[i + 1:]:
+            shared = prov_to_cases.get(p1, set()) & prov_to_cases.get(p2, set())
+            _, s1 = parse_provision(p1)
+            _, s2 = parse_provision(p2)
+            gaps.append({
+                "provision1": f"§{s1}",
+                "provision2": f"§{s2}",
+                "count": len(shared),
+            })
+
+    return gaps
 
 
 def build_traversal_response(
