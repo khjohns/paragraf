@@ -85,7 +85,7 @@
 			n => n.label === ref.target_case || n.id.includes(ref.target_case)
 		);
 		if (targetNode) {
-			uiState.selectNode(targetNode.id);
+			uiState.navigateTo(targetNode.id);
 			uiState.scrollToTarget = ref.target_paragraph;
 		} else {
 			toastState.show(`Saken ${ref.target_case} er ikke i analysen`, 'info');

@@ -81,6 +81,11 @@
 	};
 
 	let meta = $derived(typeMeta[selectedNode?.type ?? ''] ?? typeMeta.kofa_case);
+
+	// Build breadcrumb labels from navigation history node IDs
+	let breadcrumbNodes = $derived(
+		uiState.navigationHistory.map(id => analysisState.nodes.find(n => n.id === id)).filter(Boolean) as import('$lib/types/graph').GraphNode[]
+	);
 </script>
 
 {#if selectedNode}
@@ -98,6 +103,20 @@
 					</svg>
 				</button>
 			</div>
+
+			<!-- Breadcrumb trail (only when navigating via cross-references) -->
+			{#if breadcrumbNodes.length > 0}
+				<div class="breadcrumb-trail">
+					{#each breadcrumbNodes as crumb, i}
+						<button class="breadcrumb-item" onclick={() => uiState.navigateToBreadcrumb(i)}>
+							{crumb.label}
+						</button>
+						<span class="breadcrumb-sep">&rarr;</span>
+					{/each}
+					<span class="breadcrumb-current">{selectedNode.label}</span>
+				</div>
+			{/if}
+
 			<h2 class="node-title">{selectedNode.label}</h2>
 			{#if selectedNode.subtitle}
 				<p class="node-subtitle">{selectedNode.subtitle}</p>
@@ -222,7 +241,7 @@
 						<div class="section-label">Relasjoner ({connectedNodes.length})</div>
 						{#each connectedNodes as cn}
 							{@const v = getValence(cn.id)}
-							<button class="relation-row" onclick={() => uiState.selectNode(cn.id)}>
+							<button class="relation-row" onclick={() => uiState.navigateTo(cn.id)}>
 								<NodeTypeIcon type={cn.type} size={10} />
 								<span class="relation-label">{cn.label}</span>
 								{#if v !== 'unknown'}
@@ -321,6 +340,37 @@
 		background: var(--p-hover);
 		color: var(--p-ink);
 	}
+	/* Breadcrumb trail */
+	.breadcrumb-trail {
+		display: flex;
+		align-items: center;
+		gap: 4px;
+		flex-wrap: wrap;
+		margin-bottom: 6px;
+		font-size: 11px;
+		line-height: 1.3;
+	}
+	.breadcrumb-item {
+		all: unset;
+		cursor: pointer;
+		font-family: var(--font-data);
+		color: var(--p-ink3);
+		font-weight: 500;
+	}
+	.breadcrumb-item:hover {
+		color: var(--p-ink);
+		text-decoration: underline;
+	}
+	.breadcrumb-sep {
+		color: var(--p-ink4);
+		font-size: 10px;
+	}
+	.breadcrumb-current {
+		font-family: var(--font-data);
+		color: var(--p-ink2);
+		font-weight: 600;
+	}
+
 	.node-title {
 		font-family: var(--font-data);
 		font-size: 15px;
