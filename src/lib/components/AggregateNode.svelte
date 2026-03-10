@@ -46,12 +46,20 @@
 <g
 	transform="translate({x},{y})"
 	opacity={dimmed ? 0.2 : 1}
-	{onclick}
-	{onmouseenter}
-	{onmouseleave}
-	style="cursor: pointer"
 	class="aggregate-group"
 >
+	<!-- Invisible click target covering the full area -->
+	<rect
+		x={-width / 2 - 4}
+		y={-height / 2 - 4}
+		width={width + 8}
+		height={height + 8}
+		fill="transparent"
+		{onclick}
+		{onmouseenter}
+		{onmouseleave}
+		style="cursor: pointer"
+	/>
 	<!-- Dashed border box -->
 	<rect
 		x={-width / 2}
@@ -63,6 +71,7 @@
 		stroke="var(--p-ink3)"
 		stroke-width={1.5}
 		stroke-dasharray="5,3"
+		pointer-events="none"
 	/>
 
 	<!-- Count label -->
@@ -72,6 +81,7 @@
 		text-anchor="middle"
 		dominant-baseline="central"
 		class="agg-label"
+		pointer-events="none"
 	>{label}</text>
 
 	<!-- Category breakdown -->
@@ -82,6 +92,7 @@
 			text-anchor="middle"
 			dominant-baseline="central"
 			class="agg-breakdown"
+			pointer-events="none"
 		>{categoryBreakdown}</text>
 	{/if}
 
@@ -92,6 +103,7 @@
 		r={7}
 		fill="var(--p-kofa-accent)"
 		opacity={0.15}
+		pointer-events="none"
 	/>
 	<text
 		x={width / 2 - 10}
@@ -99,11 +111,12 @@
 		text-anchor="middle"
 		dominant-baseline="central"
 		class="expand-icon"
+		pointer-events="none"
 	>+</text>
 </g>
 
 <style>
-	.aggregate-group:hover rect {
+	.aggregate-group:hover rect:not([fill="transparent"]) {
 		stroke: var(--p-kofa-accent);
 		fill: var(--p-kofa-bg);
 	}
