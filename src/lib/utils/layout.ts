@@ -67,13 +67,11 @@ function aggregateSize(): { width: number; height: number } {
  * are grouped into virtual aggregate nodes when the group exceeds AGGREGATE_THRESHOLD.
  *
  * @param expandedAggregates Set of aggregate IDs that have been expanded by the user
- * @param pinnedPositions Map of node IDs to pinned x/y positions (from previous expansions)
  */
 export function computeAggregatedLayout(
 	nodes: GraphNode[],
 	edges: GraphEdge[],
 	expandedAggregates: Set<string>,
-	pinnedPositions: Map<string, { x: number; y: number }>,
 ): AggregatedLayout {
 	const nodeMap = new Map(nodes.map(n => [n.id, n]));
 
@@ -223,29 +221,28 @@ export function computeAggregatedLayout(
 		byLayer.get(layer)!.push(agg.id);
 	}
 
+	// Add invisible constraint edges between all adjacent layers to enforce hierarchy
 	const layerKeys = [...byLayer.keys()].sort((a, b) => a - b);
 	for (let i = 0; i < layerKeys.length - 1; i++) {
 		const upper = byLayer.get(layerKeys[i])!;
 		const lower = byLayer.get(layerKeys[i + 1])!;
 		if (upper.length > 0 && lower.length > 0) {
-			g.setEdge(upper[0], lower[0], { weight: 0, minlen: 2 });
+			// Connect multiple nodes across layers for stronger constraint
+			const connectCount = Math.min(3, upper.length, lower.length);
+			for (let c = 0; c < connectCount; c++) {
+				g.setEdge(upper[c], lower[c], { weight: 0, minlen: 2 });
+			}
 		}
 	}
 
 	dagre.layout(g);
 
-	// Extract results, respecting pinned positions
+	// Extract results
 	const resultNodes = new Map<string, NodeLayout>();
 	for (const id of g.nodes()) {
 		const n = g.node(id);
 		if (n) {
-			const pinned = pinnedPositions.get(id);
-			resultNodes.set(id, {
-				x: pinned?.x ?? n.x,
-				y: pinned?.y ?? n.y,
-				width: n.width,
-				height: n.height,
-			});
+			resultNodes.set(id, { x: n.x, y: n.y, width: n.width, height: n.height });
 		}
 	}
 
@@ -253,17 +250,7 @@ export function computeAggregatedLayout(
 	for (const e of g.edges()) {
 		const edgeData = g.edge(e);
 		if (edgeData?.points) {
-			const points = [...edgeData.points];
-			// Snap edge endpoints to pinned node positions
-			const fromPos = resultNodes.get(e.v);
-			const toPos = resultNodes.get(e.w);
-			if (fromPos && pinnedPositions.has(e.v) && points.length > 0) {
-				points[0] = { x: fromPos.x, y: fromPos.y };
-			}
-			if (toPos && pinnedPositions.has(e.w) && points.length > 0) {
-				points[points.length - 1] = { x: toPos.x, y: toPos.y };
-			}
-			resultEdges.push({ points, from: e.v, to: e.w });
+			resultEdges.push({ points: edgeData.points, from: e.v, to: e.w });
 		}
 	}
 

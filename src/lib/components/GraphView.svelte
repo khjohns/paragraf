@@ -12,7 +12,6 @@
 
 	// Aggregation state
 	let expandedAggregates = $state(new Set<string>());
-	let pinnedPositions = $state(new Map<string, { x: number; y: number }>());
 
 	// Fade-in tracking for newly expanded nodes
 	let newlyExpandedNodes = $state(new Set<string>());
@@ -24,7 +23,6 @@
 			analysisState.nodes,
 			analysisState.edges,
 			expandedAggregates,
-			pinnedPositions,
 		);
 	});
 
@@ -184,36 +182,32 @@
 				}
 			}
 		}
-		return Object.values(layers).sort((a, b) => a.minY - b.minY);
+		// Sort by y position and ensure minimum spacing to avoid overlap
+		const sorted = Object.values(layers).sort((a, b) => a.minY - b.minY);
+		for (let i = 1; i < sorted.length; i++) {
+			if (sorted[i].minY - sorted[i - 1].minY < 40) {
+				sorted[i].minY = sorted[i - 1].minY + 40;
+			}
+		}
+		return sorted;
 	});
 
 	// Handle aggregate click: expand the group
 	function expandAggregate(agg: AggType) {
-		// Pin all currently visible nodes at their current positions
-		if (layout) {
-			for (const [id, pos] of layout.nodes) {
-				if (!id.startsWith('agg:')) {
-					pinnedPositions.set(id, { x: pos.x, y: pos.y });
-				}
-			}
-		}
-
 		// Mark members as newly expanded for fade-in animation
-		const memberSet = new Set(agg.memberIds);
-		newlyExpandedNodes = memberSet;
+		newlyExpandedNodes = new Set(agg.memberIds);
 
 		// Clear fade-in class after animation
 		setTimeout(() => {
 			newlyExpandedNodes = new Set();
 		}, 500);
 
-		// Add to expanded set (triggers reactive re-layout)
+		// Add to expanded set (triggers reactive re-layout via dagre)
 		expandedAggregates = new Set([...expandedAggregates, agg.id]);
 	}
 
-	// Reorganise: clear all pins and collapsed states, full re-layout
+	// Reorganise: collapse all aggregates, full re-layout
 	function reorganise() {
-		pinnedPositions = new Map();
 		expandedAggregates = new Set();
 		newlyExpandedNodes = new Set();
 	}
