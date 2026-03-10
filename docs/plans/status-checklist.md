@@ -1,6 +1,6 @@
 # Paragraf — Implementeringsstatus vs. designspesifikasjon
 
-Oppdatert: 2026-03-09 (23 commits)
+Oppdatert: 2026-03-10 (37 commits, Sprint 1–7 + graf-forbedringer)
 
 ## Leseforklaring
 
@@ -25,16 +25,16 @@ Oppdatert: 2026-03-09 (23 commits)
 - ✅ Seksjon 3: A/B/C-resultater med antall
 - ✅ Seksjon 4: Gap-matrise med ∅-indikatorer
 - ✅ Seksjon 5: Om rangeringen (pedagogisk tekst)
-- ⚠️ Seksjon 4: Lesestatus-fremdriftslinjer per kategori (finnes i state, usikker på UI)
-- ❌ Seksjon 4: Iterasjonsinformasjon ("Iterasjon 2: +1 treff via...")
-- ❌ Seksjon 4: "Ny iterasjon med nye seeds"-knapp (stiplet ramme)
+- ✅ Seksjon 4: Lesestatus-fremdriftslinjer per kategori
+- ✅ Seksjon 4: Iterasjonshistorikk med seed-diff
+- ✅ Seksjon 4: "Ny iterasjon med nye seeds"-knapp
 
 ### Gap-identifisering (§5)
 - ✅ Gap-matrise med bestemmelsespar og interseksjonstall
 - ✅ ∅-symbol for null-treff
 - ✅ Gap-linjer i grafvisning (stiplede lilla)
-- ❌ Klikkbare null-treff (åpne ettersøk-forslag)
-- ❌ Kursiv oppsummeringstekst under matrise
+- ✅ Klikkbare null-treff (åpne toast med ettersøk-forslag)
+- ✅ Kursiv oppsummeringstekst under matrise
 
 ### Avgrensningspraksis (§6)
 - ✅ Avgrensningsbadge (DelimBadge med sirkel-slash ikon)
@@ -47,8 +47,8 @@ Oppdatert: 2026-03-09 (23 commits)
 
 ### Reguleringsversjon (§7)
 - ✅ Reguleringsfilter (toggle i toolbar, state i UiState)
-- ❌ Gul advarselsboks i Resultater-seksjonen
-- ⚠️ Dimming av gammel-regulering-noder til 20-25% opacity
+- ✅ Gul advarselsboks i Resultater-seksjonen
+- ✅ Dimming av gammel-regulering-noder til 20% opacity
 
 ### Listevisning (§8a)
 - ✅ Sortering: Kategori (default), Siteringer, Dato
@@ -57,24 +57,27 @@ Oppdatert: 2026-03-09 (23 commits)
 - ✅ Nodetypeikon + saksnummer + A/B/C-badge + signalprikker
 - ✅ Undertittel, dato, utfall, siteringer
 - ✅ Valensindikatorer (ValencePip: ✓/↔/✕)
-- ❌ Inline-advarsel ved "Siteringer"-sortering ("Eldre saker dominerer")
+- ✅ Inline-advarsel ved "Siteringer"-sortering
+- ✅ Dimming i stedet for fjerning (dimmede noder sortert sist)
 - ⚠️ Avgrensningsbadge inline i rad (implementert men verifiser plassering)
 
 ### Grafvisning (§8b)
 - ✅ Hierarkisk layout med tre lag (D3 + dagre)
 - ✅ Nodeform koder type (rekt/sirkel/diamant)
 - ✅ Lagetiketter i venstre margin
-- ✅ Zoom/pan
+- ✅ Zoom/pan (scroll + kontroller med slider)
 - ✅ GraphTooltip ved hover
 - ✅ GraphLegend
+- ✅ Progressiv ekspansjon med aggregatbokser (§12)
+- ✅ "Reorganiser"-knapp
+- ✅ Seed-markering (fylt prikk) på noder
+- ✅ Iterasjonspill under noder ("iter. 2")
+- ✅ A/B/C-badge overlegg på noder
+- ✅ Lest-markering (grønn sirkel) på noder
+- ✅ Søk/filtrering i graf-toolbar (saksnr, bestemmelse)
+- ✅ Type-filterpills (Best., KOFA, EU, Forarb.)
+- ✅ Kategori-filterpills (A, B, C)
 - ⚠️ Nodestørrelse koder siteringer (layout.ts har nodeSize())
-- ⚠️ A/B/C-badge overlegg på noder
-- ⚠️ Lest-markering (grønn sirkel) på noder
-- ❌ Progressiv ekspansjon med aggregatbokser (§12)
-- ❌ Node-locking ved ekspansjon
-- ❌ "Reorganiser"-knapp
-- ❌ Seed-markering (fylt prikk) på noder
-- ❌ Iterasjonspill under noder ("iter. 2")
 
 ### Kantvalens (§9)
 - ✅ Linjestil: heltrukket (bekreftende), lang-stiplet (avgrensende), kort-stiplet (fravikende)
@@ -89,14 +92,16 @@ Oppdatert: 2026-03-09 (23 commits)
 - ✅ Lesemodus: full avgjørelsestekst med AI-kuratering (CaseReader)
 - ✅ "Les avgjørelsen →" / "← Tilbake til oversikt" toggle
 - ✅ Gulmarkerte sitater (dempet gul bakgrunn)
-- ✅ AI-kommentarer med gullbrun venstrekant (trust boundary)
+- ✅ AI-kommentarer med gullbrun venstekant (trust boundary)
 - ✅ Avsnittnavigering (klikkbare pills)
 - ✅ Kryssreferanse-navigasjon ("→ Gå til 2022/789 §38")
 - ✅ Mine notater
 - ✅ "Marker som lest" toggle
+- ✅ Kuratert modus som default (bare markerte avsnitt med full opacity)
+- ✅ Klikk på dimmet avsnitt for å ekspandere
+- ✅ Toggle "Vis all tekst / Vis bare markerte"
+- ✅ Lesesti / brødsmulesti for kryssreferanse-navigasjon
 - ⚠️ AI-kuraterte avsnitt i oversiktsmodus (forhåndsvisning med "Les i kontekst →")
-- ❌ Dempet tekst for ikke-markerte avsnitt (opacity 0.5)
-- ❌ Toggle "Vis all tekst / Vis bare markerte"
 - ❌ ProvisionDetail: direktivgrunnlag med implementeringstype
 - ❌ EU-dom detaljer (partsnavn størst, direktivartikkel-kobling)
 - ❌ Forarbeid-detaljer (proposisjonsnummer, relevant seksjon)
@@ -105,12 +110,13 @@ Oppdatert: 2026-03-09 (23 commits)
 - ✅ Tre-prikks indikator med fylt/tom
 - ✅ I listevisning inline etter badge
 - ✅ I høyrepanelets header
-- ❌ Hover/title-tekst ("R: Referansetabell F: Fulltekst V: Vektor")
+- ✅ Hover/title-tekst ("R: Referansetabell F: Fulltekst V: Vektor")
 
 ### Filtrering — dimming (§15)
-- ⚠️ Dimming i graf (GraphNode har dimming-logikk)
-- ❌ Dimming i listevisning (15-25% opacity i stedet for fjerning)
-- ❌ Dimmede noder forblir klikkbare med visuell indikator
+- ✅ Dimming i graf (regulasjon, søk, type, kategori)
+- ✅ Dimming i listevisning (15-25% opacity i stedet for fjerning)
+- ✅ Dimmede noder forblir klikkbare
+- ✅ Aggregatbokser dimmes ved filter
 
 ### Designtokens (§17)
 - ✅ Varm papirpalett (bakgrunn, tekst, rammer)
@@ -123,12 +129,11 @@ Oppdatert: 2026-03-09 (23 commits)
 - ✅ Hover-forhåndsvisning i graf (GraphTooltip)
 - ✅ Subtil tilbakemelding / toasts (Toast.svelte)
 - ✅ Tomme tilstander med handlingshenvisning
-- ❌ Lesesti / brødsmulesti i høyrepanel ("2023/456 → 2022/789 → C-324/14")
+- ✅ Lesesti / brødsmulesti i høyrepanel
 - ❌ Metodefase i arbeidsstripe ("Screening · 4 av 8 lest")
 - ❌ Tastatursnarveier (↓/↑, M, R, Esc, S, 1-4, ?)
-- ❌ Søk innenfor visning (Cmd+F internt søkefelt)
 - ❌ Drag-to-select i graf
-- ❌ Lastetilstand for AI-kuratering (pulserende gullbrun venstrekant)
+- ❌ Lastetilstand for AI-kuratering (pulserende gullbrun venstekant)
 
 ---
 
@@ -157,7 +162,7 @@ Oppdatert: 2026-03-09 (23 commits)
 - ❌ Klikkbare referanser i chat (åpner i høyrepanel/graf)
 
 ### Navigasjon og UX
-- ❌ Lesesti/brødsmulesti i høyrepanel
+- ✅ Lesesti/brødsmulesti i høyrepanel
 - ❌ Lastetilstand med pulserende border under AI-generering
 - ❌ Språkmønster-identifisering (§29)
 
@@ -172,7 +177,6 @@ Oppdatert: 2026-03-09 (23 commits)
 - ❌ Sesjonslogg (§26) — "hvor var jeg?" med AI-foreslått neste steg
 - ❌ Direktivartikkel-overlay i graf (§30)
 - ❌ Tastatursnarveier (§32)
-- ❌ Søk innenfor visning (§32)
 - ❌ Metodefase i arbeidsstripe (§32)
 
 ---
@@ -208,16 +212,16 @@ Oppdatert: 2026-03-09 (23 commits)
 
 | Fase | Totalt | ✅ | ⚠️ | ❌ |
 |------|--------|----|----|------|
-| Fase 1 — MVP | ~50 | ~30 | ~10 | ~10 |
-| Fase 2 — AI | ~16 | 4 | 0 | 12 |
-| Fase 3 | 9 | 0 | 0 | 9 |
+| Fase 1 — MVP | ~58 | ~48 | ~5 | ~5 |
+| Fase 2 — AI | ~16 | 5 | 0 | 11 |
+| Fase 3 | 8 | 0 | 0 | 8 |
 | Fase 4 | 6 | 0 | 0 | 6 |
 
-**Fase 1 er ~70% komplett.** De store hullene er:
-1. Iterasjons-workflow (ny iterasjon-knapp, iterasjonsbadges)
-2. Progressiv ekspansjon i graf (aggregatbokser)
-3. Cite-sort advarsel + reguleringsversjon-advarsel i UI
-4. Filtrering som dimming (ikke fjerning)
-5. Lesesti/brødsmulesti i høyrepanel
+**Fase 1 er ~90% komplett.** Gjenværende hull:
+1. Nodedetaljer for EU-dommer, forarbeider, bestemmelser (ProvisionDetail, EuCaseDetail)
+2. Automatisk avgrensningsforslag (avhenger av NLP/AI)
+3. Tastatursnarveier
+4. Lastetilstand for AI-kuratering
+5. Metodefase i arbeidsstripe
 
-**Fase 2 er ~25% komplett** — AI-kuratert leseopplevelse fungerer, men Lag 1-verktøy og chatpanel mangler helt.
+**Fase 2 er ~30% komplett** — AI-kuratert leseopplevelse og brødsmulesti fungerer. Lag 1-verktøy og chatpanel mangler.
