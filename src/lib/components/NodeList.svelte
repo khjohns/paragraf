@@ -81,13 +81,7 @@
 		flex: 1;
 		overflow-y: auto;
 	}
-	.empty {
-		padding: var(--spacing-6);
-		text-align: center;
-		color: var(--p-ink3);
-		font-size: 0.8125rem;
-	}
-	.empty-state {
+.empty-state {
 		padding: 64px var(--spacing-6) var(--spacing-8);
 		text-align: center;
 		max-width: 280px;
