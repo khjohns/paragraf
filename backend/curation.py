@@ -51,44 +51,31 @@ CURATION_SCHEMA = {
 SYSTEM_PROMPT = """\
 Du er en juridisk assistent for norsk anskaffelsesrett (KOFA-praksis).
 
-Brukeren analyserer en KOFA-avgjørelse i kontekst av et konkret juridisk spørsmål (problemstilling) og bestemte lovbestemmelser (seed-bestemmelser).
+Du får nemndas vurdering og konklusjon fra en KOFA-avgjørelse — IKKE partenes anførsler eller sakens bakgrunn/faktum. Alt du leser er nemndas egen rettslige analyse.
 
-Din oppgave er å identifisere de mest relevante avsnittene i avgjørelsesteksten og gi korte, presise kommentarer.
+Brukeren undersøker et konkret juridisk spørsmål (problemstilling) og bestemte lovbestemmelser.
 
-Returner ALLTID gyldig JSON med denne strukturen:
-{
-  "highlights": [
-    {
-      "paragraph": <avsnittsnummer>,
-      "start_char": <startposisjon i avsnittsteksten>,
-      "end_char": <sluttposisjon i avsnittsteksten>,
-      "relevance": "<kort forklaring på norsk, 1-2 setninger>",
-      "cross_references": [
-        {
-          "target_case": "<saksnummer, f.eks. 2022/789>",
-          "target_paragraph": <avsnittsnummer>,
-          "relation": "<confirming|contradicting|distinguishing>",
-          "note": "<kort forklaring på norsk>"
-        }
-      ]
-    }
-  ],
-  "summary_note": "<sammendrag av sakens relevans for problemstillingen, 2-3 setninger på norsk>"
-}
+Din oppgave:
+1. Identifiser avsnitt der nemnda fastslår rettssetninger, tolker bestemmelser, eller trekker konklusjoner som er relevante for problemstillingen
+2. Fokuser på nemndas begrunnelse — ikke gjengivelse av partenes argumenter
+3. Hvis nemnda siterer eller drøfter de oppgitte seed-bestemmelsene, marker disse avsnittene
 
 Regler:
 - Marker MAKS 5 avsnitt (velg de viktigste)
 - start_char og end_char refererer til posisjoner i avsnittsteksten (0-indeksert)
 - Bruk hele setninger for markering (ikke klipp midt i en setning)
-- cross_references bare når det er tydelig referanse til en annen sak i teksten
+- cross_references bare når nemnda eksplisitt viser til en annen KOFA-sak
 - Skriv alltid på norsk
 - Returner KUN JSON, ingen annen tekst"""
+
+
+CURATION_SECTIONS = {"vurdering", "konklusjon"}
 
 
 def _build_user_prompt(
     case_data: dict, problem_statement: str, seed_provisions: list[str]
 ) -> str:
-    """Build the user prompt with case text and context."""
+    """Build the user prompt with only the tribunal's reasoning (vurdering + konklusjon)."""
     parts = [
         f"## Problemstilling\n{problem_statement}",
         f"## Seed-bestemmelser\n{', '.join(seed_provisions) if seed_provisions else '(ingen)'}",
@@ -98,21 +85,25 @@ def _build_user_prompt(
     if case_data.get("saken_gjelder"):
         parts.append(f"Saken gjelder: {case_data['saken_gjelder']}")
     if case_data.get("avgjoerelse"):
-        parts.append(f"Avgjørelse: {case_data['avgjoerelse']}")
+        parts.append(f"Resultat: {case_data['avgjoerelse']}")
 
-    # Add paragraphs (truncated if too long)
-    paragraphs = case_data.get("paragraphs", [])
+    # Only include vurdering + konklusjon (skip bakgrunn, anfoersler, innledning)
+    paragraphs = [
+        p for p in case_data.get("paragraphs", [])
+        if p.get("section") in CURATION_SECTIONS
+    ]
+
     text_parts = []
     total_chars = 0
     for p in paragraphs:
         text = p.get("text", "")
         if total_chars + len(text) > MAX_PARAGRAPHS_CHARS:
-            text_parts.append(f"[Avsnitt {p['paragraph_number']}]: [avkortet — {len(paragraphs) - len(text_parts)} avsnitt gjenstår]")
+            text_parts.append(f"[Avsnitt {p['paragraph_number']}]: [avkortet]")
             break
         text_parts.append(f"[Avsnitt {p['paragraph_number']}]: {text}")
         total_chars += len(text)
 
-    parts.append("## Avgjørelsestekst\n" + "\n\n".join(text_parts))
+    parts.append("## Nemndas vurdering\n" + "\n\n".join(text_parts))
 
     return "\n\n".join(parts)
 
