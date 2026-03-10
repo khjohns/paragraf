@@ -5,6 +5,12 @@ export interface Seeds {
 	cases: string[];
 }
 
+export interface IterationEntry {
+	iteration: number;
+	addedSeeds: string[];
+	newNodeCount: number;
+}
+
 export interface Analysis {
 	id: string;
 	problemStatement: string;
@@ -13,6 +19,7 @@ export interface Analysis {
 	readStatus: Record<string, boolean>;
 	notes: Record<string, string>;
 	delimitations: Record<string, boolean>;
+	iterationHistory?: IterationEntry[];
 	createdAt: string;
 	updatedAt: string;
 }

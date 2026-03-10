@@ -86,7 +86,11 @@
 
 {#if uiState.listSort === 'citations'}
 	<div class="sort-warning">
-		Eldre saker dominerer — kombiner med dato
+		<svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+			<path d="M8 1L14.5 13H1.5L8 1Z" stroke="currentColor" stroke-width="1.5" fill="none"/>
+			<path d="M8 6V9M8 11V11.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+		</svg>
+		<span>Eldre saker dominerer — kombiner med dato</span>
 	</div>
 {/if}
 
@@ -238,11 +242,14 @@
 	}
 
 	.sort-warning {
-		padding: 4px 16px;
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		padding: 5px 16px;
 		font-size: 0.6875rem;
-		font-style: italic;
+		font-weight: 500;
 		color: var(--p-warn);
 		background: var(--p-warn-bg);
-		border-bottom: 1px solid var(--p-border);
+		border-bottom: 1px solid rgba(166,123,46,0.12);
 	}
 </style>
