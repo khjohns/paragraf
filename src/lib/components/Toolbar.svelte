@@ -2,26 +2,12 @@
 	import { uiState } from '$lib/stores/ui.svelte';
 	import type { ListSort } from '$lib/stores/ui.svelte';
 	import { analysisState } from '$lib/stores/analysis.svelte';
+	import { NODE_TYPE_ACCENT, nodeMatchesSearch } from '$lib/types/graph';
 
 	let graphMatchCount = $derived.by(() => {
 		const q = uiState.graphSearch.toLowerCase().trim();
 		if (!q) return 0;
-		return analysisState.nodes.filter(n =>
-			n.label.toLowerCase().includes(q) ||
-			n.subtitle.toLowerCase().includes(q) ||
-			(n.detail?.toLowerCase().includes(q))
-		).length;
-	});
-
-	let categoryCounts = $derived.by(() => {
-		const counts = { A: 0, B: 0, C: 0 };
-		for (const n of analysisState.nodes) {
-			if (uiState.regulationFilter && n.regulation === 'old') continue;
-			if (n.category === 'A') counts.A++;
-			else if (n.category === 'B') counts.B++;
-			else if (n.category === 'C') counts.C++;
-		}
-		return counts;
+		return analysisState.nodes.filter(n => nodeMatchesSearch(n, q)).length;
 	});
 
 	const typeLabels: Record<string, string> = {
@@ -31,21 +17,19 @@
 		court_case: 'Rett',
 		prep_work: 'Forarb.',
 	};
-	const typeColors: Record<string, string> = {
-		provision: 'var(--p-provision-accent)',
-		kofa_case: 'var(--p-kofa-accent)',
-		eu_case: 'var(--p-eu-accent)',
-		court_case: 'var(--p-court-accent)',
-		prep_work: 'var(--p-prep-accent)',
-	};
 
-	let typeCounts = $derived.by(() => {
-		const counts: Record<string, number> = {};
+	// Single pass for both type and category counts (regulation-aware)
+	let graphFilterCounts = $derived.by(() => {
+		const types: Record<string, number> = {};
+		const cats = { A: 0, B: 0, C: 0 };
 		for (const n of analysisState.nodes) {
 			if (uiState.regulationFilter && n.regulation === 'old') continue;
-			counts[n.type] = (counts[n.type] || 0) + 1;
+			types[n.type] = (types[n.type] || 0) + 1;
+			if (n.category === 'A') cats.A++;
+			else if (n.category === 'B') cats.B++;
+			else if (n.category === 'C') cats.C++;
 		}
-		return counts;
+		return { types, cats };
 	});
 </script>
 
@@ -108,13 +92,13 @@
 			</div>
 
 			<!-- Type filter pills -->
-			{#each Object.entries(typeCounts) as [type, count]}
+			{#each Object.entries(graphFilterCounts.types) as [type, count]}
 				<button
 					class="cat-pill"
 					class:active={uiState.graphTypeFilter.has(type)}
 					onclick={() => uiState.toggleGraphType(type)}
 				>
-					<span class="cat-dot" style:background={typeColors[type]}></span>
+					<span class="cat-dot" style:background={NODE_TYPE_ACCENT[type as import('$lib/types/graph').NodeType]}></span>
 					{typeLabels[type] ?? type} {count}
 				</button>
 			{/each}
@@ -123,7 +107,7 @@
 
 			<!-- Category filter pills -->
 			{#each ['A', 'B', 'C'] as cat}
-				{@const count = categoryCounts[cat as keyof typeof categoryCounts]}
+				{@const count = graphFilterCounts.cats[cat as keyof typeof graphFilterCounts.cats]}
 				{#if count > 0}
 					<button
 						class="cat-pill"

@@ -13,19 +13,15 @@ class UiState {
 	graphCategoryFilter = $state<Set<string>>(new Set()); // empty = show all
 	graphTypeFilter = $state<Set<string>>(new Set()); // empty = show all
 
-	toggleGraphCategory(cat: string) {
-		const next = new Set(this.graphCategoryFilter);
-		if (next.has(cat)) next.delete(cat);
-		else next.add(cat);
-		this.graphCategoryFilter = next;
+	private toggleSetFilter(field: 'graphCategoryFilter' | 'graphTypeFilter', value: string) {
+		const next = new Set(this[field]);
+		if (next.has(value)) next.delete(value);
+		else next.add(value);
+		this[field] = next;
 	}
 
-	toggleGraphType(type: string) {
-		const next = new Set(this.graphTypeFilter);
-		if (next.has(type)) next.delete(type);
-		else next.add(type);
-		this.graphTypeFilter = next;
-	}
+	toggleGraphCategory(cat: string) { this.toggleSetFilter('graphCategoryFilter', cat); }
+	toggleGraphType(type: string) { this.toggleSetFilter('graphTypeFilter', type); }
 	scrollToTarget = $state<number | null>(null); // paragraph number for cross-ref navigation
 	navigationHistory = $state<string[]>([]);
 

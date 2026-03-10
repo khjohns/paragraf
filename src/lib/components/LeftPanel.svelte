@@ -125,11 +125,7 @@
 			subtitle="Iter. {analysisState.analysis.iteration}"
 			defaultOpen
 		>
-			{#snippet badge()}
-				{#if zeroGaps.length > 0}
-					<span class="gap-count">{zeroGaps.length} hull</span>
-				{/if}
-			{/snippet}
+			{#snippet badge()}{/snippet}
 
 			<div class="mapping-content">
 				<!-- Read progress -->

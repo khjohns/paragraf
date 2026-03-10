@@ -44,6 +44,15 @@ export const NODE_TYPE_ACCENT: Record<NodeType, string> = {
 	prep_work: 'var(--p-prep-accent)',
 };
 
+/** Check if a node matches a search query (shared predicate for search/filter) */
+export function nodeMatchesSearch(node: GraphNode, query: string): boolean {
+	return (
+		node.label.toLowerCase().includes(query) ||
+		node.subtitle.toLowerCase().includes(query) ||
+		(node.detail?.toLowerCase().includes(query) ?? false)
+	);
+}
+
 export interface GapPair {
 	provision1: string;
 	provision2: string;

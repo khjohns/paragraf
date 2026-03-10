@@ -8,6 +8,7 @@
 	import GraphLegend from './GraphLegend.svelte';
 	import AggregateNode from './AggregateNode.svelte';
 	import { onMount } from 'svelte';
+	import { nodeMatchesSearch } from '$lib/types/graph';
 	import type { GraphNode as GNode, AggregateNode as AggType } from '$lib/types/graph';
 
 	// Aggregation state
@@ -56,13 +57,7 @@
 		if (!q) return null; // null = no search active
 		const matches = new Set<string>();
 		for (const n of analysisState.nodes) {
-			if (
-				n.label.toLowerCase().includes(q) ||
-				n.subtitle.toLowerCase().includes(q) ||
-				(n.detail?.toLowerCase().includes(q))
-			) {
-				matches.add(n.id);
-			}
+			if (nodeMatchesSearch(n, q)) matches.add(n.id);
 		}
 		return matches;
 	});
