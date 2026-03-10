@@ -60,72 +60,6 @@ function aggregateSize(): { width: number; height: number } {
 	return { width: 100, height: 40 };
 }
 
-function runDagre(
-	nodeEntries: Array<{ id: string; width: number; height: number }>,
-	edgeEntries: Array<{ from: string; to: string }>,
-	pinnedPositions?: Map<string, { x: number; y: number }>,
-): GraphLayout {
-	const g = new dagre.graphlib.Graph();
-	g.setGraph({
-		rankdir: 'TB',
-		ranksep: 80,
-		nodesep: 30,
-		marginx: 40,
-		marginy: 40,
-	});
-	g.setDefaultEdgeLabel(() => ({}));
-
-	for (const entry of nodeEntries) {
-		g.setNode(entry.id, { width: entry.width, height: entry.height });
-	}
-
-	for (const edge of edgeEntries) {
-		if (g.hasNode(edge.from) && g.hasNode(edge.to)) {
-			g.setEdge(edge.from, edge.to, { weight: 1, minlen: 1 });
-		}
-	}
-
-	// Add invisible constraint edges to enforce layer hierarchy
-	// Determine layer for each node from ID prefix or provided type info
-	const byLayer = new Map<number, string[]>();
-	for (const entry of nodeEntries) {
-		// We'll rely on edges to determine rank; use invisible constraints below
-		// For now just collect node IDs — layer enforcement is handled by real edges
-	}
-
-	dagre.layout(g);
-
-	// Apply pinned positions after layout
-	const nodeMap = new Map<string, NodeLayout>();
-	for (const id of g.nodes()) {
-		const n = g.node(id);
-		if (n) {
-			const pinned = pinnedPositions?.get(id);
-			nodeMap.set(id, {
-				x: pinned?.x ?? n.x,
-				y: pinned?.y ?? n.y,
-				width: n.width,
-				height: n.height,
-			});
-		}
-	}
-
-	const edgeLayouts: EdgeLayout[] = [];
-	for (const e of g.edges()) {
-		const edgeData = g.edge(e);
-		if (edgeData?.points) {
-			edgeLayouts.push({ points: edgeData.points, from: e.v, to: e.w });
-		}
-	}
-
-	const graphLabel = g.graph();
-	return {
-		nodes: nodeMap,
-		edges: edgeLayouts,
-		width: graphLabel?.width ?? 800,
-		height: graphLabel?.height ?? 600,
-	};
-}
 
 export function computeLayout(nodes: GraphNode[], edges: GraphEdge[]): GraphLayout {
 	const g = new dagre.graphlib.Graph();
@@ -377,8 +311,17 @@ export function computeAggregatedLayout(
 	for (const e of g.edges()) {
 		const edgeData = g.edge(e);
 		if (edgeData?.points) {
-			// If either endpoint is pinned, adjust edge points accordingly
-			resultEdges.push({ points: edgeData.points, from: e.v, to: e.w });
+			const points = [...edgeData.points];
+			// Snap edge endpoints to pinned node positions
+			const fromPos = resultNodes.get(e.v);
+			const toPos = resultNodes.get(e.w);
+			if (fromPos && pinnedPositions.has(e.v) && points.length > 0) {
+				points[0] = { x: fromPos.x, y: fromPos.y };
+			}
+			if (toPos && pinnedPositions.has(e.w) && points.length > 0) {
+				points[points.length - 1] = { x: toPos.x, y: toPos.y };
+			}
+			resultEdges.push({ points, from: e.v, to: e.w });
 		}
 	}
 
