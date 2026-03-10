@@ -72,36 +72,46 @@ def get_provision_detail(dok_id: str, section_id: str) -> dict | None:
             current_id = struct.get("parent_id")
         structure_path.reverse()
 
-    # 3. Referencing cases (top 10 with sak_nr)
-    ref_result = (
+    # 3. Count distinct referencing cases
+    ref_count_result = (
         client.table("kofa_law_references")
-        .select("sak_nr")
+        .select("sak_nr", count="exact")
         .eq("law_name", alias)
         .or_(f"law_section.eq.{section_id},law_section.like.{section_id} %")
+        .limit(0)
         .execute()
     )
-    ref_sak_nrs = list({r["sak_nr"] for r in (ref_result.data or [])})
-    referencing_cases = len(ref_sak_nrs)
+    referencing_cases = ref_count_result.count or 0
 
-    # Fetch metadata for top 10 referencing cases
+    # 4. Top 10 referencing cases with metadata (separate query, limited)
     top_cases = []
-    if ref_sak_nrs:
-        case_result = (
-            client.table("kofa_cases")
-            .select("sak_nr, saken_gjelder, avsluttet, avgjoerelse")
-            .in_("sak_nr", ref_sak_nrs[:10])
-            .order("avsluttet", desc=True)
+    if referencing_cases > 0:
+        ref_result = (
+            client.table("kofa_law_references")
+            .select("sak_nr")
+            .eq("law_name", alias)
+            .or_(f"law_section.eq.{section_id},law_section.like.{section_id} %")
+            .limit(30)
             .execute()
         )
-        top_cases = [
-            {
-                "sak_nr": c["sak_nr"],
-                "saken_gjelder": c.get("saken_gjelder") or "",
-                "avsluttet": str(c["avsluttet"]) if c.get("avsluttet") else None,
-                "avgjoerelse": c.get("avgjoerelse") or "",
-            }
-            for c in (case_result.data or [])
-        ]
+        ref_sak_nrs = list({r["sak_nr"] for r in (ref_result.data or [])})[:10]
+        if ref_sak_nrs:
+            case_result = (
+                client.table("kofa_cases")
+                .select("sak_nr, saken_gjelder, avsluttet, avgjoerelse")
+                .in_("sak_nr", ref_sak_nrs)
+                .order("avsluttet", desc=True)
+                .execute()
+            )
+            top_cases = [
+                {
+                    "sak_nr": c["sak_nr"],
+                    "saken_gjelder": c.get("saken_gjelder") or "",
+                    "avsluttet": str(c["avsluttet"]) if c.get("avsluttet") else None,
+                    "avgjoerelse": c.get("avgjoerelse") or "",
+                }
+                for c in (case_result.data or [])
+            ]
 
     return {
         "dok_id": dok_id,

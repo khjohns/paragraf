@@ -75,6 +75,7 @@ export interface EuCaseDetailResponse {
 	subject: string | null;
 	description: string | null;
 	source_url: string | null;
+	referencing_cases_count: number;
 	referencing_cases: Array<{ sak_nr: string; context: string }>;
 }
 

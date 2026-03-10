@@ -14,6 +14,8 @@
 		enabled: !!dokId && !!sectionId,
 	}));
 
+	let nodeLabelSet = $derived(new Set(analysisState.nodes.map(n => n.label)));
+
 	function navigateToCase(sakNr: string) {
 		const node = analysisState.nodes.find(n => n.label === sakNr);
 		if (node) {
@@ -45,7 +47,7 @@
 			<div class="ref-section">
 				<div class="ref-heading">{detail.referencing_cases} refererende saker</div>
 				{#each detail.referencing_case_list as c}
-					{@const inGraph = analysisState.nodes.some(n => n.label === c.sak_nr)}
+					{@const inGraph = nodeLabelSet.has(c.sak_nr)}
 					<button
 						class="ref-row"
 						class:clickable={inGraph}

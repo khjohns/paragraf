@@ -14,6 +14,8 @@
 		enabled: !!docId && !!sectionNumber,
 	}));
 
+	let nodeIdSet = $derived(new Set(analysisState.nodes.map(n => n.id)));
+
 	function navigateToProvision(lawName: string, lawSection: string) {
 		const provId = `${lawName}:${lawSection}`;
 		const node = analysisState.nodes.find(n => n.id === provId);
@@ -70,7 +72,7 @@
 				<div class="ref-heading">Lovhenvisninger</div>
 				{#each detail.law_references as ref}
 					{@const provId = `${ref.law_name}:${ref.law_section}`}
-					{@const inGraph = analysisState.nodes.some(n => n.id === provId)}
+					{@const inGraph = nodeIdSet.has(provId)}
 					<button
 						class="ref-row"
 						class:clickable={inGraph}

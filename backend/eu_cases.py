@@ -17,11 +17,21 @@ def get_eu_case_detail(eu_case_id: str) -> dict | None:
     if not case:
         return None
 
-    # 2. KOFA cases that reference this EU case
+    # 2. Count referencing KOFA cases
+    ref_count = (
+        client.table("kofa_eu_references")
+        .select("sak_nr", count="exact")
+        .eq("eu_case_id", eu_case_id)
+        .limit(0)
+        .execute()
+    )
+
+    # 3. Top 20 referencing cases with context
     refs = (
         client.table("kofa_eu_references")
         .select("sak_nr, context")
         .eq("eu_case_id", eu_case_id)
+        .limit(20)
         .execute()
     )
 
@@ -33,6 +43,7 @@ def get_eu_case_detail(eu_case_id: str) -> dict | None:
         "subject": case.get("subject"),
         "description": case.get("description"),
         "source_url": case.get("source_url"),
+        "referencing_cases_count": ref_count.count or 0,
         "referencing_cases": [
             {"sak_nr": r["sak_nr"], "context": r.get("context") or ""}
             for r in (refs.data or [])

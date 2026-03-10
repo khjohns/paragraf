@@ -17,6 +17,13 @@
 
 	let accent = $derived(NODE_TYPE_ACCENT[node.type]);
 
+	let rowEl: HTMLButtonElement | undefined = $state();
+	$effect(() => {
+		if (isSelected && rowEl) {
+			rowEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+		}
+	});
+
 	let valenceEntries = $derived(
 		node.valence
 			? Object.entries(node.valence).filter(([_, v]) => v !== 'unknown')
@@ -46,6 +53,7 @@
 </script>
 
 <button
+	bind:this={rowEl}
 	class="node-row"
 	class:selected={isSelected}
 	class:dimmed={isDimmed}
