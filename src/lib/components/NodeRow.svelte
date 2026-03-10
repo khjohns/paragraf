@@ -83,9 +83,9 @@
 				{/if}
 				{#if node.signals}
 					<span class="signal-dots" title="R: Referanse  F: Fulltekst  V: Vektor">
-						<span class="dot" class:on={node.signals.ref}></span>
-						<span class="dot" class:on={node.signals.fts}></span>
-						<span class="dot" class:on={node.signals.vec}></span>
+						<span class="dot" class:on={node.signals.ref} title="R: Referansetabell"></span>
+						<span class="dot" class:on={node.signals.fts} title="F: Fulltekstsøk"></span>
+						<span class="dot" class:on={node.signals.vec} title="V: Vektorsøk"></span>
 					</span>
 				{/if}
 				{#if isDelimitation}

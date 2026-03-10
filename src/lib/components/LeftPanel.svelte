@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { analysisState } from '$lib/stores/analysis.svelte';
+	import { toastState } from '$lib/stores/toast.svelte';
+	import { uiState } from '$lib/stores/ui.svelte';
 	import LeftPanelSection from './LeftPanelSection.svelte';
 	import SeedInput from './SeedInput.svelte';
 	import CategoryBadge from './CategoryBadge.svelte';
@@ -97,13 +99,15 @@
 					</div>
 				{/if}
 
-				<div class="regulation-notice">
-					<svg width="12" height="12" viewBox="0 0 16 16" fill="none">
-						<path d="M8 1L14.5 13H1.5L8 1Z" stroke="var(--p-warn)" stroke-width="1.5" fill="none"/>
-						<path d="M8 6V9M8 11V11.5" stroke="var(--p-warn)" stroke-width="1.5" stroke-linecap="round"/>
-					</svg>
-					<span>Kun gjeldende FOA (2017–)</span>
-				</div>
+				{#if uiState.regulationFilter}
+					<div class="regulation-notice">
+						<svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+							<path d="M8 1L14.5 13H1.5L8 1Z" stroke="var(--p-warn)" stroke-width="1.5" fill="none"/>
+							<path d="M8 6V9M8 11V11.5" stroke="var(--p-warn)" stroke-width="1.5" stroke-linecap="round"/>
+						</svg>
+						<span>Kun gjeldende FOA (2017–) — eldre praksis er filtrert bort</span>
+					</div>
+				{/if}
 
 				<div class="signal-legend">
 					<span class="legend-label">Signaler:</span>
@@ -156,7 +160,12 @@
 						<div class="mapping-label">Bestemmelsespar — interseksjoner</div>
 						{#each gaps as gap}
 							{@const isGap = gap.count === 0}
-							<div class="gap-row" class:is-gap={isGap}>
+							<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+							<div
+								class="gap-row"
+								class:is-gap={isGap}
+								onclick={isGap ? () => toastState.show('Hull: ' + gap.provision1 + ' ∩ ' + gap.provision2 + ' — legg til som seeds i neste iterasjon', 'info') : undefined}
+							>
 								<span class="gap-prov">{gap.provision1}</span>
 								<span class="gap-sep">∩</span>
 								<span class="gap-prov">{gap.provision2}</span>
@@ -171,14 +180,19 @@
 					</div>
 				{/if}
 
-				<!-- Iteration info -->
-				{#if analysisState.analysis.iteration > 1}
-					<div class="iter-info">
-						Iterasjon {analysisState.analysis.iteration}: utvidet søk
+				<!-- Iteration history -->
+				{#if analysisState.analysis.iterationHistory?.length}
+					<div class="mapping-section">
+						<div class="mapping-label">Iterasjoner</div>
+						{#each analysisState.analysis.iterationHistory as entry}
+							<div class="iter-info">
+								Iterasjon {entry.iteration}: +{entry.newNodeCount} treff{#if entry.addedSeeds.length > 0}{' '}via «{entry.addedSeeds.join('», «')}»{/if}
+							</div>
+						{/each}
 					</div>
 				{/if}
 
-				<button class="new-iter-btn">
+				<button class="new-iter-btn" onclick={() => analysisState.startNewIteration()}>
 					+ Ny iterasjon med nye seeds
 				</button>
 			</div>
