@@ -83,12 +83,12 @@
 
 <div class="seed-input">
 	<section>
-		<label class="field-label" for="vector-input">Problemstilling</label>
+		<label class="field-label" for="vector-input">Konseptuelt søk</label>
 		<textarea
 			id="vector-input"
 			value={vectorInputValue}
 			oninput={handleVectorInput}
-			placeholder="Beskriv problemstillingen med egne ord..."
+			placeholder="Beskriv det juridiske spørsmålet med egne ord..."
 			class="vector-field"
 			rows="3"
 		></textarea>

@@ -62,19 +62,8 @@
 		</LeftPanelSection>
 
 		<!-- 2. Utgangspunkt -->
-		<LeftPanelSection num="2" title="Utgangspunkt">
+		<LeftPanelSection num="2" title="Utgangspunkt" defaultOpen>
 			<SeedInput />
-			<!-- Vector query -->
-			<div class="vector-section">
-				<div class="field-label">Konseptuelt søk (vektor)</div>
-				<textarea
-					class="vector-input"
-					value={analysisState.analysis.seeds.vectorQuery}
-					oninput={(e) => analysisState.setSeeds({ ...analysisState.analysis.seeds, vectorQuery: e.currentTarget.value })}
-					placeholder="Beskriv konseptet du leter etter..."
-					rows="2"
-				></textarea>
-			</div>
 		</LeftPanelSection>
 
 		<!-- 3. Resultater -->
@@ -260,36 +249,6 @@
 		resize: vertical;
 	}
 	.problem-input:focus {
-		outline: none;
-		border-color: var(--p-border-s);
-	}
-
-	/* Section 2: Vector query */
-	.vector-section {
-		margin-top: 12px;
-	}
-	.field-label {
-		font-size: 10px;
-		font-weight: 600;
-		color: var(--p-ink3);
-		letter-spacing: 0.05em;
-		text-transform: uppercase;
-		margin-bottom: 5px;
-	}
-	.vector-input {
-		width: 100%;
-		padding: 7px 10px;
-		border-radius: 4px;
-		background: var(--p-input);
-		border: 1px solid var(--p-border);
-		font-size: 12px;
-		line-height: 1.5;
-		color: var(--p-ink2);
-		font-style: italic;
-		font-family: var(--font-ui);
-		resize: vertical;
-	}
-	.vector-input:focus {
 		outline: none;
 		border-color: var(--p-border-s);
 	}

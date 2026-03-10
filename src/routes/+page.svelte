@@ -6,7 +6,7 @@
 	import GraphView from '$lib/components/GraphView.svelte';
 	import NodeDetail from '$lib/components/NodeDetail.svelte';
 	import KeyboardShortcuts from '$lib/components/KeyboardShortcuts.svelte';
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import { analysisState } from '$lib/stores/analysis.svelte';
 	import { uiState } from '$lib/stores/ui.svelte';
 	import { createTraversalQuery } from '$lib/queries/traversal';
@@ -19,11 +19,13 @@
 		regulationFilter: uiState.regulationFilter ? 'new' : 'all',
 	}));
 
-	// Sync query results to store
+	// Sync query results to store (untrack prevents cascading state updates)
 	$effect(() => {
 		const data = traversal.data;
 		if (data) {
-			analysisState.setResults(data.nodes, data.edges, data.gaps, data.suggestedProvisions);
+			untrack(() => {
+				analysisState.setResults(data.nodes, data.edges, data.gaps, data.suggestedProvisions);
+			});
 		}
 	});
 
