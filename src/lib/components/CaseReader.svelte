@@ -37,23 +37,19 @@
 	// Track individually expanded (clicked) dimmed paragraphs
 	let expandedParagraphs = $state(new Set<number>());
 
-	// When curation arrives/disappears, reset to appropriate default
+	// When curation status changes, reset to appropriate default
+	let prevHasCuration = false;
 	$effect(() => {
-		if (hasCuration) {
-			showAllText = false;
+		if (hasCuration !== prevHasCuration) {
+			prevHasCuration = hasCuration;
+			showAllText = !hasCuration;
 			expandedParagraphs = new Set();
-		} else {
-			showAllText = true;
 		}
 	});
 
-	function toggleParagraph(paragraphNumber: number) {
+	function expandParagraph(paragraphNumber: number) {
 		const next = new Set(expandedParagraphs);
-		if (next.has(paragraphNumber)) {
-			next.delete(paragraphNumber);
-		} else {
-			next.add(paragraphNumber);
-		}
+		next.add(paragraphNumber);
 		expandedParagraphs = next;
 	}
 
@@ -153,8 +149,8 @@
 					class:has-highlight={isHighlighted}
 					class:dimmed={isDimmed}
 					id="para-{para.paragraph_number}"
-					onclick={() => { if (isDimmed) toggleParagraph(para.paragraph_number); }}
-					onkeydown={(e) => { if (isDimmed && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); toggleParagraph(para.paragraph_number); } }}
+					onclick={() => { if (isDimmed) expandParagraph(para.paragraph_number); }}
+					onkeydown={(e) => { if (isDimmed && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); expandParagraph(para.paragraph_number); } }}
 					role={isDimmed ? 'button' : undefined}
 					tabindex={isDimmed ? 0 : undefined}
 				>
