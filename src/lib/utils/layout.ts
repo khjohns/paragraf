@@ -86,12 +86,24 @@ export function computeAggregatedLayout(
 		const fromNode = nodeMap.get(edge.from);
 		const toNode = nodeMap.get(edge.to);
 
-		if (fromNode?.type === 'provision' && toNode && toNode.type !== 'provision') {
-			if (!provisionToCases.has(edge.from)) provisionToCases.set(edge.from, []);
-			provisionToCases.get(edge.from)!.push(toNode);
+		// Edges may point in either direction: provision→case or case→provision
+		let provId: string | null = null;
+		let caseNode: GraphNode | null = null;
 
-			if (!caseToProvisions.has(edge.to)) caseToProvisions.set(edge.to, []);
-			caseToProvisions.get(edge.to)!.push(edge.from);
+		if (fromNode?.type === 'provision' && toNode && toNode.type !== 'provision') {
+			provId = edge.from;
+			caseNode = toNode;
+		} else if (toNode?.type === 'provision' && fromNode && fromNode.type !== 'provision') {
+			provId = edge.to;
+			caseNode = fromNode;
+		}
+
+		if (provId && caseNode) {
+			if (!provisionToCases.has(provId)) provisionToCases.set(provId, []);
+			provisionToCases.get(provId)!.push(caseNode);
+
+			if (!caseToProvisions.has(caseNode.id)) caseToProvisions.set(caseNode.id, []);
+			caseToProvisions.get(caseNode.id)!.push(provId);
 		}
 	}
 
