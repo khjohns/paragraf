@@ -39,11 +39,12 @@ const LAYER_RANK: Record<NodeType, number> = {
 	court_case: 3,
 };
 
-/** Node size scales with citation count (spec §8b) */
+/** Node size scales with citation count */
 function nodeSize(node: GraphNode): { width: number; height: number } {
 	let base = 22;
 	if (node.citations >= 10) base += 10;
 	else if (node.citations >= 5) base += 5;
+	else if (node.citations >= 3) base += 3;
 
 	if (node.type === 'provision') {
 		return { width: base * 3.5, height: base * 1.2 };
@@ -200,10 +201,12 @@ export function computeAggregatedLayout(
 		g.setNode(agg.id, { width: size.width, height: size.height });
 	}
 
-	// Add edges
+	// Add real edges (track them so we can filter out constraint edges later)
+	const realEdgeKeys = new Set<string>();
 	for (const edge of layoutEdges) {
 		if (g.hasNode(edge.from) && g.hasNode(edge.to)) {
 			g.setEdge(edge.from, edge.to, { weight: 1, minlen: 1 });
+			realEdgeKeys.add(`${edge.from}→${edge.to}`);
 		}
 	}
 
@@ -224,21 +227,23 @@ export function computeAggregatedLayout(
 	// Add invisible constraint edges between all adjacent layers to enforce hierarchy.
 	// Connect EVERY node in a layer to an anchor in the adjacent layer so that
 	// real edges (case→EU) can't pull nodes out of their designated layer.
+	// IMPORTANT: Don't overwrite real edges — only add constraints where no edge exists.
 	const layerKeys = [...byLayer.keys()].sort((a, b) => a - b);
 	for (let i = 0; i < layerKeys.length - 1; i++) {
 		const upper = byLayer.get(layerKeys[i])!;
 		const lower = byLayer.get(layerKeys[i + 1])!;
 		if (upper.length > 0 && lower.length > 0) {
-			// Pick one anchor from each layer
 			const upperAnchor = upper[0];
 			const lowerAnchor = lower[0];
-			// Connect every node in upper layer to the lower anchor
 			for (const id of upper) {
-				g.setEdge(id, lowerAnchor, { weight: 2, minlen: 2 });
+				if (!realEdgeKeys.has(`${id}→${lowerAnchor}`)) {
+					g.setEdge(id, lowerAnchor, { weight: 2, minlen: 2 });
+				}
 			}
-			// Connect every node in lower layer to the upper anchor
 			for (const id of lower) {
-				g.setEdge(upperAnchor, id, { weight: 2, minlen: 2 });
+				if (!realEdgeKeys.has(`${upperAnchor}→${id}`)) {
+					g.setEdge(upperAnchor, id, { weight: 2, minlen: 2 });
+				}
 			}
 		}
 	}
@@ -254,8 +259,10 @@ export function computeAggregatedLayout(
 		}
 	}
 
+	// Only include real edges (not invisible constraint edges)
 	const resultEdges: EdgeLayout[] = [];
 	for (const e of g.edges()) {
+		if (!realEdgeKeys.has(`${e.v}→${e.w}`)) continue;
 		const edgeData = g.edge(e);
 		if (edgeData?.points) {
 			resultEdges.push({ points: edgeData.points, from: e.v, to: e.w });

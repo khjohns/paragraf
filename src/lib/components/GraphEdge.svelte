@@ -5,10 +5,12 @@
 		points,
 		valence,
 		dimmed = false,
+		highlighted = false,
 	}: {
 		points: Array<{ x: number; y: number }>;
 		valence: Valence;
 		dimmed?: boolean;
+		highlighted?: boolean;
 	} = $props();
 
 	const markerIds: Record<string, string> = {
@@ -33,13 +35,18 @@
 	};
 
 	let style = $derived(valenceStyles[valence] ?? valenceStyles.unknown);
-	let opacity = $derived(dimmed ? style.baseOpacity * 0.3 : style.baseOpacity);
+	let opacity = $derived(
+		highlighted ? Math.max(style.baseOpacity * 3, 0.6) :
+		dimmed ? style.baseOpacity * 0.3 :
+		style.baseOpacity
+	);
+	let strokeW = $derived(highlighted ? 3 : 1.5);
 </script>
 
 <path
 	d={pathD}
 	stroke={style.color}
-	stroke-width={1.5}
+	stroke-width={strokeW}
 	stroke-dasharray={style.dasharray}
 	{opacity}
 	fill="none"

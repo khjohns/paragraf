@@ -51,6 +51,27 @@
 	// Node lookup
 	let nodeMap = $derived(new Map(analysisState.nodes.map(n => [n.id, n])));
 
+	// Edges connected to the selected node
+	let selectedEdgeKeys = $derived.by(() => {
+		const sel = uiState.selectedNodeId;
+		if (!sel) return new Set<string>();
+		const keys = new Set<string>();
+		for (const e of analysisState.edges) {
+			if (e.from === sel || e.to === sel) {
+				keys.add(`${e.from}→${e.to}`);
+			}
+		}
+		// Also match edges remapped through aggregates
+		if (layout) {
+			for (const e of layout.edges) {
+				if (e.from === sel || e.to === sel) {
+					keys.add(`${e.from}→${e.to}`);
+				}
+			}
+		}
+		return keys;
+	});
+
 	// Search match set
 	let searchMatches = $derived.by(() => {
 		const q = uiState.graphSearch.toLowerCase().trim();
@@ -360,7 +381,8 @@
 				{@const fromNode = nodeMap.get(edge.from)}
 				{@const toNode = nodeMap.get(edge.to)}
 				{@const dimmed = (fromNode && isDimmed(fromNode)) || (toNode && isDimmed(toNode))}
-				<GraphEdge points={edge.points} {valence} {dimmed} />
+				{@const highlighted = selectedEdgeKeys.has(`${edge.from}→${edge.to}`)}
+				<GraphEdge points={edge.points} {valence} {dimmed} {highlighted} />
 			{/each}
 
 			<!-- Aggregate nodes -->

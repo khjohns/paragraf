@@ -173,9 +173,11 @@ def _build_edges(
         .execute()
     )
     eu_ids = set()
+    eu_cite_count: dict[str, int] = {}
     for ref in eu_refs.data or []:
         eu_id = ref["eu_case_id"]
         eu_ids.add(eu_id)
+        eu_cite_count[eu_id] = eu_cite_count.get(eu_id, 0) + 1
         key = (f"kofa:{ref['sak_nr']}", f"eu:{eu_id}")
         if key not in seen_edges:
             seen_edges.add(key)
@@ -199,7 +201,7 @@ def _build_edges(
                     "label": eu["eu_case_id"],
                     "subtitle": eu.get("case_name") or "",
                     "date": str(eu["judgment_date"]) if eu.get("judgment_date") else None,
-                    "citations": 0,
+                    "citations": eu_cite_count.get(eu["eu_case_id"], 0),
                     "iteration": 1,
                     "isSeed": False,
                     "isDelimitation": False,
@@ -388,15 +390,32 @@ def build_traversal_response(
     # --- 7. Build edges + compute citations ---
     edges, eu_nodes, prep_nodes = _build_edges(client, all_sak_nrs, provisions, all_law_refs_data)
 
-    # Count incoming citations per case
-    citation_counts: dict[str, int] = {}
+    # Count how many OTHER cases cite each case (from full DB, not just graph)
+    sak_list = [n["label"] for n in case_nodes]
+    if sak_list:
+        cite_result = (
+            client.table("kofa_case_references")
+            .select("to_sak_nr")
+            .in_("to_sak_nr", sak_list)
+            .limit(5000)
+            .execute()
+        )
+        # Group by to_sak_nr to get per-case citation counts
+        cite_by_sak: dict[str, int] = {}
+        for row in cite_result.data or []:
+            sak = row["to_sak_nr"]
+            cite_by_sak[sak] = cite_by_sak.get(sak, 0) + 1
+        for node in case_nodes:
+            node["citations"] = cite_by_sak.get(node["label"], 0)
+
+    # Provision citations: count incoming graph edges
+    prov_citation_counts: dict[str, int] = {}
     for edge in edges:
         target = edge["to"]
-        citation_counts[target] = citation_counts.get(target, 0) + 1
-    for node in case_nodes:
-        node["citations"] = citation_counts.get(node["id"], 0)
+        if target.startswith("provision:"):
+            prov_citation_counts[target] = prov_citation_counts.get(target, 0) + 1
     for node in provision_nodes:
-        node["citations"] = citation_counts.get(node["id"], 0)
+        node["citations"] = prov_citation_counts.get(node["id"], 0)
 
     # --- 8. Gap matrix ---
     gaps = _compute_gaps(provisions, ref_cases)
