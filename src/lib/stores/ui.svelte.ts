@@ -9,6 +9,7 @@ class UiState {
 	listFilter = $state<ListFilter>('all');
 	listSort = $state<ListSort>('category');
 	regulationFilter = $state(true); // true = only new (2017+)
+	aiEnabled = $state(true); // KI-toggle: disables curation, keeps vector search
 	graphSearch = $state('');
 	graphCategoryFilter = $state<Set<string>>(new Set()); // empty = show all
 	graphTypeFilter = $state<Set<string>>(new Set()); // empty = show all
@@ -78,6 +79,10 @@ class UiState {
 
 	toggleRegulationFilter() {
 		this.regulationFilter = !this.regulationFilter;
+	}
+
+	toggleAi() {
+		this.aiEnabled = !this.aiEnabled;
 	}
 }
 

@@ -138,6 +138,21 @@
 			</div>
 		{/if}
 
+		<!-- AI toggle -->
+		<button
+			class="ai-toggle"
+			class:active={uiState.aiEnabled}
+			onclick={() => uiState.toggleAi()}
+			title={uiState.aiEnabled ? 'KI-kuratering er på (vektorsøk brukes uansett)' : 'KI-kuratering er av'}
+		>
+			<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+				<path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/>
+				<path d="M20 3v4"/>
+				<path d="M22 5h-4"/>
+			</svg>
+			KI
+		</button>
+
 		<!-- Regulation filter -->
 		<button
 			class="reg-filter"
@@ -304,6 +319,28 @@
 		width: 6px;
 		height: 6px;
 		border-radius: 50%;
+	}
+
+	.ai-toggle {
+		all: unset;
+		cursor: pointer;
+		display: flex;
+		align-items: center;
+		gap: 3px;
+		padding: 3px 8px;
+		font-size: 10px;
+		font-weight: 500;
+		border-radius: 4px;
+		color: var(--p-ink4);
+		border: 1px solid var(--p-border);
+	}
+	.ai-toggle:hover {
+		background: var(--p-hover);
+	}
+	.ai-toggle.active {
+		background: var(--p-provision-accent);
+		color: white;
+		border-color: var(--p-provision-accent);
 	}
 
 	.reg-filter {

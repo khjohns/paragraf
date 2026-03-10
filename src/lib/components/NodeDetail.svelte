@@ -51,9 +51,9 @@
 		return () => window.removeEventListener('paragraf:shortcut', handler);
 	});
 
-	// AI curation query (only for KOFA cases with a problem statement)
+	// AI curation query (only for KOFA cases with a problem statement, and KI enabled)
 	const curationQuery = createCurationQuery(() => ({
-		sakNr: selectedNode?.type === 'kofa_case' ? selectedNode.label : null,
+		sakNr: uiState.aiEnabled && selectedNode?.type === 'kofa_case' ? selectedNode.label : null,
 		problemStatement: analysisState.analysis.problemStatement,
 		seedProvisions: analysisState.analysis.seeds.provisions,
 	}));
