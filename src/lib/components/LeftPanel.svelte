@@ -7,6 +7,7 @@
 	import CategoryBadge from './CategoryBadge.svelte';
 	import DelimBadge from './DelimBadge.svelte';
 	import ValencePip from './ValencePip.svelte';
+	import { formatProvision } from '$lib/utils/provisions';
 
 	// Stats
 	let cases = $derived(analysisState.nodes.filter(n => n.category));
@@ -40,7 +41,7 @@
 		<div class="panel-eyebrow">Rettskildeanalyse</div>
 		<div class="panel-name">
 			{#if analysisState.analysis.seeds.provisions.length > 0}
-				{analysisState.analysis.seeds.provisions[0]} — Analyse
+				{formatProvision(analysisState.analysis.seeds.provisions[0])} — Analyse
 			{:else}
 				Ny analyse
 			{/if}
@@ -61,8 +62,8 @@
 			</div>
 		</LeftPanelSection>
 
-		<!-- 2. Utgangspunkt -->
-		<LeftPanelSection num="2" title="Utgangspunkt" defaultOpen>
+		<!-- 2. Søk -->
+		<LeftPanelSection num="2" title="Søk" defaultOpen>
 			<SeedInput />
 		</LeftPanelSection>
 

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { analysisState } from '$lib/stores/analysis.svelte';
+	import { formatProvision, parseProvisionInput } from '$lib/utils/provisions';
 
 	let provisionInput = $state('');
 	let ftsInput = $state('');
@@ -33,11 +34,12 @@
 	});
 
 	function addProvision(value?: string) {
-		const v = (value ?? provisionInput).trim();
-		if (!v || provisions.includes(v)) return;
+		const raw = value ?? provisionInput;
+		const parsed = value ? raw.trim() : parseProvisionInput(raw);
+		if (!parsed || provisions.includes(parsed)) return;
 		analysisState.setSeeds({
 			...analysisState.analysis.seeds,
-			provisions: [...provisions, v],
+			provisions: [...provisions, parsed],
 		});
 		if (!value) provisionInput = '';
 	}
@@ -83,26 +85,11 @@
 
 <div class="seed-input">
 	<section>
-		<label class="field-label" for="vector-input">Konseptuelt søk</label>
-		<textarea
-			id="vector-input"
-			value={vectorInputValue}
-			oninput={handleVectorInput}
-			placeholder="Beskriv det juridiske spørsmålet med egne ord..."
-			class="vector-field"
-			rows="3"
-		></textarea>
-		{#if vectorQuery}
-			<p class="field-hint">V-signal aktiv — semantisk søk kjøres</p>
-		{/if}
-	</section>
-
-	<section>
 		<label class="field-label" for="provision-input">Bestemmelser</label>
 		<div class="chip-input">
 			{#each provisions as prov, i}
 				<span class="chip chip-provision">
-					<span class="mono">{prov}</span>
+					<span class="mono">{formatProvision(prov)}</span>
 					<button class="chip-remove" onclick={() => removeProvision(i)}>&times;</button>
 				</span>
 			{/each}
@@ -111,11 +98,10 @@
 				type="text"
 				bind:value={provisionInput}
 				onkeydown={handleProvisionKeydown}
-				placeholder="f.eks. anskaffelsesforskriften:16-10"
+				placeholder="FOA §16-10"
 				class="chip-field"
 			/>
 		</div>
-		<p class="field-hint">Trykk Enter for å legge til. Format: lovnavn:paragraf</p>
 
 		{#if suggestions.length > 0}
 			<div class="suggestions">
@@ -123,7 +109,7 @@
 				<div class="suggestion-chips">
 					{#each suggestions as s}
 						<button class="suggestion-chip" onclick={() => addProvision(s.id)}>
-							§{s.id.split(':')[1]} <span class="suggestion-count">({s.count})</span>
+							{formatProvision(s.id)} <span class="suggestion-count">({s.count})</span>
 						</button>
 					{/each}
 				</div>
@@ -132,7 +118,7 @@
 	</section>
 
 	<section>
-		<label class="field-label" for="fts-input">FTS-begreper</label>
+		<label class="field-label" for="fts-input">Fulltekst</label>
 		<div class="chip-input">
 			{#each ftsTerms as term, i}
 				<span class="chip chip-fts">
@@ -145,10 +131,27 @@
 				type="text"
 				bind:value={ftsInput}
 				onkeydown={handleFtsKeydown}
-				placeholder="f.eks. forpliktelseserklæring"
+				placeholder="forpliktelseserklæring"
 				class="chip-field"
 			/>
 		</div>
+	</section>
+
+	<section>
+		<label class="field-label" for="vector-input">
+			Konseptuelt søk (vektor)
+		</label>
+		<textarea
+			id="vector-input"
+			value={vectorInputValue}
+			oninput={handleVectorInput}
+			placeholder="Beskriv problemstillingen som en setning — semantisk søk finner saker med lignende innhold selv om ordene er forskjellige fra fulltekstsøket"
+			class="vector-field"
+			rows="3"
+		></textarea>
+		{#if vectorQuery}
+			<p class="field-hint">V-signal aktiv</p>
+		{/if}
 	</section>
 </div>
 
@@ -164,16 +167,18 @@
 		gap: var(--spacing-1);
 	}
 	.field-label {
-		font-size: 0.75rem;
-		font-weight: 500;
-		color: var(--p-ink2);
+		font-size: 10px;
+		font-weight: 600;
+		color: var(--p-ink3);
+		letter-spacing: 0.05em;
+		text-transform: uppercase;
 	}
 	.field-hint {
 		font-size: 0.6875rem;
 		color: var(--p-ink4);
 	}
 
-	/* Problem statement textarea */
+	/* Vector search textarea */
 	.vector-field {
 		font-size: 0.8125rem;
 		font-family: var(--font-body);
@@ -208,7 +213,7 @@
 	.chip-field {
 		all: unset;
 		flex: 1;
-		min-width: 120px;
+		min-width: 80px;
 		font-size: 0.8125rem;
 		font-family: var(--font-data);
 	}
@@ -216,9 +221,9 @@
 		display: inline-flex;
 		align-items: center;
 		gap: 4px;
-		padding: 2px 8px;
+		padding: 4px 10px;
 		border-radius: var(--radius-sm);
-		font-size: 0.75rem;
+		font-size: 0.8125rem;
 	}
 	.chip-provision {
 		background: var(--p-provision-bg);

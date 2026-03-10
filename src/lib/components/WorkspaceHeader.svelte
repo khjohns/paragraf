@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { analysisState } from '$lib/stores/analysis.svelte';
+	import { formatProvision } from '$lib/utils/provisions';
 
 	let readCount = $derived(
 		Object.values(analysisState.analysis.readStatus).filter(Boolean).length
@@ -11,7 +12,7 @@
 	<span class="brand">Paragraf</span>
 	{#if analysisState.analysis.seeds.provisions.length > 0}
 		<span class="sep">&middot;</span>
-		<span class="context">{analysisState.analysis.seeds.provisions[0]}</span>
+		<span class="context">{formatProvision(analysisState.analysis.seeds.provisions[0])}</span>
 	{/if}
 	<span class="spacer"></span>
 	{#if totalCount > 0}
