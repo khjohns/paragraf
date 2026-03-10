@@ -1,10 +1,12 @@
 <script lang="ts">
-	import type { GraphNode } from '$lib/types/graph';
+	import type { GraphNode, Valence } from '$lib/types/graph';
 	import { uiState } from '$lib/stores/ui.svelte';
 	import { analysisState } from '$lib/stores/analysis.svelte';
 	import { createCurationQuery } from '$lib/queries/curation';
 	import CaseReader from './CaseReader.svelte';
 	import ProvisionDetail from './ProvisionDetail.svelte';
+	import EuCaseDetail from './EuCaseDetail.svelte';
+	import ForarbeidDetail from './ForarbeidDetail.svelte';
 	import NodeTypeIcon from './NodeTypeIcon.svelte';
 	import CategoryBadge from './CategoryBadge.svelte';
 	import DelimBadge from './DelimBadge.svelte';
@@ -29,6 +31,26 @@
 	// Has readable text (KOFA cases)
 	let hasText = $derived(selectedNode?.type === 'kofa_case');
 
+	// Keyboard shortcut handler
+	function handleShortcut(e: CustomEvent<string>) {
+		if (!selectedNode) return;
+		if (e.detail === 'read' && hasText) {
+			mode = 'reading';
+		} else if (e.detail === 'escape') {
+			if (mode === 'reading') {
+				mode = 'overview';
+			} else {
+				uiState.selectNode(null);
+			}
+		}
+	}
+
+	$effect(() => {
+		const handler = (e: Event) => handleShortcut(e as CustomEvent<string>);
+		window.addEventListener('paragraf:shortcut', handler);
+		return () => window.removeEventListener('paragraf:shortcut', handler);
+	});
+
 	// AI curation query (only for KOFA cases with a problem statement)
 	const curationQuery = createCurationQuery(() => ({
 		sakNr: selectedNode?.type === 'kofa_case' ? selectedNode.label : null,
@@ -45,8 +67,8 @@
 
 	// Build valence map once per selection (avoids O(N) per relation)
 	let valenceMap = $derived.by(() => {
-		if (!selectedNode) return new Map<string, string>();
-		const map = new Map<string, string>();
+		if (!selectedNode) return new Map<string, Valence>();
+		const map = new Map<string, Valence>();
 		// Check selected node's valence first
 		if (selectedNode.valence) {
 			for (const [id, v] of Object.entries(selectedNode.valence)) {
@@ -198,7 +220,10 @@
 					<div class="detail-section">
 						<div class="section-label">AI-markerte avsnitt</div>
 						{#if curationQuery.isLoading}
-							<div class="ai-shimmer">Henter AI-kuratering...</div>
+							<div class="ai-loading">
+								<div class="ai-loading-bar"></div>
+								<span class="ai-loading-text">Genererer AI-kuratering...</span>
+							</div>
 						{:else if curationQuery.data}
 							{#if curationQuery.data.summary_note}
 								<div class="ai-summary-note">{curationQuery.data.summary_note}</div>
@@ -256,7 +281,18 @@
 				<!-- Provision detail -->
 				{#if selectedNode.type === 'provision'}
 					{@const parts = selectedNode.id.split(':')}
-					<ProvisionDetail dokId="forskrift/2016-08-12-974" sectionId={parts[1] ?? ''} />
+					<ProvisionDetail dokId={parts[0] ?? ''} sectionId={parts[1] ?? ''} />
+				{/if}
+
+				<!-- EU case detail -->
+				{#if selectedNode.type === 'eu_case'}
+					<EuCaseDetail euCaseId={selectedNode.id.replace('eu:', '')} />
+				{/if}
+
+				<!-- Forarbeid detail -->
+				{#if selectedNode.type === 'prep_work'}
+					{@const parts = selectedNode.id.split(':')}
+					<ForarbeidDetail docId={parts.length > 3 ? parts.slice(1, -1).join(':') : parts[1] ?? ''} sectionNumber={parts[parts.length - 1] ?? ''} />
 				{/if}
 
 				<!-- Notes -->
@@ -598,22 +634,37 @@
 		background: transparent;
 	}
 	.delim-notice {
-		padding: 7px 10px;
-		border-radius: 5px;
+		padding: var(--spacing-2) var(--spacing-3);
+		border-radius: var(--radius-md);
 		background: var(--p-delim-bg);
 		border: 1px solid rgba(196,101,10,0.1);
-		font-size: 11px;
+		font-size: 0.6875rem;
 		color: var(--p-delim);
 		line-height: 1.4;
 		text-align: center;
 	}
 
-	/* AI summary in overview */
-	.ai-shimmer {
+	/* AI loading state in overview */
+	.ai-loading {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-2);
+		padding: var(--spacing-1) 0;
+	}
+	.ai-loading-bar {
+		width: 3px;
+		height: var(--spacing-4);
+		border-radius: 2px;
+		background: var(--p-ai-border);
+		animation: pulse 2s ease-in-out infinite;
+	}
+	.ai-loading-text {
 		font-size: 0.75rem;
 		color: var(--p-ink4);
-		font-style: italic;
-		padding: 4px 0;
+	}
+	@keyframes pulse {
+		0%, 100% { opacity: 0.15; }
+		50% { opacity: 0.8; }
 	}
 	.ai-summary-note {
 		border-left: 3px solid var(--p-ai-border);

@@ -59,4 +59,42 @@ export interface ProvisionDetailResponse {
 	content: string;
 	structure_path: string[];
 	referencing_cases: number;
+	referencing_case_list: Array<{
+		sak_nr: string;
+		saken_gjelder: string;
+		avsluttet: string | null;
+		avgjoerelse: string;
+	}>;
+}
+
+export interface EuCaseDetailResponse {
+	eu_case_id: string;
+	celex: string | null;
+	case_name: string | null;
+	judgment_date: string | null;
+	subject: string | null;
+	description: string | null;
+	source_url: string | null;
+	referencing_cases: Array<{ sak_nr: string; context: string }>;
+}
+
+export interface ForarbeidDetailResponse {
+	doc_id: string;
+	doc_type: string | null;
+	title: string | null;
+	full_title: string | null;
+	session: string | null;
+	source_url: string | null;
+	section: {
+		number: string;
+		title: string | null;
+		level: number | null;
+		text: string | null;
+		parent_path: string | null;
+	} | null;
+	law_references: Array<{
+		law_name: string;
+		law_section: string;
+		context: string;
+	}>;
 }

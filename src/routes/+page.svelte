@@ -5,6 +5,7 @@
 	import NodeList from '$lib/components/NodeList.svelte';
 	import GraphView from '$lib/components/GraphView.svelte';
 	import NodeDetail from '$lib/components/NodeDetail.svelte';
+	import KeyboardShortcuts from '$lib/components/KeyboardShortcuts.svelte';
 	import { onMount } from 'svelte';
 	import { analysisState } from '$lib/stores/analysis.svelte';
 	import { uiState } from '$lib/stores/ui.svelte';
@@ -29,6 +30,8 @@
 	// Load persisted state on mount (saves are handled by touch() in store)
 	onMount(() => analysisState.load());
 </script>
+
+<KeyboardShortcuts />
 
 <AppShell>
 	{#snippet leftPanel()}

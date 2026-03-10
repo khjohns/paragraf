@@ -6,6 +6,8 @@ from traversal import build_traversal_response
 from cases import get_case_detail
 from provisions import get_provision_detail
 from curation import generate_curation
+from eu_cases import get_eu_case_detail
+from forarbeider import get_forarbeid_detail
 
 STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
 
@@ -76,6 +78,28 @@ def curate_case(sak_nr):
         return jsonify(result)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/eu-cases/<path:eu_case_id>")
+def eu_case_detail(eu_case_id):
+    result = get_eu_case_detail(eu_case_id)
+    if result is None:
+        return jsonify({"error": "EU case not found"}), 404
+    return jsonify(result)
+
+
+@app.route("/api/forarbeider/<path:forarbeid_path>")
+def forarbeid_detail(forarbeid_path):
+    # Split on last '/' — doc_id may contain slashes
+    sep = forarbeid_path.rfind("/")
+    if sep == -1:
+        return jsonify({"error": "URL must be /api/forarbeider/{doc_id}/{section_number}"}), 400
+    doc_id = forarbeid_path[:sep]
+    section_number = forarbeid_path[sep + 1:]
+    result = get_forarbeid_detail(doc_id, section_number)
+    if result is None:
+        return jsonify({"error": "Forarbeid not found"}), 404
+    return jsonify(result)
 
 
 # SPA fallback — serve static frontend in production

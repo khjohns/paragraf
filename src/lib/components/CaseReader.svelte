@@ -137,7 +137,7 @@
 			</div>
 		{/if}
 
-		<div class="paragraphs">
+		<div class="paragraphs" class:curation-loading={curationLoading && !curation}>
 			{#each detail.paragraphs as para}
 				{@const hl = highlightMap.get(para.paragraph_number)}
 				{@const isHighlighted = !!hl}
@@ -415,6 +415,18 @@
 		font-size: 0.75rem;
 		color: var(--p-ai-text);
 		margin-top: 2px;
+	}
+
+	/* Pulsating border during AI curation loading */
+	.curation-loading {
+		border-left: 3px solid var(--p-ai-border);
+		padding-left: var(--spacing-3);
+		animation: pulseCuration 2s ease-in-out infinite;
+	}
+
+	@keyframes pulseCuration {
+		0%, 100% { border-left-color: rgba(180, 140, 80, 0.12); }
+		50% { border-left-color: rgba(180, 140, 80, 0.6); }
 	}
 
 	@keyframes fadeIn {

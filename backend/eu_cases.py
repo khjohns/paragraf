@@ -1,0 +1,40 @@
+from db import get_client
+
+
+def get_eu_case_detail(eu_case_id: str) -> dict | None:
+    """Fetch EU case detail: metadata and referencing KOFA cases."""
+    client = get_client()
+
+    # 1. EU case metadata
+    result = (
+        client.table("kofa_eu_case_law")
+        .select("eu_case_id, celex, case_name, judgment_date, subject, description, source_url")
+        .eq("eu_case_id", eu_case_id)
+        .limit(1)
+        .execute()
+    )
+    case = (result.data or [None])[0]
+    if not case:
+        return None
+
+    # 2. KOFA cases that reference this EU case
+    refs = (
+        client.table("kofa_eu_references")
+        .select("sak_nr, context")
+        .eq("eu_case_id", eu_case_id)
+        .execute()
+    )
+
+    return {
+        "eu_case_id": case["eu_case_id"],
+        "celex": case.get("celex"),
+        "case_name": case.get("case_name"),
+        "judgment_date": str(case["judgment_date"]) if case.get("judgment_date") else None,
+        "subject": case.get("subject"),
+        "description": case.get("description"),
+        "source_url": case.get("source_url"),
+        "referencing_cases": [
+            {"sak_nr": r["sak_nr"], "context": r.get("context") or ""}
+            for r in (refs.data or [])
+        ],
+    }

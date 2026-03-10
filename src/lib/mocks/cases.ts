@@ -18,6 +18,14 @@ const MOCK_PARAGRAPHS: Record<string, CaseDetailResponse['paragraphs']> = {
 export function mockCaseDetail(sakNr: string): CaseDetailResponse {
 	return {
 		sak_nr: sakNr,
+		avgjoerelse: 'Ikke brudd på regelverket',
+		saken_gjelder: 'Mockdata',
+		avsluttet: '2023-01-01',
+		innklaget: null,
+		klager: null,
+		sakstype: null,
+		regelverk: null,
+		summary: null,
 		paragraphs: MOCK_PARAGRAPHS[sakNr] ?? [
 			{ paragraph_number: 1, section: 'vurdering', text: `Mockdata for sak ${sakNr} er ikke tilgjengelig.` },
 		],
