@@ -2,6 +2,32 @@ from __future__ import annotations
 
 from db import get_client
 
+# Eckhoff-based authority weight per node type (§34 in design spec)
+AUTHORITY_WEIGHT: dict[str, float] = {
+    "provision": 1.0,
+    "kofa_case": 0.4,
+    "eu_case": 0.9,
+    "court_case": 1.0,  # HR; lagmannsrett would be 0.7
+    "prep_work": 0.6,
+}
+
+
+def compute_case_score(
+    signal_count: int,
+    citation_count: int,
+    max_citations: int,
+    authority_weight: float,
+) -> float:
+    """Compute final_score for ranking within each category.
+
+    signal_score: normalized 0-1 from signal_count (1-3)
+    centrality: normalized citation_count / max_citations
+    authority: static per node type
+    """
+    signal_score = signal_count / 3.0
+    centrality = citation_count / max_citations if max_citations > 0 else 0
+    return signal_score * 0.4 + centrality * 0.3 + authority_weight * 0.3
+
 
 def _section_filter(query, column: str, law_section: str):
     """Match exact section OR section with sub-section suffix (space-separated).
@@ -283,6 +309,8 @@ def _compute_gaps(
             gaps.append({
                 "provision1": f"§{s1}",
                 "provision2": f"§{s2}",
+                "id1": p1,
+                "id2": p2,
                 "count": len(shared),
             })
 
@@ -408,6 +436,17 @@ def build_traversal_response(
             cite_by_sak[sak] = cite_by_sak.get(sak, 0) + 1
         for node in case_nodes:
             node["citations"] = cite_by_sak.get(node["label"], 0)
+
+    # --- Compute final_score per case node ---
+    max_cite = max((n["citations"] for n in case_nodes), default=0)
+    for node in case_nodes:
+        signal_count = sum(node.get("signals", {}).values())
+        node["score"] = round(compute_case_score(
+            signal_count=signal_count,
+            citation_count=node["citations"],
+            max_citations=max_cite,
+            authority_weight=AUTHORITY_WEIGHT.get(node["type"], 0.4),
+        ), 4)
 
     # Provision citations: count incoming graph edges
     provision_id_set = {n["id"] for n in provision_nodes}

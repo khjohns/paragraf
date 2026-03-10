@@ -6,6 +6,9 @@
 	const categoryOrder: Record<string, number> = { A: 0, B: 1, C: 2 };
 
 	function isNodeDimmed(node: typeof analysisState.nodes[0]): boolean {
+		if (analysisState.filterIteration !== null && node.iteration !== analysisState.filterIteration) {
+			return true;
+		}
 		if (uiState.listFilter === 'delimitation') {
 			return !analysisState.analysis.delimitations[node.id];
 		}

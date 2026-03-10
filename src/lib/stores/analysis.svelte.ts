@@ -10,6 +10,8 @@ class AnalysisState {
 	edges = $state<GraphEdge[]>([]);
 	gaps = $state<GapPair[]>([]);
 	suggestedProvisions = $state<SuggestedProvision[]>([]);
+	/** When set, list/graph filters to nodes from this iteration only */
+	filterIteration = $state<number | null>(null);
 	analysis = $state<Analysis>({
 		id: crypto.randomUUID(),
 		problemStatement: '',
@@ -117,6 +119,30 @@ class AnalysisState {
 		queueMicrotask(() =>
 			toastState.show(`Iterasjon ${this.analysis.iteration} startet — endre seeds og kjør nytt søk`, 'success')
 		);
+	}
+
+	/** Add both provisions from a gap pair as seeds (if not already present) */
+	addSeedsFromGap(id1: string, id2: string) {
+		const current = this.analysis.seeds.provisions;
+		const added: string[] = [];
+		if (!current.includes(id1)) {
+			current.push(id1);
+			added.push(id1);
+		}
+		if (!current.includes(id2)) {
+			current.push(id2);
+			added.push(id2);
+		}
+		if (added.length > 0) {
+			this.analysis.seeds = { ...this.analysis.seeds, provisions: [...current] };
+			this.touch();
+			const labels = added.map(id => `§${id.split(':')[1]}`).join(' og ');
+			queueMicrotask(() => toastState.show(`${labels} lagt til som seeds`, 'success'));
+		}
+	}
+
+	toggleFilterIteration(iteration: number) {
+		this.filterIteration = this.filterIteration === iteration ? null : iteration;
 	}
 
 	// --- Persistence ---

@@ -112,7 +112,7 @@
 		<LeftPanelSection
 			num="4"
 			title="Kartlegging"
-			subtitle="Iter. {analysisState.analysis.iteration}"
+			subtitle="Runde {analysisState.analysis.iteration}"
 			defaultOpen
 		>
 			{#snippet badge()}{/snippet}
@@ -150,7 +150,7 @@
 							<div
 								class="gap-row"
 								class:is-gap={isGap}
-								onclick={isGap ? () => toastState.show('Hull: ' + gap.provision1 + ' ∩ ' + gap.provision2 + ' — legg til som seeds i neste iterasjon', 'info') : undefined}
+								onclick={isGap && gap.id1 && gap.id2 ? () => analysisState.addSeedsFromGap(gap.id1!, gap.id2!) : undefined}
 							>
 								<span class="gap-prov">{gap.provision1}</span>
 								<span class="gap-sep">∩</span>
@@ -160,21 +160,50 @@
 						{/each}
 						{#if zeroGaps.length > 0}
 							<div class="gap-note">
-								{zeroGaps.length} bestemmelsespar uten felles praksis — mulige analytiske hull
+								{zeroGaps.length} hull — klikk for å legge til som søkeparametre
 							</div>
 						{/if}
 					</div>
 				{/if}
 
-				<!-- Iteration history -->
+				<!-- Iteration history (Søkerunder) -->
 				{#if analysisState.analysis.iterationHistory?.length}
 					<div class="mapping-section">
-						<div class="mapping-label">Iterasjoner</div>
+						<div class="mapping-label">Søkerunder</div>
+						<!-- Iteration 1 is always the initial search -->
+						<button
+							class="round-row"
+							class:active={analysisState.filterIteration === 1}
+							onclick={() => analysisState.toggleFilterIteration(1)}
+						>
+							<span class="round-num">1</span>
+							<span class="round-seeds">
+								{analysisState.analysis.seeds.provisions.slice(0, 2).map(p => `§${p.split(':')[1]}`).join(', ')}
+								{#if analysisState.analysis.seeds.ftsTerms.length > 0}
+									, «{analysisState.analysis.seeds.ftsTerms[0]}»
+								{/if}
+							</span>
+							<span class="round-count">{analysisState.nodes.filter(n => n.iteration === 1).length}</span>
+						</button>
 						{#each analysisState.analysis.iterationHistory as entry}
-							<div class="iter-info">
-								Iterasjon {entry.iteration}: +{entry.newNodeCount} treff{#if entry.addedSeeds.length > 0}{' '}via «{entry.addedSeeds.join('», «')}»{/if}
-							</div>
+							<button
+								class="round-row"
+								class:active={analysisState.filterIteration === entry.iteration}
+								onclick={() => analysisState.toggleFilterIteration(entry.iteration)}
+							>
+								<span class="round-num">{entry.iteration}</span>
+								<span class="round-seeds">
+									+ {entry.addedSeeds.map(s => s.includes(':') ? `§${s.split(':')[1]}` : `«${s}»`).join(', ') || '—'}
+								</span>
+								<span class="round-count">+{entry.newNodeCount}</span>
+							</button>
 						{/each}
+						{#if analysisState.filterIteration !== null}
+							<div class="filter-active-notice">
+								Viser kun runde {analysisState.filterIteration}
+								<button class="clear-filter" onclick={() => analysisState.filterIteration = null}>Vis alle</button>
+							</div>
+						{/if}
 					</div>
 				{/if}
 
@@ -431,6 +460,81 @@
 		font-size: 11px;
 		color: var(--p-success);
 		line-height: 1.4;
+	}
+
+	.round-row {
+		all: unset;
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		padding: 6px 8px;
+		border-radius: 4px;
+		cursor: pointer;
+		font-size: 11px;
+		color: var(--p-ink2);
+		border: 1px solid transparent;
+		width: 100%;
+		box-sizing: border-box;
+	}
+	.round-row:hover {
+		background: var(--p-hover);
+	}
+	.round-row.active {
+		background: var(--p-active);
+		border-color: var(--p-border-m);
+	}
+	.round-num {
+		width: 16px;
+		height: 16px;
+		border-radius: 50%;
+		background: var(--p-input);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		font-size: 10px;
+		font-weight: 600;
+		color: var(--p-ink3);
+		flex-shrink: 0;
+	}
+	.round-row.active .round-num {
+		background: var(--p-ink);
+		color: var(--p-panel);
+	}
+	.round-seeds {
+		flex: 1;
+		font-family: var(--font-data);
+		font-size: 11px;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.round-count {
+		font-family: var(--font-data);
+		font-size: 11px;
+		font-weight: 600;
+		color: var(--p-ink3);
+		flex-shrink: 0;
+	}
+	.filter-active-notice {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: 5px 8px;
+		border-radius: 4px;
+		background: var(--p-active);
+		font-size: 10px;
+		color: var(--p-ink3);
+	}
+	.clear-filter {
+		all: unset;
+		cursor: pointer;
+		font-size: 10px;
+		font-weight: 600;
+		color: var(--p-ink2);
+		text-decoration: underline;
+	}
+	.clear-filter:hover {
+		color: var(--p-ink);
 	}
 
 	.new-iter-btn {

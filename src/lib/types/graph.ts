@@ -19,6 +19,7 @@ export interface GraphNode {
 	category?: Category;
 	signals?: SignalHits;
 	citations: number;
+	score?: number;
 	regulation?: RegulationVersion;
 	iteration: number;
 	isSeed: boolean;
@@ -56,6 +57,8 @@ export function nodeMatchesSearch(node: GraphNode, query: string): boolean {
 export interface GapPair {
 	provision1: string;
 	provision2: string;
+	id1?: string;
+	id2?: string;
 	count: number;
 }
 
