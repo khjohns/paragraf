@@ -9,6 +9,23 @@ class UiState {
 	listFilter = $state<ListFilter>('all');
 	listSort = $state<ListSort>('category');
 	regulationFilter = $state(true); // true = only new (2017+)
+	graphSearch = $state('');
+	graphCategoryFilter = $state<Set<string>>(new Set()); // empty = show all
+	graphTypeFilter = $state<Set<string>>(new Set()); // empty = show all
+
+	toggleGraphCategory(cat: string) {
+		const next = new Set(this.graphCategoryFilter);
+		if (next.has(cat)) next.delete(cat);
+		else next.add(cat);
+		this.graphCategoryFilter = next;
+	}
+
+	toggleGraphType(type: string) {
+		const next = new Set(this.graphTypeFilter);
+		if (next.has(type)) next.delete(type);
+		else next.add(type);
+		this.graphTypeFilter = next;
+	}
 	scrollToTarget = $state<number | null>(null); // paragraph number for cross-ref navigation
 	navigationHistory = $state<string[]>([]);
 

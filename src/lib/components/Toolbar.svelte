@@ -1,6 +1,52 @@
 <script lang="ts">
 	import { uiState } from '$lib/stores/ui.svelte';
 	import type { ListSort } from '$lib/stores/ui.svelte';
+	import { analysisState } from '$lib/stores/analysis.svelte';
+
+	let graphMatchCount = $derived.by(() => {
+		const q = uiState.graphSearch.toLowerCase().trim();
+		if (!q) return 0;
+		return analysisState.nodes.filter(n =>
+			n.label.toLowerCase().includes(q) ||
+			n.subtitle.toLowerCase().includes(q) ||
+			(n.detail?.toLowerCase().includes(q))
+		).length;
+	});
+
+	let categoryCounts = $derived.by(() => {
+		const counts = { A: 0, B: 0, C: 0 };
+		for (const n of analysisState.nodes) {
+			if (uiState.regulationFilter && n.regulation === 'old') continue;
+			if (n.category === 'A') counts.A++;
+			else if (n.category === 'B') counts.B++;
+			else if (n.category === 'C') counts.C++;
+		}
+		return counts;
+	});
+
+	const typeLabels: Record<string, string> = {
+		provision: 'Best.',
+		kofa_case: 'KOFA',
+		eu_case: 'EU',
+		court_case: 'Rett',
+		prep_work: 'Forarb.',
+	};
+	const typeColors: Record<string, string> = {
+		provision: 'var(--p-provision-accent)',
+		kofa_case: 'var(--p-kofa-accent)',
+		eu_case: 'var(--p-eu-accent)',
+		court_case: 'var(--p-court-accent)',
+		prep_work: 'var(--p-prep-accent)',
+	};
+
+	let typeCounts = $derived.by(() => {
+		const counts: Record<string, number> = {};
+		for (const n of analysisState.nodes) {
+			if (uiState.regulationFilter && n.regulation === 'old') continue;
+			counts[n.type] = (counts[n.type] || 0) + 1;
+		}
+		return counts;
+	});
 </script>
 
 <div class="toolbar">
@@ -40,6 +86,58 @@
 				<button class="filter-btn filter-delim" class:active={uiState.listFilter === 'delimitation'} onclick={() => uiState.setListFilter('delimitation')}>Avgrensning</button>
 				<button class="filter-btn" class:active={uiState.listFilter === 'unread'} onclick={() => uiState.setListFilter('unread')}>Ulest</button>
 			</div>
+		{:else if uiState.viewMode === 'graph'}
+			<span class="toolbar-sep"></span>
+
+			<!-- Graph search -->
+			<div class="graph-search">
+				<svg class="search-icon" width="13" height="13" viewBox="0 0 16 16" fill="none">
+					<circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.4"/>
+					<line x1="11" y1="11" x2="14" y2="14" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+				</svg>
+				<input
+					type="text"
+					class="search-input"
+					placeholder="Søk saksnr, bestemmelse…"
+					bind:value={uiState.graphSearch}
+				/>
+				{#if uiState.graphSearch}
+					<span class="search-count">{graphMatchCount}</span>
+					<button class="search-clear" onclick={() => uiState.graphSearch = ''}>×</button>
+				{/if}
+			</div>
+
+			<!-- Type filter pills -->
+			{#each Object.entries(typeCounts) as [type, count]}
+				<button
+					class="cat-pill"
+					class:active={uiState.graphTypeFilter.has(type)}
+					onclick={() => uiState.toggleGraphType(type)}
+				>
+					<span class="cat-dot" style:background={typeColors[type]}></span>
+					{typeLabels[type] ?? type} {count}
+				</button>
+			{/each}
+
+			<span class="toolbar-sep"></span>
+
+			<!-- Category filter pills -->
+			{#each ['A', 'B', 'C'] as cat}
+				{@const count = categoryCounts[cat as keyof typeof categoryCounts]}
+				{#if count > 0}
+					<button
+						class="cat-pill"
+						class:active={uiState.graphCategoryFilter.has(cat)}
+						class:cat-a={cat === 'A'}
+						class:cat-b={cat === 'B'}
+						class:cat-c={cat === 'C'}
+						onclick={() => uiState.toggleGraphCategory(cat)}
+					>
+						<span class="cat-dot"></span>
+						{cat} {count}
+					</button>
+				{/if}
+			{/each}
 		{/if}
 	</div>
 
@@ -111,6 +209,8 @@
 		display: flex;
 		align-items: center;
 		gap: 8px;
+		flex-wrap: wrap;
+		row-gap: 4px;
 	}
 	.panel-toggle {
 		all: unset;
@@ -239,6 +339,89 @@
 		background: var(--p-warn-bg);
 		color: var(--p-warn);
 		border-color: rgba(166,123,46,0.15);
+	}
+
+	/* Category filter pills */
+	.cat-pill {
+		all: unset;
+		cursor: pointer;
+		display: flex;
+		align-items: center;
+		gap: 4px;
+		padding: 3px 9px;
+		font-size: 11px;
+		font-weight: 500;
+		font-family: var(--font-data);
+		color: var(--p-ink3);
+		border: 1px solid var(--p-border);
+		border-radius: 12px;
+		transition: all 0.12s ease;
+	}
+	.cat-pill:hover {
+		border-color: var(--p-ink4);
+	}
+	.cat-dot {
+		width: 6px;
+		height: 6px;
+		border-radius: 50%;
+		background: var(--p-ink4);
+	}
+	.cat-pill.cat-a .cat-dot { background: var(--p-ink); }
+	.cat-pill.cat-b .cat-dot { background: var(--p-ink2); }
+	.cat-pill.cat-c .cat-dot { background: var(--p-ink3); }
+	.cat-pill.active {
+		background: var(--p-active);
+		color: var(--p-ink);
+		border-color: var(--p-ink3);
+	}
+
+	/* Graph search */
+	.graph-search {
+		display: flex;
+		align-items: center;
+		gap: 4px;
+		padding: 3px 8px;
+		border: 1px solid var(--p-border);
+		border-radius: 5px;
+		background: var(--p-bg);
+		min-width: 180px;
+	}
+	.graph-search:focus-within {
+		border-color: var(--p-ink3);
+	}
+	.search-icon {
+		color: var(--p-ink4);
+		flex-shrink: 0;
+	}
+	.search-input {
+		all: unset;
+		font-size: 11px;
+		font-family: var(--font-ui);
+		color: var(--p-ink);
+		flex: 1;
+		min-width: 0;
+	}
+	.search-input::placeholder {
+		color: var(--p-ink4);
+	}
+	.search-count {
+		font-size: 10px;
+		font-family: var(--font-data);
+		color: var(--p-ink3);
+		background: var(--p-surface);
+		padding: 1px 5px;
+		border-radius: 3px;
+	}
+	.search-clear {
+		all: unset;
+		cursor: pointer;
+		color: var(--p-ink4);
+		font-size: 14px;
+		line-height: 1;
+		padding: 0 2px;
+	}
+	.search-clear:hover {
+		color: var(--p-ink2);
 	}
 
 	.sort-warning {

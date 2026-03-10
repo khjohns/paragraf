@@ -72,6 +72,7 @@
 	{onclick}
 	{onmouseenter}
 	{onmouseleave}
+	onpointerdown={(e) => e.stopPropagation()}
 	style="cursor: pointer"
 >
 	<!-- Node shape -->

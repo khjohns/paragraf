@@ -50,9 +50,47 @@
 	// Node lookup
 	let nodeMap = $derived(new Map(analysisState.nodes.map(n => [n.id, n])));
 
-	// Dimming: regulation filter
+	// Search match set
+	let searchMatches = $derived.by(() => {
+		const q = uiState.graphSearch.toLowerCase().trim();
+		if (!q) return null; // null = no search active
+		const matches = new Set<string>();
+		for (const n of analysisState.nodes) {
+			if (
+				n.label.toLowerCase().includes(q) ||
+				n.subtitle.toLowerCase().includes(q) ||
+				(n.detail?.toLowerCase().includes(q))
+			) {
+				matches.add(n.id);
+			}
+		}
+		return matches;
+	});
+
+	// Dimming: regulation filter + search + category filter + type filter
 	function isDimmed(node: GNode): boolean {
 		if (uiState.regulationFilter && node.regulation === 'old') return true;
+		if (searchMatches && !searchMatches.has(node.id)) return true;
+		if (uiState.graphTypeFilter.size > 0 && !uiState.graphTypeFilter.has(node.type)) return true;
+		if (uiState.graphCategoryFilter.size > 0 && node.category && !uiState.graphCategoryFilter.has(node.category)) return true;
+		return false;
+	}
+
+	// Dimming for aggregate nodes
+	function isAggregateDimmed(agg: AggType): boolean {
+		if (uiState.graphTypeFilter.size > 0 && !uiState.graphTypeFilter.has(agg.type)) return true;
+		const catFilter = uiState.graphCategoryFilter;
+		if (catFilter.size > 0) {
+			const hasMatch = agg.memberIds.some(id => {
+				const n = nodeMap.get(id);
+				return n?.category && catFilter.has(n.category);
+			});
+			if (!hasMatch) return true;
+		}
+		if (searchMatches) {
+			const hasMatch = agg.memberIds.some(id => searchMatches!.has(id));
+			if (!hasMatch) return true;
+		}
 		return false;
 	}
 
@@ -216,6 +254,35 @@
 	let hasAggregation = $derived(
 		(layout?.aggregates.length ?? 0) > 0 || expandedAggregates.size > 0
 	);
+
+	// Zoom level as percentage (100% = fit to layout)
+	let zoomPercent = $derived.by(() => {
+		if (!layout) return 100;
+		return Math.round((layout.width / viewBox.w) * 100);
+	});
+
+	function zoomTo(percent: number) {
+		if (!layout) return;
+		const scale = 100 / percent;
+		const newW = layout.width * scale;
+		const newH = layout.height * scale;
+		const dx = (newW - viewBox.w) / 2;
+		const dy = (newH - viewBox.h) / 2;
+		viewBox = { x: viewBox.x - dx, y: viewBox.y - dy, w: newW, h: newH };
+	}
+
+	function zoomIn() {
+		zoomTo(Math.min(zoomPercent + 15, 300));
+	}
+
+	function zoomOut() {
+		zoomTo(Math.max(zoomPercent - 15, 25));
+	}
+
+	function zoomReset() {
+		if (!layout) return;
+		viewBox = { x: 0, y: 0, w: layout.width, h: layout.height };
+	}
 </script>
 
 <div class="graph-container">
@@ -309,6 +376,7 @@
 						y={pos.y}
 						width={pos.width}
 						height={pos.height}
+						dimmed={isAggregateDimmed(agg)}
 						onclick={() => expandAggregate(agg)}
 					/>
 				{/if}
@@ -341,6 +409,33 @@
 
 		<GraphTooltip node={tooltipNode} x={tooltipPos.x} y={tooltipPos.y} />
 		<GraphLegend />
+
+		<!-- Zoom controls -->
+		<div class="zoom-controls">
+			<button class="zoom-btn" onclick={zoomIn} title="Zoom inn">
+				<svg width="14" height="14" viewBox="0 0 14 14">
+					<line x1="7" y1="3" x2="7" y2="11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+					<line x1="3" y1="7" x2="11" y2="7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+				</svg>
+			</button>
+			<input
+				type="range"
+				class="zoom-slider"
+				min="25"
+				max="300"
+				value={zoomPercent}
+				oninput={(e) => zoomTo(parseInt(e.currentTarget.value))}
+				title="{zoomPercent}%"
+			/>
+			<button class="zoom-btn" onclick={zoomOut} title="Zoom ut">
+				<svg width="14" height="14" viewBox="0 0 14 14">
+					<line x1="3" y1="7" x2="11" y2="7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+				</svg>
+			</button>
+			<button class="zoom-btn zoom-reset" onclick={zoomReset} title="Tilpass">
+				{zoomPercent}%
+			</button>
+		</div>
 	{/if}
 </div>
 
@@ -398,7 +493,7 @@
 	.graph-toolbar {
 		position: absolute;
 		top: 8px;
-		right: 8px;
+		left: 8px;
 		z-index: 10;
 		display: flex;
 		gap: 6px;
@@ -422,6 +517,53 @@
 		color: var(--p-ink);
 		border-color: var(--p-ink3);
 		background: var(--p-bg);
+	}
+
+	/* Zoom controls */
+	.zoom-controls {
+		position: absolute;
+		bottom: 12px;
+		right: 12px;
+		z-index: 10;
+		display: flex;
+		align-items: center;
+		gap: 4px;
+		background: var(--p-panel);
+		border: 1px solid var(--p-border);
+		border-radius: 6px;
+		padding: 4px 6px;
+	}
+	.zoom-btn {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 24px;
+		height: 24px;
+		padding: 0;
+		background: none;
+		border: 1px solid transparent;
+		border-radius: 4px;
+		color: var(--p-ink3);
+		cursor: pointer;
+		font-family: var(--font-data);
+		font-size: 10px;
+		transition: all 0.12s ease;
+	}
+	.zoom-btn:hover {
+		color: var(--p-ink);
+		background: var(--p-surface);
+		border-color: var(--p-border);
+	}
+	.zoom-reset {
+		width: auto;
+		padding: 0 6px;
+		font-weight: 500;
+	}
+	.zoom-slider {
+		width: 80px;
+		height: 4px;
+		accent-color: var(--p-ink3);
+		cursor: pointer;
 	}
 
 	/* Empty state */
