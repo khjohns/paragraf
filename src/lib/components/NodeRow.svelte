@@ -7,12 +7,13 @@
 	import DelimBadge from './DelimBadge.svelte';
 	import ValencePip from './ValencePip.svelte';
 
-	let { node }: { node: GraphNode } = $props();
+	let { node, dimmed = false }: { node: GraphNode; dimmed?: boolean } = $props();
 
 	let isSelected = $derived(uiState.selectedNodeId === node.id);
 	let isRead = $derived(!!analysisState.analysis.readStatus[node.id]);
 	let isDelimitation = $derived(node.isDelimitation || !!analysisState.analysis.delimitations[node.id]);
-	let isDimmed = $derived(uiState.regulationFilter && node.regulation === 'old');
+	let isRegDimmed = $derived(uiState.regulationFilter && node.regulation === 'old');
+	let isDimmed = $derived(dimmed || isRegDimmed);
 
 	let accent = $derived(NODE_TYPE_ACCENT[node.type]);
 
@@ -50,6 +51,7 @@
 	class:dimmed={isDimmed}
 	style:border-left-color={isSelected ? accent : 'transparent'}
 	onclick={() => uiState.selectNode(node.id)}
+	title={isDimmed ? 'Utenfor aktivt filter' : undefined}
 >
 	<div class="row-main">
 		<!-- Read checkbox -->

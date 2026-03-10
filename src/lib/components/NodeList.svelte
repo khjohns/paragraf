@@ -5,18 +5,29 @@
 
 	const categoryOrder: Record<string, number> = { A: 0, B: 1, C: 2 };
 
-	let filteredNodes = $derived.by(() => {
-		let nodes = analysisState.nodes;
-
-		// Filter
+	function isNodeDimmed(node: typeof analysisState.nodes[0]): boolean {
 		if (uiState.listFilter === 'delimitation') {
-			nodes = nodes.filter(n => analysisState.analysis.delimitations[n.id]);
-		} else if (uiState.listFilter === 'unread') {
-			nodes = nodes.filter(n => !analysisState.analysis.readStatus[n.id]);
+			return !analysisState.analysis.delimitations[node.id];
 		}
+		if (uiState.listFilter === 'unread') {
+			return !!analysisState.analysis.readStatus[node.id];
+		}
+		return false;
+	}
 
-		// Sort
-		return [...nodes].sort((a, b) => {
+	let dimmedSet = $derived.by(() => {
+		const set = new Set<string>();
+		for (const node of analysisState.nodes) {
+			if (isNodeDimmed(node)) set.add(node.id);
+		}
+		return set;
+	});
+
+	let sortedNodes = $derived.by(() => {
+		const nodes = [...analysisState.nodes];
+
+		// Sort by chosen criterion
+		nodes.sort((a, b) => {
 			if (uiState.listSort === 'category') {
 				const ca = categoryOrder[a.category ?? 'C'] ?? 3;
 				const cb = categoryOrder[b.category ?? 'C'] ?? 3;
@@ -31,18 +42,27 @@
 			}
 			return 0;
 		});
+
+		// Then stable-sort: visible nodes first, dimmed nodes after
+		if (uiState.listFilter !== 'all') {
+			nodes.sort((a, b) => {
+				const aDim = dimmedSet.has(a.id) ? 1 : 0;
+				const bDim = dimmedSet.has(b.id) ? 1 : 0;
+				return aDim - bDim;
+			});
+		}
+
+		return nodes;
 	});
 </script>
 
 <div class="node-list">
 	<div class="list-body">
-		{#each filteredNodes as node (node.id)}
-			<NodeRow {node} />
+		{#each sortedNodes as node (node.id)}
+			<NodeRow {node} dimmed={dimmedSet.has(node.id)} />
 		{/each}
 
-		{#if filteredNodes.length === 0 && analysisState.nodes.length > 0}
-			<p class="empty">Ingen resultater med dette filteret.</p>
-		{:else if analysisState.nodes.length === 0}
+		{#if analysisState.nodes.length === 0}
 			<div class="empty-state">
 				<p class="empty-title">Definer utgangspunkt</p>
 				<p class="empty-desc">Legg til bestemmelser og søkebegreper i venstrepanelet for å starte søket.</p>
