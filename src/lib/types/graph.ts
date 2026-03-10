@@ -49,3 +49,16 @@ export interface GapPair {
 	provision2: string;
 	count: number;
 }
+
+/** Virtual aggregate node grouping multiple case nodes under a provision */
+export interface AggregateNode {
+	id: string;
+	provisionId: string;
+	type: NodeType;
+	totalCount: number;
+	countA: number;
+	countB: number;
+	countC: number;
+	/** IDs of the real nodes this aggregate represents */
+	memberIds: string[];
+}

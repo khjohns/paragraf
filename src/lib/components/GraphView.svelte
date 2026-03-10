@@ -1,18 +1,43 @@
 <script lang="ts">
 	import { analysisState } from '$lib/stores/analysis.svelte';
 	import { uiState } from '$lib/stores/ui.svelte';
-	import { computeLayout } from '$lib/utils/layout';
+	import { computeAggregatedLayout } from '$lib/utils/layout';
 	import GraphNode from './GraphNode.svelte';
 	import GraphEdge from './GraphEdge.svelte';
 	import GraphTooltip from './GraphTooltip.svelte';
 	import GraphLegend from './GraphLegend.svelte';
+	import AggregateNode from './AggregateNode.svelte';
 	import { onMount } from 'svelte';
-	import type { GraphNode as GNode } from '$lib/types/graph';
+	import type { GraphNode as GNode, AggregateNode as AggType } from '$lib/types/graph';
 
-	// Compute layout reactively
+	// Aggregation state
+	let expandedAggregates = $state(new Set<string>());
+	let pinnedPositions = $state(new Map<string, { x: number; y: number }>());
+
+	// Fade-in tracking for newly expanded nodes
+	let newlyExpandedNodes = $state(new Set<string>());
+
+	// Compute aggregated layout reactively
 	let layout = $derived.by(() => {
 		if (analysisState.nodes.length === 0) return null;
-		return computeLayout(analysisState.nodes, analysisState.edges);
+		return computeAggregatedLayout(
+			analysisState.nodes,
+			analysisState.edges,
+			expandedAggregates,
+			pinnedPositions,
+		);
+	});
+
+	// Which real node IDs are currently visible (not aggregated away)
+	let visibleNodeIds = $derived.by(() => {
+		if (!layout) return new Set<string>();
+		const hidden = new Set<string>();
+		for (const agg of layout.aggregates) {
+			for (const id of agg.memberIds) {
+				hidden.add(id);
+			}
+		}
+		return new Set(analysisState.nodes.filter(n => !hidden.has(n.id)).map(n => n.id));
 	});
 
 	// Build lookup for edge valence
@@ -133,6 +158,7 @@
 		if (!layout) return [];
 		const layers: Record<string, { label: string; minY: number }> = {};
 		for (const node of analysisState.nodes) {
+			if (!visibleNodeIds.has(node.id)) continue;
 			const pos = layout!.nodes.get(node.id);
 			if (!pos) continue;
 			let layerKey: string;
@@ -144,8 +170,58 @@
 				layers[layerKey] = { label: layerKey, minY: pos.y };
 			}
 		}
+		// Also check aggregate nodes for layer labels
+		if (layout) {
+			for (const agg of layout.aggregates) {
+				const pos = layout.nodes.get(agg.id);
+				if (!pos) continue;
+				let layerKey: string;
+				if (agg.type === 'kofa_case') layerKey = 'PRAKSIS';
+				else layerKey = 'EU / FORARBEIDER';
+
+				if (!layers[layerKey] || pos.y < layers[layerKey].minY) {
+					layers[layerKey] = { label: layerKey, minY: pos.y };
+				}
+			}
+		}
 		return Object.values(layers).sort((a, b) => a.minY - b.minY);
 	});
+
+	// Handle aggregate click: expand the group
+	function expandAggregate(agg: AggType) {
+		// Pin all currently visible nodes at their current positions
+		if (layout) {
+			for (const [id, pos] of layout.nodes) {
+				if (!id.startsWith('agg:')) {
+					pinnedPositions.set(id, { x: pos.x, y: pos.y });
+				}
+			}
+		}
+
+		// Mark members as newly expanded for fade-in animation
+		const memberSet = new Set(agg.memberIds);
+		newlyExpandedNodes = memberSet;
+
+		// Clear fade-in class after animation
+		setTimeout(() => {
+			newlyExpandedNodes = new Set();
+		}, 500);
+
+		// Add to expanded set (triggers reactive re-layout)
+		expandedAggregates = new Set([...expandedAggregates, agg.id]);
+	}
+
+	// Reorganise: clear all pins and collapsed states, full re-layout
+	function reorganise() {
+		pinnedPositions = new Map();
+		expandedAggregates = new Set();
+		newlyExpandedNodes = new Set();
+	}
+
+	// Whether we have any aggregates or expanded aggregates (show reorganise button)
+	let hasAggregation = $derived(
+		(layout?.aggregates.length ?? 0) > 0 || expandedAggregates.size > 0
+	);
 </script>
 
 <div class="graph-container">
@@ -159,9 +235,22 @@
 				<line x1="28" y1="20" x2="26" y2="32" stroke="var(--p-ink4)" stroke-width="1" />
 			</svg>
 			<p class="empty-title">Kjør en analyse for å se grafen</p>
-			<p class="empty-desc">Legg til bestemmelser i venstrepanelet og start søket.</p>
+			<p class="empty-desc">Legg til bestemmelser i venstepanelet og start søket.</p>
 		</div>
 	{:else}
+		<!-- Toolbar overlay -->
+		{#if hasAggregation}
+			<div class="graph-toolbar">
+				<button class="reorganise-btn" onclick={reorganise} title="Fjern alle pins og re-aggreger">
+					<svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+						<path d="M1 7a6 6 0 0111.2-3M13 7a6 6 0 01-11.2 3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+						<path d="M12.2 1v3h-3M1.8 13v-3h3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+					</svg>
+					Reorganiser
+				</button>
+			</div>
+		{/if}
+
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<svg
 			class="graph-svg"
@@ -209,30 +298,49 @@
 
 			<!-- Edges -->
 			{#each layout.edges as edge}
-				{@const valence = edgeValenceMap.get(`${edge.from}→${edge.to}`) ?? 'unknown'}
+				{@const valence = (edgeValenceMap.get(`${edge.from}→${edge.to}`) ?? 'unknown') as import('$lib/types/graph').Valence}
 				{@const fromNode = nodeMap.get(edge.from)}
 				{@const toNode = nodeMap.get(edge.to)}
 				{@const dimmed = (fromNode && isDimmed(fromNode)) || (toNode && isDimmed(toNode))}
 				<GraphEdge points={edge.points} {valence} {dimmed} />
 			{/each}
 
-			<!-- Nodes -->
-			{#each analysisState.nodes as node (node.id)}
-				{@const pos = layout.nodes.get(node.id)}
+			<!-- Aggregate nodes -->
+			{#each layout.aggregates as agg (agg.id)}
+				{@const pos = layout.nodes.get(agg.id)}
 				{#if pos}
-					<GraphNode
-						{node}
+					<AggregateNode
+						aggregate={agg}
 						x={pos.x}
 						y={pos.y}
 						width={pos.width}
 						height={pos.height}
-						selected={uiState.selectedNodeId === node.id}
-						dimmed={isDimmed(node)}
-						readStatus={!!analysisState.analysis.readStatus[node.id]}
-						onclick={() => uiState.selectNode(node.id)}
-						onmouseenter={(e) => handleNodeHover(node, e)}
-						onmouseleave={handleNodeLeave}
+						onclick={() => expandAggregate(agg)}
 					/>
+				{/if}
+			{/each}
+
+			<!-- Real nodes (visible ones only) -->
+			{#each analysisState.nodes as node (node.id)}
+				{#if visibleNodeIds.has(node.id)}
+					{@const pos = layout.nodes.get(node.id)}
+					{#if pos}
+						<g class:fade-in={newlyExpandedNodes.has(node.id)}>
+							<GraphNode
+								{node}
+								x={pos.x}
+								y={pos.y}
+								width={pos.width}
+								height={pos.height}
+								selected={uiState.selectedNodeId === node.id}
+								dimmed={isDimmed(node)}
+								readStatus={!!analysisState.analysis.readStatus[node.id]}
+								onclick={() => uiState.selectNode(node.id)}
+								onmouseenter={(e) => handleNodeHover(node, e)}
+								onmouseleave={handleNodeLeave}
+							/>
+						</g>
+					{/if}
 				{/if}
 			{/each}
 		</svg>
@@ -275,6 +383,51 @@
 		fill: var(--p-gap);
 		text-anchor: middle;
 		font-weight: 600;
+	}
+
+	/* Fade-in animation for newly expanded nodes */
+	.fade-in {
+		animation: nodesFadeIn 0.4s ease-out;
+	}
+	@keyframes nodesFadeIn {
+		from {
+			opacity: 0;
+			transform: scale(0.85);
+		}
+		to {
+			opacity: 1;
+			transform: scale(1);
+		}
+	}
+
+	/* Graph toolbar */
+	.graph-toolbar {
+		position: absolute;
+		top: 8px;
+		right: 8px;
+		z-index: 10;
+		display: flex;
+		gap: 6px;
+	}
+	.reorganise-btn {
+		display: flex;
+		align-items: center;
+		gap: 5px;
+		padding: 5px 10px;
+		font-size: 11px;
+		font-weight: 500;
+		font-family: var(--font-ui);
+		color: var(--p-ink2);
+		background: var(--p-surface);
+		border: 1px solid var(--p-border);
+		border-radius: 4px;
+		cursor: pointer;
+		transition: all 0.15s ease;
+	}
+	.reorganise-btn:hover {
+		color: var(--p-ink);
+		border-color: var(--p-ink3);
+		background: var(--p-bg);
 	}
 
 	/* Empty state */

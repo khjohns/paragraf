@@ -1,5 +1,5 @@
 import dagre from '@dagrejs/dagre';
-import type { GraphNode, GraphEdge, NodeType } from '$lib/types/graph';
+import type { GraphNode, GraphEdge, NodeType, AggregateNode } from '$lib/types/graph';
 
 export interface NodeLayout {
 	x: number;
@@ -20,6 +20,15 @@ export interface GraphLayout {
 	width: number;
 	height: number;
 }
+
+export interface AggregatedLayout extends GraphLayout {
+	aggregates: AggregateNode[];
+	/** Map from original node ID to aggregate ID (for nodes that are aggregated) */
+	memberToAggregate: Map<string, string>;
+}
+
+/** Threshold: only aggregate groups with more than this many nodes */
+const AGGREGATE_THRESHOLD = 5;
 
 // Layer rank for invisible constraint edges
 const LAYER_RANK: Record<NodeType, number> = {
@@ -44,6 +53,78 @@ function nodeSize(node: GraphNode): { width: number; height: number } {
 	}
 	// Circles (kofa_case, court_case) and diamonds (eu_case)
 	return { width: base * 2, height: base * 2 };
+}
+
+/** Size for an aggregate box */
+function aggregateSize(): { width: number; height: number } {
+	return { width: 100, height: 40 };
+}
+
+function runDagre(
+	nodeEntries: Array<{ id: string; width: number; height: number }>,
+	edgeEntries: Array<{ from: string; to: string }>,
+	pinnedPositions?: Map<string, { x: number; y: number }>,
+): GraphLayout {
+	const g = new dagre.graphlib.Graph();
+	g.setGraph({
+		rankdir: 'TB',
+		ranksep: 80,
+		nodesep: 30,
+		marginx: 40,
+		marginy: 40,
+	});
+	g.setDefaultEdgeLabel(() => ({}));
+
+	for (const entry of nodeEntries) {
+		g.setNode(entry.id, { width: entry.width, height: entry.height });
+	}
+
+	for (const edge of edgeEntries) {
+		if (g.hasNode(edge.from) && g.hasNode(edge.to)) {
+			g.setEdge(edge.from, edge.to, { weight: 1, minlen: 1 });
+		}
+	}
+
+	// Add invisible constraint edges to enforce layer hierarchy
+	// Determine layer for each node from ID prefix or provided type info
+	const byLayer = new Map<number, string[]>();
+	for (const entry of nodeEntries) {
+		// We'll rely on edges to determine rank; use invisible constraints below
+		// For now just collect node IDs — layer enforcement is handled by real edges
+	}
+
+	dagre.layout(g);
+
+	// Apply pinned positions after layout
+	const nodeMap = new Map<string, NodeLayout>();
+	for (const id of g.nodes()) {
+		const n = g.node(id);
+		if (n) {
+			const pinned = pinnedPositions?.get(id);
+			nodeMap.set(id, {
+				x: pinned?.x ?? n.x,
+				y: pinned?.y ?? n.y,
+				width: n.width,
+				height: n.height,
+			});
+		}
+	}
+
+	const edgeLayouts: EdgeLayout[] = [];
+	for (const e of g.edges()) {
+		const edgeData = g.edge(e);
+		if (edgeData?.points) {
+			edgeLayouts.push({ points: edgeData.points, from: e.v, to: e.w });
+		}
+	}
+
+	const graphLabel = g.graph();
+	return {
+		nodes: nodeMap,
+		edges: edgeLayouts,
+		width: graphLabel?.width ?? 800,
+		height: graphLabel?.height ?? 600,
+	};
 }
 
 export function computeLayout(nodes: GraphNode[], edges: GraphEdge[]): GraphLayout {
@@ -114,5 +195,200 @@ export function computeLayout(nodes: GraphNode[], edges: GraphEdge[]): GraphLayo
 		edges: edgeLayouts,
 		width: graphLabel?.width ?? 800,
 		height: graphLabel?.height ?? 600,
+	};
+}
+
+/**
+ * Compute an aggregated layout where case nodes connected to the same provision
+ * are grouped into virtual aggregate nodes when the group exceeds AGGREGATE_THRESHOLD.
+ *
+ * @param expandedAggregates Set of aggregate IDs that have been expanded by the user
+ * @param pinnedPositions Map of node IDs to pinned x/y positions (from previous expansions)
+ */
+export function computeAggregatedLayout(
+	nodes: GraphNode[],
+	edges: GraphEdge[],
+	expandedAggregates: Set<string>,
+	pinnedPositions: Map<string, { x: number; y: number }>,
+): AggregatedLayout {
+	const nodeMap = new Map(nodes.map(n => [n.id, n]));
+
+	// Group case nodes by their connected provision(s)
+	// A case node is grouped under a provision if there's an edge from the provision to the case
+	const provisionToCases = new Map<string, GraphNode[]>();
+	const caseToProvisions = new Map<string, string[]>();
+
+	for (const edge of edges) {
+		const fromNode = nodeMap.get(edge.from);
+		const toNode = nodeMap.get(edge.to);
+
+		if (fromNode?.type === 'provision' && toNode && toNode.type !== 'provision') {
+			if (!provisionToCases.has(edge.from)) provisionToCases.set(edge.from, []);
+			provisionToCases.get(edge.from)!.push(toNode);
+
+			if (!caseToProvisions.has(edge.to)) caseToProvisions.set(edge.to, []);
+			caseToProvisions.get(edge.to)!.push(edge.from);
+		}
+	}
+
+	// Build aggregates: for each provision, if the group of connected case nodes of the
+	// same type exceeds the threshold, create an aggregate
+	const aggregates: AggregateNode[] = [];
+	const aggregatedNodeIds = new Set<string>();
+	const memberToAggregate = new Map<string, string>();
+
+	for (const [provId, caseNodes] of provisionToCases) {
+		// Group by node type
+		const byType = new Map<NodeType, GraphNode[]>();
+		for (const cn of caseNodes) {
+			if (!byType.has(cn.type)) byType.set(cn.type, []);
+			byType.get(cn.type)!.push(cn);
+		}
+
+		for (const [type, group] of byType) {
+			const aggId = `agg:${provId}:${type}`;
+
+			// Skip if this aggregate is expanded
+			if (expandedAggregates.has(aggId)) continue;
+
+			if (group.length > AGGREGATE_THRESHOLD) {
+				// Check that these nodes aren't shared with another provision
+				// (if a case is connected to multiple provisions, don't aggregate it)
+				const exclusiveMembers = group.filter(n => {
+					const provs = caseToProvisions.get(n.id);
+					return provs && provs.length === 1;
+				});
+
+				if (exclusiveMembers.length > AGGREGATE_THRESHOLD) {
+					const countA = exclusiveMembers.filter(n => n.category === 'A').length;
+					const countB = exclusiveMembers.filter(n => n.category === 'B').length;
+					const countC = exclusiveMembers.filter(n => n.category === 'C').length;
+
+					const agg: AggregateNode = {
+						id: aggId,
+						provisionId: provId,
+						type,
+						totalCount: exclusiveMembers.length,
+						countA,
+						countB,
+						countC,
+						memberIds: exclusiveMembers.map(n => n.id),
+					};
+					aggregates.push(agg);
+
+					for (const member of exclusiveMembers) {
+						aggregatedNodeIds.add(member.id);
+						memberToAggregate.set(member.id, aggId);
+					}
+				}
+			}
+		}
+	}
+
+	// Build the node list for dagre: real nodes (minus aggregated) + aggregate nodes
+	const layoutNodes = nodes.filter(n => !aggregatedNodeIds.has(n.id));
+	const layoutEdges: GraphEdge[] = [];
+
+	// Remap edges: if an edge targets an aggregated node, point to its aggregate instead
+	const edgeSet = new Set<string>();
+	for (const edge of edges) {
+		let from = edge.from;
+		let to = edge.to;
+		if (aggregatedNodeIds.has(from)) from = memberToAggregate.get(from)!;
+		if (aggregatedNodeIds.has(to)) to = memberToAggregate.get(to)!;
+		const key = `${from}→${to}`;
+		if (!edgeSet.has(key) && from !== to) {
+			edgeSet.add(key);
+			layoutEdges.push({ from, to, valence: edge.valence });
+		}
+	}
+
+	// Build dagre graph
+	const g = new dagre.graphlib.Graph();
+	g.setGraph({
+		rankdir: 'TB',
+		ranksep: 80,
+		nodesep: 30,
+		marginx: 40,
+		marginy: 40,
+	});
+	g.setDefaultEdgeLabel(() => ({}));
+
+	// Add real nodes
+	for (const node of layoutNodes) {
+		const size = nodeSize(node);
+		g.setNode(node.id, { width: size.width, height: size.height });
+	}
+
+	// Add aggregate nodes
+	for (const agg of aggregates) {
+		const size = aggregateSize();
+		g.setNode(agg.id, { width: size.width, height: size.height });
+	}
+
+	// Add edges
+	for (const edge of layoutEdges) {
+		if (g.hasNode(edge.from) && g.hasNode(edge.to)) {
+			g.setEdge(edge.from, edge.to, { weight: 1, minlen: 1 });
+		}
+	}
+
+	// Layer constraints
+	const byLayer = new Map<number, string[]>();
+	for (const node of layoutNodes) {
+		const layer = LAYER_RANK[node.type];
+		if (!byLayer.has(layer)) byLayer.set(layer, []);
+		byLayer.get(layer)!.push(node.id);
+	}
+	// Aggregate nodes inherit their type's layer
+	for (const agg of aggregates) {
+		const layer = LAYER_RANK[agg.type];
+		if (!byLayer.has(layer)) byLayer.set(layer, []);
+		byLayer.get(layer)!.push(agg.id);
+	}
+
+	const layerKeys = [...byLayer.keys()].sort((a, b) => a - b);
+	for (let i = 0; i < layerKeys.length - 1; i++) {
+		const upper = byLayer.get(layerKeys[i])!;
+		const lower = byLayer.get(layerKeys[i + 1])!;
+		if (upper.length > 0 && lower.length > 0) {
+			g.setEdge(upper[0], lower[0], { weight: 0, minlen: 2 });
+		}
+	}
+
+	dagre.layout(g);
+
+	// Extract results, respecting pinned positions
+	const resultNodes = new Map<string, NodeLayout>();
+	for (const id of g.nodes()) {
+		const n = g.node(id);
+		if (n) {
+			const pinned = pinnedPositions.get(id);
+			resultNodes.set(id, {
+				x: pinned?.x ?? n.x,
+				y: pinned?.y ?? n.y,
+				width: n.width,
+				height: n.height,
+			});
+		}
+	}
+
+	const resultEdges: EdgeLayout[] = [];
+	for (const e of g.edges()) {
+		const edgeData = g.edge(e);
+		if (edgeData?.points) {
+			// If either endpoint is pinned, adjust edge points accordingly
+			resultEdges.push({ points: edgeData.points, from: e.v, to: e.w });
+		}
+	}
+
+	const graphLabel = g.graph();
+	return {
+		nodes: resultNodes,
+		edges: resultEdges,
+		width: graphLabel?.width ?? 800,
+		height: graphLabel?.height ?? 600,
+		aggregates,
+		memberToAggregate,
 	};
 }
