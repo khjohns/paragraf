@@ -208,6 +208,7 @@ def _build_edges(
                 })
 
     # --- Forarbeider → Provision edges (one node per document) ---
+    all_prep_doc_ids: set[str] = set()
     for prov_id in provisions:
         law_name, law_section = parse_provision(prov_id)
         prep_refs = _section_filter(
@@ -216,41 +217,39 @@ def _build_edges(
             .eq("law_name", law_name),
             "law_section", law_section,
         ).execute()
-        prep_doc_ids = set()
         for ref in prep_refs.data or []:
             doc_id = ref["doc_id"]
-            prep_doc_ids.add(doc_id)
-            # One edge per document→provision (not per section)
+            all_prep_doc_ids.add(doc_id)
             node_id = f"forarbeid:{doc_id}"
             key = (node_id, prov_id)
             if key not in seen_edges:
                 seen_edges.add(key)
                 edges.append({"from": key[0], "to": key[1], "valence": "unknown"})
 
-        # Batch-fetch forarbeider metadata
-        if prep_doc_ids:
-            prep_data = (
-                client.table("kofa_forarbeider")
-                .select("doc_id, title, full_title")
-                .in_("doc_id", list(prep_doc_ids))
-                .execute()
-            )
-            prep_map = {p["doc_id"]: p for p in (prep_data.data or [])}
-            for did in prep_doc_ids:
-                node_id = f"forarbeid:{did}"
-                if node_id not in seen_prep:
-                    seen_prep.add(node_id)
-                    meta = prep_map.get(did, {})
-                    prep_nodes.append({
-                        "id": node_id,
-                        "type": "prep_work",
-                        "label": meta.get("title") or did,
-                        "subtitle": meta.get("full_title") or "",
-                        "citations": 0,
-                        "iteration": 1,
-                        "isSeed": False,
-                        "isDelimitation": False,
-                    })
+    # Batch-fetch forarbeider metadata (single query for all provisions)
+    if all_prep_doc_ids:
+        prep_data = (
+            client.table("kofa_forarbeider")
+            .select("doc_id, title, full_title")
+            .in_("doc_id", list(all_prep_doc_ids))
+            .execute()
+        )
+        prep_map = {p["doc_id"]: p for p in (prep_data.data or [])}
+        for did in all_prep_doc_ids:
+            node_id = f"forarbeid:{did}"
+            if node_id not in seen_prep:
+                seen_prep.add(node_id)
+                meta = prep_map.get(did, {})
+                prep_nodes.append({
+                    "id": node_id,
+                    "type": "prep_work",
+                    "label": meta.get("title") or did,
+                    "subtitle": meta.get("full_title") or "",
+                    "citations": 0,
+                    "iteration": 1,
+                    "isSeed": False,
+                    "isDelimitation": False,
+                })
 
     return edges, eu_nodes, prep_nodes
 
@@ -410,11 +409,11 @@ def build_traversal_response(
             node["citations"] = cite_by_sak.get(node["label"], 0)
 
     # Provision citations: count incoming graph edges
+    provision_id_set = {n["id"] for n in provision_nodes}
     prov_citation_counts: dict[str, int] = {}
     for edge in edges:
-        target = edge["to"]
-        if target.startswith("provision:"):
-            prov_citation_counts[target] = prov_citation_counts.get(target, 0) + 1
+        if edge["to"] in provision_id_set:
+            prov_citation_counts[edge["to"]] = prov_citation_counts.get(edge["to"], 0) + 1
     for node in provision_nodes:
         node["citations"] = prov_citation_counts.get(node["id"], 0)
 

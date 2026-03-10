@@ -1,4 +1,5 @@
 from db import get_client
+from traversal import _section_filter
 
 
 def get_forarbeid_detail(doc_id: str, provision: str | None = None) -> dict | None:
@@ -24,14 +25,13 @@ def get_forarbeid_detail(doc_id: str, provision: str | None = None) -> dict | No
         law_name, _, law_section = provision.partition(":")
         base_section = law_section.split(" ")[0] if law_section else ""
         if base_section:
-            ref_result = (
+            ref_result = _section_filter(
                 client.table("kofa_forarbeider_law_refs")
                 .select("section_number")
                 .eq("doc_id", doc_id)
-                .eq("law_name", law_name)
-                .or_(f"law_section.eq.{base_section},law_section.like.{base_section} %")
-                .execute()
-            )
+                .eq("law_name", law_name),
+                "law_section", base_section,
+            ).execute()
             section_numbers = list({r["section_number"] for r in (ref_result.data or [])})
             if section_numbers:
                 sec_result = (

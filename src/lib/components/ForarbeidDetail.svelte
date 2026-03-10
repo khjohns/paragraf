@@ -8,23 +8,18 @@
 
 	let { docId }: { docId: string } = $props();
 
+	// O(N) map built once, used for both provision lookup and existence checks
+	let nodeTypeMap = $derived(new Map(analysisState.nodes.map(n => [n.id, n.type])));
+
 	// Find which provision this forarbeid is connected to (for section filtering)
 	let connectedProvision = $derived.by(() => {
 		const nodeId = `forarbeid:${docId}`;
 		for (const e of analysisState.edges) {
-			if (e.from === nodeId && e.to.includes(':')) {
-				const target = analysisState.nodes.find(n => n.id === e.to);
-				if (target?.type === 'provision') return e.to;
-			}
-			if (e.to === nodeId && e.from.includes(':')) {
-				const source = analysisState.nodes.find(n => n.id === e.from);
-				if (source?.type === 'provision') return e.from;
-			}
+			if (e.from === nodeId && nodeTypeMap.get(e.to) === 'provision') return e.to;
+			if (e.to === nodeId && nodeTypeMap.get(e.from) === 'provision') return e.from;
 		}
 		return undefined;
 	});
-
-	let nodeIdSet = $derived(new Set(analysisState.nodes.map(n => n.id)));
 
 	const query = createQuery<ForarbeidDetailResponse>(() => ({
 		queryKey: ['forarbeid-detail', docId, connectedProvision],
@@ -33,6 +28,13 @@
 	}));
 
 	let activeSectionNumber = $state<string | null>(null);
+	let lawRefsOpen = $state(false);
+
+	// Reset state when switching forarbeid documents
+	$effect(() => { docId; activeSectionNumber = null; lawRefsOpen = false; });
+
+	// Reset expand state when switching sections
+	$effect(() => { activeSectionNumber; lawRefsOpen = false; });
 
 	// Auto-select first section when data loads
 	$effect(() => {
@@ -47,14 +49,9 @@
 		enabled: !!docId && !!activeSectionNumber,
 	}));
 
-	let lawRefsOpen = $state(false);
-
 	function navigateToProvision(lawName: string, lawSection: string) {
 		const provId = `${lawName}:${lawSection}`;
-		const node = analysisState.nodes.find(n => n.id === provId);
-		if (node) {
-			uiState.navigateTo(node.id);
-		}
+		if (nodeTypeMap.has(provId)) uiState.navigateTo(provId);
 	}
 </script>
 
@@ -98,13 +95,13 @@
 				{/if}
 			</div>
 
-			<!-- Law references: first 3 visible -->
+			<!-- Law references -->
 			{#if sec.law_references.length > 0}
 				<div class="ref-section">
 					<div class="ref-heading">Lovhenvisninger ({sec.law_references.length})</div>
-					{#each sec.law_references.slice(0, 3) as ref}
+					{#each (lawRefsOpen ? sec.law_references : sec.law_references.slice(0, 3)) as ref}
 						{@const provId = `${ref.law_name}:${ref.law_section}`}
-						{@const inGraph = nodeIdSet.has(provId)}
+						{@const inGraph = nodeTypeMap.has(provId)}
 						<button
 							class="ref-row"
 							class:clickable={inGraph}
@@ -119,21 +116,6 @@
 						<button class="show-more-btn" onclick={() => { lawRefsOpen = !lawRefsOpen; }}>
 							{lawRefsOpen ? 'Vis færre' : `+ ${sec.law_references.length - 3} til`}
 						</button>
-						{#if lawRefsOpen}
-							{#each sec.law_references.slice(3) as ref}
-								{@const provId = `${ref.law_name}:${ref.law_section}`}
-								{@const inGraph = nodeIdSet.has(provId)}
-								<button
-									class="ref-row"
-									class:clickable={inGraph}
-									disabled={!inGraph}
-									onclick={() => navigateToProvision(ref.law_name, ref.law_section)}
-								>
-									<NodeTypeIcon type="provision" size={10} />
-									<span class="ref-id">{ref.law_name} §{ref.law_section}</span>
-								</button>
-							{/each}
-						{/if}
 					{/if}
 				</div>
 			{/if}
