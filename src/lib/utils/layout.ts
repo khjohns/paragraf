@@ -221,16 +221,24 @@ export function computeAggregatedLayout(
 		byLayer.get(layer)!.push(agg.id);
 	}
 
-	// Add invisible constraint edges between all adjacent layers to enforce hierarchy
+	// Add invisible constraint edges between all adjacent layers to enforce hierarchy.
+	// Connect EVERY node in a layer to an anchor in the adjacent layer so that
+	// real edges (case→EU) can't pull nodes out of their designated layer.
 	const layerKeys = [...byLayer.keys()].sort((a, b) => a - b);
 	for (let i = 0; i < layerKeys.length - 1; i++) {
 		const upper = byLayer.get(layerKeys[i])!;
 		const lower = byLayer.get(layerKeys[i + 1])!;
 		if (upper.length > 0 && lower.length > 0) {
-			// Connect multiple nodes across layers for stronger constraint
-			const connectCount = Math.min(3, upper.length, lower.length);
-			for (let c = 0; c < connectCount; c++) {
-				g.setEdge(upper[c], lower[c], { weight: 0, minlen: 2 });
+			// Pick one anchor from each layer
+			const upperAnchor = upper[0];
+			const lowerAnchor = lower[0];
+			// Connect every node in upper layer to the lower anchor
+			for (const id of upper) {
+				g.setEdge(id, lowerAnchor, { weight: 2, minlen: 2 });
+			}
+			// Connect every node in lower layer to the upper anchor
+			for (const id of lower) {
+				g.setEdge(upperAnchor, id, { weight: 2, minlen: 2 });
 			}
 		}
 	}
