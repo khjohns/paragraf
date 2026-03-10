@@ -1,5 +1,6 @@
 import type { GraphNode, GraphEdge, GapPair } from '$lib/types/graph';
 import type { Analysis, Seeds, IterationEntry } from '$lib/types/analysis';
+import type { SuggestedProvision } from '$lib/types/api';
 import { toastState } from './toast.svelte';
 
 const STORAGE_KEY = 'paragraf-analysis';
@@ -8,6 +9,7 @@ class AnalysisState {
 	nodes = $state<GraphNode[]>([]);
 	edges = $state<GraphEdge[]>([]);
 	gaps = $state<GapPair[]>([]);
+	suggestedProvisions = $state<SuggestedProvision[]>([]);
 	analysis = $state<Analysis>({
 		id: crypto.randomUUID(),
 		problemStatement: '',
@@ -28,7 +30,7 @@ class AnalysisState {
 
 	// --- Mutations ---
 
-	setResults(nodes: GraphNode[], edges: GraphEdge[], gaps: GapPair[]) {
+	setResults(nodes: GraphNode[], edges: GraphEdge[], gaps: GapPair[], suggested?: SuggestedProvision[]) {
 		// If we're in iteration 2+, mark new nodes with the current iteration number
 		if (this.analysis.iteration > 1 && this.previousNodeIds.size > 0) {
 			const prevIterMap = new Map(this.nodes.map(n => [n.id, n.iteration]));
@@ -52,6 +54,7 @@ class AnalysisState {
 		this.nodes = nodes;
 		this.edges = edges;
 		this.gaps = gaps;
+		this.suggestedProvisions = suggested ?? [];
 		// Snapshot seeds so startNewIteration can diff against what was used for this run
 		this.previousSeeds = { ...this.analysis.seeds };
 		this.debouncedSave();

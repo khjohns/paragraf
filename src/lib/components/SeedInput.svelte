@@ -6,15 +6,40 @@
 
 	let provisions = $derived(analysisState.analysis.seeds.provisions);
 	let ftsTerms = $derived(analysisState.analysis.seeds.ftsTerms);
+	let vectorQuery = $derived(analysisState.analysis.seeds.vectorQuery);
+	let suggestions = $derived(analysisState.suggestedProvisions);
 
-	function addProvision() {
-		const value = provisionInput.trim();
-		if (!value || provisions.includes(value)) return;
+	// Debounce vectorQuery updates to avoid firing on every keystroke
+	let vectorInputValue = $state(analysisState.analysis.seeds.vectorQuery);
+	let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+
+	function handleVectorInput(e: Event) {
+		const value = (e.target as HTMLTextAreaElement).value;
+		vectorInputValue = value;
+		if (debounceTimer) clearTimeout(debounceTimer);
+		debounceTimer = setTimeout(() => {
+			analysisState.setSeeds({
+				...analysisState.analysis.seeds,
+				vectorQuery: value,
+			});
+		}, 1000);
+	}
+
+	// Sync external changes (e.g. load from storage)
+	$effect(() => {
+		if (vectorQuery !== vectorInputValue) {
+			vectorInputValue = vectorQuery;
+		}
+	});
+
+	function addProvision(value?: string) {
+		const v = (value ?? provisionInput).trim();
+		if (!v || provisions.includes(v)) return;
 		analysisState.setSeeds({
 			...analysisState.analysis.seeds,
-			provisions: [...provisions, value],
+			provisions: [...provisions, v],
 		});
-		provisionInput = '';
+		if (!value) provisionInput = '';
 	}
 
 	function removeProvision(index: number) {
@@ -58,6 +83,21 @@
 
 <div class="seed-input">
 	<section>
+		<label class="field-label" for="vector-input">Problemstilling</label>
+		<textarea
+			id="vector-input"
+			value={vectorInputValue}
+			oninput={handleVectorInput}
+			placeholder="Beskriv problemstillingen med egne ord..."
+			class="vector-field"
+			rows="3"
+		></textarea>
+		{#if vectorQuery}
+			<p class="field-hint">V-signal aktiv — semantisk søk kjøres</p>
+		{/if}
+	</section>
+
+	<section>
 		<label class="field-label" for="provision-input">Bestemmelser</label>
 		<div class="chip-input">
 			{#each provisions as prov, i}
@@ -76,6 +116,19 @@
 			/>
 		</div>
 		<p class="field-hint">Trykk Enter for å legge til. Format: lovnavn:paragraf</p>
+
+		{#if suggestions.length > 0}
+			<div class="suggestions">
+				<span class="suggestions-label">Kan også være relevant:</span>
+				<div class="suggestion-chips">
+					{#each suggestions as s}
+						<button class="suggestion-chip" onclick={() => addProvision(s.id)}>
+							§{s.id.split(':')[1]} <span class="suggestion-count">({s.count})</span>
+						</button>
+					{/each}
+				</div>
+			</div>
+		{/if}
 	</section>
 
 	<section>
@@ -119,6 +172,25 @@
 		font-size: 0.6875rem;
 		color: var(--p-ink4);
 	}
+
+	/* Problem statement textarea */
+	.vector-field {
+		font-size: 0.8125rem;
+		font-family: var(--font-body);
+		line-height: 1.5;
+		padding: var(--spacing-2);
+		background: var(--p-input);
+		border: 1px solid var(--p-border);
+		border-radius: var(--radius-md);
+		color: var(--p-ink);
+		resize: vertical;
+	}
+	.vector-field:focus {
+		outline: none;
+		border-color: var(--p-border-s);
+	}
+
+	/* Chip inputs */
 	.chip-input {
 		display: flex;
 		flex-wrap: wrap;
@@ -170,5 +242,45 @@
 	}
 	.mono {
 		font-family: var(--font-data);
+	}
+
+	/* Suggestion chips */
+	.suggestions {
+		display: flex;
+		flex-direction: column;
+		gap: var(--spacing-1);
+		padding-top: var(--spacing-1);
+	}
+	.suggestions-label {
+		font-size: 0.6875rem;
+		color: var(--p-ink4);
+		font-weight: 500;
+	}
+	.suggestion-chips {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--spacing-1);
+	}
+	.suggestion-chip {
+		all: unset;
+		display: inline-flex;
+		align-items: center;
+		gap: 2px;
+		padding: 2px 8px;
+		border-radius: var(--radius-sm);
+		font-size: 0.6875rem;
+		font-family: var(--font-data);
+		color: var(--p-provision-accent);
+		border: 1px dashed var(--p-provision-border);
+		cursor: pointer;
+		transition: background 0.1s, border-color 0.1s;
+	}
+	.suggestion-chip:hover {
+		background: var(--p-provision-bg);
+		border-color: var(--p-provision-accent);
+	}
+	.suggestion-count {
+		color: var(--p-ink4);
+		font-weight: 400;
 	}
 </style>

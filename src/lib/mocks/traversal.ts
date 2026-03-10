@@ -12,4 +12,5 @@ export const mockTraversalResponse: TraversalResponse = {
 		categoryC: MOCK_NODES.filter(n => n.category === 'C').length,
 		delimitations: MOCK_NODES.filter(n => n.isDelimitation).length,
 	},
+	suggestedProvisions: [],
 };

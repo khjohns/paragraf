@@ -5,6 +5,11 @@ export interface TraversalRequest extends Seeds {
 	regulationFilter: 'new' | 'all';
 }
 
+export interface SuggestedProvision {
+	id: string;
+	count: number;
+}
+
 export interface TraversalResponse {
 	nodes: GraphNode[];
 	edges: GraphEdge[];
@@ -16,6 +21,7 @@ export interface TraversalResponse {
 		categoryC: number;
 		delimitations: number;
 	};
+	suggestedProvisions: SuggestedProvision[];
 }
 
 export interface DecisionParagraph {

@@ -23,7 +23,7 @@
 	$effect(() => {
 		const data = traversal.data;
 		if (data) {
-			analysisState.setResults(data.nodes, data.edges, data.gaps);
+			analysisState.setResults(data.nodes, data.edges, data.gaps, data.suggestedProvisions);
 		}
 	});
 

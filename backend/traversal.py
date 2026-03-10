@@ -302,7 +302,8 @@ def build_traversal_response(
     # --- 1. Collect signals ---
     ref_cases = collect_reference_signal(provisions)
     fts_cases = collect_fts_signal(fts_terms)
-    vec_cases: set[str] = set()  # V signal: future
+    from vector_seed import search_vector_cases
+    vec_cases = search_vector_cases(vector_query)
 
     # --- 2. Merge all discovered case sak_nrs ---
     all_sak_nrs = set(ref_cases.keys()) | fts_cases | vec_cases | set(seed_cases)
@@ -420,7 +421,22 @@ def build_traversal_response(
     # --- 8. Gap matrix ---
     gaps = _compute_gaps(provisions, ref_cases)
 
-    # --- 9. Stats ---
+    # --- 9. Suggested provisions ---
+    # Find provisions frequently referenced by discovered cases but not in seed list
+    seed_set = set(provisions)
+    prov_counts: dict[str, int] = {}
+    for row in all_law_refs_data:
+        ref_section = row.get("law_section") or ""
+        base = ref_section.split(" ")[0]  # strip "tredje ledd" etc
+        prov_id = f"{row['law_name']}:{base}"
+        if prov_id not in seed_set and row.get("regulation_version") == "new":
+            prov_counts[prov_id] = prov_counts.get(prov_id, 0) + 1
+    suggested = [
+        {"id": pid, "count": cnt}
+        for pid, cnt in sorted(prov_counts.items(), key=lambda x: -x[1])[:5]
+    ]
+
+    # --- 10. Stats ---
     all_nodes = provision_nodes + case_nodes + eu_nodes + prep_nodes
     stats = {
         "total": len(case_nodes),
@@ -430,4 +446,10 @@ def build_traversal_response(
         "delimitations": sum(1 for n in case_nodes if n.get("isDelimitation")),
     }
 
-    return {"nodes": all_nodes, "edges": edges, "gaps": gaps, "stats": stats}
+    return {
+        "nodes": all_nodes,
+        "edges": edges,
+        "gaps": gaps,
+        "stats": stats,
+        "suggestedProvisions": suggested,
+    }
