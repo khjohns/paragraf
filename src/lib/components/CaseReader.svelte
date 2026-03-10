@@ -30,7 +30,32 @@
 	);
 
 	// Show/hide toggle for non-highlighted paragraphs
-	let showAllText = $state(true);
+	// Default to curated mode when AI curation exists, otherwise show all
+	let hasCuration = $derived(highlightedParagraphs.length > 0);
+	let showAllText = $state(false);
+
+	// Track individually expanded (clicked) dimmed paragraphs
+	let expandedParagraphs = $state(new Set<number>());
+
+	// When curation arrives/disappears, reset to appropriate default
+	$effect(() => {
+		if (hasCuration) {
+			showAllText = false;
+			expandedParagraphs = new Set();
+		} else {
+			showAllText = true;
+		}
+	});
+
+	function toggleParagraph(paragraphNumber: number) {
+		const next = new Set(expandedParagraphs);
+		if (next.has(paragraphNumber)) {
+			next.delete(paragraphNumber);
+		} else {
+			next.add(paragraphNumber);
+		}
+		expandedParagraphs = next;
+	}
 
 	// Apply char-offset highlights to a paragraph's text
 	function applyHighlight(text: string, hl: Highlight): Array<{ text: string; highlighted: boolean }> {
@@ -106,7 +131,7 @@
 				{#each highlightedParagraphs as num}
 					<button class="pill" onclick={() => scrollToParagraph(num)}>§{num}</button>
 				{/each}
-				<button class="text-toggle" onclick={() => (showAllText = !showAllText)}>
+				<button class="text-toggle" onclick={() => { showAllText = !showAllText; expandedParagraphs = new Set(); }}>
 					{showAllText ? 'Vis bare markerte' : 'Vis all tekst'}
 				</button>
 			</div>
@@ -120,12 +145,18 @@
 			{#each detail.paragraphs as para}
 				{@const hl = highlightMap.get(para.paragraph_number)}
 				{@const isHighlighted = !!hl}
-				{@const isDimmed = !showAllText && !isHighlighted && highlightedParagraphs.length > 0}
+				{@const isExpanded = expandedParagraphs.has(para.paragraph_number)}
+				{@const isDimmed = !showAllText && !isHighlighted && !isExpanded && hasCuration}
+				<!-- svelte-ignore a11y_no_static_element_interactions -->
 				<div
 					class="paragraph"
 					class:has-highlight={isHighlighted}
 					class:dimmed={isDimmed}
 					id="para-{para.paragraph_number}"
+					onclick={() => { if (isDimmed) toggleParagraph(para.paragraph_number); }}
+					onkeydown={(e) => { if (isDimmed && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); toggleParagraph(para.paragraph_number); } }}
+					role={isDimmed ? 'button' : undefined}
+					tabindex={isDimmed ? 0 : undefined}
 				>
 					<span class="para-num">{para.paragraph_number}</span>
 					<div class="para-content">
@@ -322,7 +353,7 @@
 		padding-left: 10px;
 	}
 	.paragraph.dimmed {
-		opacity: 0.4;
+		opacity: 0.5;
 		cursor: pointer;
 	}
 	.paragraph.dimmed:hover {
