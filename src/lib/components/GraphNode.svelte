@@ -28,9 +28,6 @@
 	} = $props();
 
 	let accent = $derived(NODE_TYPE_ACCENT[node.type]);
-	let truncatedSubtitle = $derived(
-		node.subtitle.length > 20 ? node.subtitle.slice(0, 18) + '…' : node.subtitle
-	);
 
 	const bgVars: Record<string, string> = {
 		provision: 'var(--p-provision-bg)',
@@ -141,15 +138,6 @@
 		fill={accent}
 	>{node.label}</text>
 
-	<!-- Subtitle -->
-	<text
-		x={0}
-		y={height / 2 + 12}
-		text-anchor="middle"
-		dominant-baseline="auto"
-		class="subtitle"
-	>{truncatedSubtitle}</text>
-
 	<!-- Category badge (top-right) -->
 	{#if node.category}
 		{@const bx = width / 2 - 4}
@@ -208,9 +196,9 @@
 		<circle cx={-width / 2 - 8} cy={0} r={3} fill={accent} />
 	{/if}
 
-	<!-- Iteration pill (below subtitle, iteration 2+) -->
+	<!-- Iteration pill (below node, iteration 2+) -->
 	{#if node.iteration >= 2}
-		{@const iy = height / 2 + 24}
+		{@const iy = height / 2 + 12}
 		<rect
 			x={-16}
 			y={iy - 6}
@@ -233,12 +221,7 @@
 	.label {
 		font-family: var(--font-data);
 		font-weight: 600;
-		font-size: 11px;
-	}
-	.subtitle {
-		font-family: var(--font-ui);
-		font-size: 9px;
-		fill: var(--p-ink3);
+		font-size: 12px;
 	}
 	.cat-text {
 		font-family: var(--font-data);

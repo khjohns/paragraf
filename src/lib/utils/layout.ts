@@ -41,10 +41,10 @@ const LAYER_RANK: Record<NodeType, number> = {
 
 /** Node size scales with citation count */
 function nodeSize(node: GraphNode): { width: number; height: number } {
-	let base = 22;
-	if (node.citations >= 10) base += 10;
-	else if (node.citations >= 5) base += 5;
-	else if (node.citations >= 3) base += 3;
+	let base = 36;
+	if (node.citations >= 10) base += 14;
+	else if (node.citations >= 5) base += 8;
+	else if (node.citations >= 3) base += 4;
 
 	if (node.type === 'provision') {
 		return { width: base * 3.5, height: base * 1.2 };
