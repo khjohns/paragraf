@@ -235,7 +235,7 @@
 				<line x1="28" y1="20" x2="26" y2="32" stroke="var(--p-ink4)" stroke-width="1" />
 			</svg>
 			<p class="empty-title">Kjør en analyse for å se grafen</p>
-			<p class="empty-desc">Legg til bestemmelser i venstepanelet og start søket.</p>
+			<p class="empty-desc">Legg til bestemmelser i venstrepanelet og start søket.</p>
 		</div>
 	{:else}
 		<!-- Toolbar overlay -->
