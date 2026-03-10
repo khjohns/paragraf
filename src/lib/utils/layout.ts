@@ -30,13 +30,13 @@ export interface AggregatedLayout extends GraphLayout {
 /** Threshold: only aggregate groups with more than this many nodes */
 const AGGREGATE_THRESHOLD = 5;
 
-// Layer rank for invisible constraint edges
+// Layer rank for invisible constraint edges (0 = top in TB layout)
 const LAYER_RANK: Record<NodeType, number> = {
-	provision: 0,
-	kofa_case: 1,
-	eu_case: 2,
-	court_case: 2,
-	prep_work: 2,
+	prep_work: 0,
+	provision: 1,
+	kofa_case: 2,
+	eu_case: 3,
+	court_case: 3,
 };
 
 /** Node size scales with citation count (spec §8b) */

@@ -195,7 +195,8 @@
 			let layerKey: string;
 			if (node.type === 'provision') layerKey = 'BESTEMMELSER';
 			else if (node.type === 'kofa_case') layerKey = 'PRAKSIS';
-			else layerKey = 'EU / FORARBEIDER';
+			else if (node.type === 'eu_case' || node.type === 'court_case') layerKey = 'EU-DOMMER';
+			else layerKey = 'FORARBEIDER';
 
 			if (!layers[layerKey] || pos.y < layers[layerKey].minY) {
 				layers[layerKey] = { label: layerKey, minY: pos.y };
@@ -208,7 +209,8 @@
 				if (!pos) continue;
 				let layerKey: string;
 				if (agg.type === 'kofa_case') layerKey = 'PRAKSIS';
-				else layerKey = 'EU / FORARBEIDER';
+				else if (agg.type === 'eu_case' || agg.type === 'court_case') layerKey = 'EU-DOMMER';
+				else layerKey = 'FORARBEIDER';
 
 				if (!layers[layerKey] || pos.y < layers[layerKey].minY) {
 					layers[layerKey] = { label: layerKey, minY: pos.y };
