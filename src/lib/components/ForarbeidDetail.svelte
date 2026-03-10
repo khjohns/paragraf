@@ -1,20 +1,53 @@
 <script lang="ts">
 	import { createQuery } from '@tanstack/svelte-query';
-	import { fetchForarbeidDetail } from '$lib/api/cases';
+	import { fetchForarbeidDetail, fetchForarbeidSection } from '$lib/api/cases';
 	import { uiState } from '$lib/stores/ui.svelte';
 	import { analysisState } from '$lib/stores/analysis.svelte';
-	import type { ForarbeidDetailResponse } from '$lib/types/api';
+	import type { ForarbeidDetailResponse, ForarbeidSectionResponse } from '$lib/types/api';
 	import NodeTypeIcon from './NodeTypeIcon.svelte';
 
-	let { docId, sectionNumber }: { docId: string; sectionNumber: string } = $props();
+	let { docId }: { docId: string } = $props();
 
-	const query = createQuery<ForarbeidDetailResponse>(() => ({
-		queryKey: ['forarbeid-detail', docId, sectionNumber],
-		queryFn: () => fetchForarbeidDetail(docId, sectionNumber),
-		enabled: !!docId && !!sectionNumber,
-	}));
+	// Find which provision this forarbeid is connected to (for section filtering)
+	let connectedProvision = $derived.by(() => {
+		const nodeId = `forarbeid:${docId}`;
+		for (const e of analysisState.edges) {
+			if (e.from === nodeId && e.to.includes(':')) {
+				const target = analysisState.nodes.find(n => n.id === e.to);
+				if (target?.type === 'provision') return e.to;
+			}
+			if (e.to === nodeId && e.from.includes(':')) {
+				const source = analysisState.nodes.find(n => n.id === e.from);
+				if (source?.type === 'provision') return e.from;
+			}
+		}
+		return undefined;
+	});
 
 	let nodeIdSet = $derived(new Set(analysisState.nodes.map(n => n.id)));
+
+	const query = createQuery<ForarbeidDetailResponse>(() => ({
+		queryKey: ['forarbeid-detail', docId, connectedProvision],
+		queryFn: () => fetchForarbeidDetail(docId, connectedProvision),
+		enabled: !!docId,
+	}));
+
+	let activeSectionNumber = $state<string | null>(null);
+
+	// Auto-select first section when data loads
+	$effect(() => {
+		if (query.data?.sections.length && !activeSectionNumber) {
+			activeSectionNumber = query.data.sections[0].number;
+		}
+	});
+
+	const sectionQuery = createQuery<ForarbeidSectionResponse>(() => ({
+		queryKey: ['forarbeid-section', docId, activeSectionNumber],
+		queryFn: () => fetchForarbeidSection(docId, activeSectionNumber!),
+		enabled: !!docId && !!activeSectionNumber,
+	}));
+
+	let lawRefsOpen = $state(false);
 
 	function navigateToProvision(lawName: string, lawSection: string) {
 		const provId = `${lawName}:${lawSection}`;
@@ -31,62 +64,79 @@
 	{:else if query.data}
 		{@const detail = query.data}
 
-		<h3 class="title">{detail.title || detail.doc_id}</h3>
-		{#if detail.full_title && detail.full_title !== detail.title}
-			<p class="subtitle">{detail.full_title}</p>
-		{/if}
-
-		<div class="meta-pairs">
-			{#if detail.doc_type}
-				<span class="meta-key">Type</span>
-				<span class="meta-val">{detail.doc_type}</span>
-			{/if}
-			{#if detail.session}
-				<span class="meta-key">Sesjon</span>
-				<span class="meta-val">{detail.session}</span>
-			{/if}
-			{#if detail.source_url}
-				<span class="meta-key">Kilde</span>
-				<span class="meta-val">
-					<a href={detail.source_url} target="_blank" rel="noopener" class="link">Stortinget.no ↗</a>
-				</span>
-			{/if}
-		</div>
-
-		{#if detail.section}
-			<div class="section-block">
-				{#if detail.section.parent_path}
-					<div class="section-path">{detail.section.parent_path}</div>
-				{/if}
-				{#if detail.section.title}
-					<div class="section-heading">{detail.section.number}. {detail.section.title}</div>
-				{/if}
-				{#if detail.section.text}
-					<div class="section-text">{detail.section.text}</div>
-				{/if}
-			</div>
-		{/if}
-
-		{#if detail.law_references.length > 0}
-			<div class="ref-section">
-				<div class="ref-heading">Lovhenvisninger</div>
-				{#each detail.law_references as ref}
-					{@const provId = `${ref.law_name}:${ref.law_section}`}
-					{@const inGraph = nodeIdSet.has(provId)}
+		<!-- Section navigation -->
+		{#if detail.sections.length > 0}
+			<div class="sections-nav">
+				<div class="nav-heading">Omtalt i {detail.sections.length} {detail.sections.length === 1 ? 'seksjon' : 'seksjoner'}</div>
+				{#each detail.sections as rs}
 					<button
-						class="ref-row"
-						class:clickable={inGraph}
-						disabled={!inGraph}
-						onclick={() => navigateToProvision(ref.law_name, ref.law_section)}
+						class="section-btn"
+						class:active={activeSectionNumber === rs.number}
+						onclick={() => { activeSectionNumber = rs.number; }}
 					>
-						<NodeTypeIcon type="provision" size={10} />
-						<span class="ref-id">{ref.law_name} §{ref.law_section}</span>
-						{#if ref.context}
-							<span class="ref-sub">{ref.context.slice(0, 50)}</span>
-						{/if}
+						<span class="section-num">{rs.number}</span>
+						<span class="section-title">{rs.title || rs.parent_path || ''}</span>
 					</button>
 				{/each}
 			</div>
+		{/if}
+
+		<!-- Active section content -->
+		{#if sectionQuery.isLoading}
+			<p class="loading">Laster seksjon...</p>
+		{:else if sectionQuery.data}
+			{@const sec = sectionQuery.data}
+			<div class="section-block">
+				{#if sec.parent_path}
+					<div class="section-path">{sec.parent_path}</div>
+				{/if}
+				{#if sec.title}
+					<div class="section-heading">{sec.number}. {sec.title}</div>
+				{/if}
+				{#if sec.text}
+					<div class="section-text">{sec.text}</div>
+				{/if}
+			</div>
+
+			<!-- Law references: first 3 visible -->
+			{#if sec.law_references.length > 0}
+				<div class="ref-section">
+					<div class="ref-heading">Lovhenvisninger ({sec.law_references.length})</div>
+					{#each sec.law_references.slice(0, 3) as ref}
+						{@const provId = `${ref.law_name}:${ref.law_section}`}
+						{@const inGraph = nodeIdSet.has(provId)}
+						<button
+							class="ref-row"
+							class:clickable={inGraph}
+							disabled={!inGraph}
+							onclick={() => navigateToProvision(ref.law_name, ref.law_section)}
+						>
+							<NodeTypeIcon type="provision" size={10} />
+							<span class="ref-id">{ref.law_name} §{ref.law_section}</span>
+						</button>
+					{/each}
+					{#if sec.law_references.length > 3}
+						<button class="show-more-btn" onclick={() => { lawRefsOpen = !lawRefsOpen; }}>
+							{lawRefsOpen ? 'Vis færre' : `+ ${sec.law_references.length - 3} til`}
+						</button>
+						{#if lawRefsOpen}
+							{#each sec.law_references.slice(3) as ref}
+								{@const provId = `${ref.law_name}:${ref.law_section}`}
+								{@const inGraph = nodeIdSet.has(provId)}
+								<button
+									class="ref-row"
+									class:clickable={inGraph}
+									disabled={!inGraph}
+									onclick={() => navigateToProvision(ref.law_name, ref.law_section)}
+								>
+									<NodeTypeIcon type="provision" size={10} />
+									<span class="ref-id">{ref.law_name} §{ref.law_section}</span>
+								</button>
+							{/each}
+						{/if}
+					{/if}
+				</div>
+			{/if}
 		{/if}
 	{/if}
 </div>
@@ -102,40 +152,51 @@
 		font-size: 0.8125rem;
 		color: var(--p-ink3);
 	}
-	.title {
-		font-size: 0.875rem;
-		font-weight: 700;
-		color: var(--p-prep-accent);
-		line-height: 1.3;
-	}
-	.subtitle {
-		font-size: 0.75rem;
-		color: var(--p-ink2);
-		line-height: 1.4;
-	}
 
-	/* Metadata key-value pairs */
-	.meta-pairs {
-		display: grid;
-		grid-template-columns: auto 1fr;
-		gap: var(--spacing-1) var(--spacing-3);
-		font-size: 0.6875rem;
+	/* Section navigation */
+	.sections-nav {
 		padding-top: var(--spacing-2);
 		border-top: 1px solid var(--p-border);
 	}
-	.meta-key {
-		color: var(--p-ink3);
+	.nav-heading {
+		font-size: 0.625rem;
 		font-weight: 600;
+		color: var(--p-ink3);
+		letter-spacing: 0.05em;
 		text-transform: uppercase;
-		letter-spacing: 0.04em;
+		margin-bottom: var(--spacing-1);
 	}
-	.meta-val { color: var(--p-ink2); }
-	.link {
-		color: var(--p-prep-accent);
-		text-decoration: none;
-		font-weight: 500;
+	.section-btn {
+		all: unset;
+		display: flex;
+		align-items: baseline;
+		gap: var(--spacing-2);
+		padding: var(--spacing-1) var(--spacing-2);
+		border-radius: var(--radius-md);
+		width: 100%;
+		font-size: 0.75rem;
+		color: var(--p-ink3);
+		cursor: pointer;
+		transition: background 0.1s;
 	}
-	.link:hover { text-decoration: underline; }
+	.section-btn:hover {
+		background: var(--p-hover);
+	}
+	.section-btn.active {
+		background: var(--p-surface);
+		color: var(--p-ink);
+	}
+	.section-num {
+		font-family: var(--font-data);
+		font-weight: 600;
+		flex-shrink: 0;
+		min-width: 2.5em;
+	}
+	.section-title {
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
 
 	/* Section content block */
 	.section-block {
@@ -164,7 +225,7 @@
 		-webkit-mask-image: linear-gradient(to bottom, black 90%, transparent);
 	}
 
-	/* Reference rows */
+	/* Reference section */
 	.ref-section {
 		padding-top: var(--spacing-2);
 		border-top: 1px solid var(--p-border);
@@ -201,11 +262,15 @@
 		font-weight: 500;
 		flex-shrink: 0;
 	}
-	.ref-sub {
-		flex: 1;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-		color: var(--p-ink4);
+	.show-more-btn {
+		all: unset;
+		font-size: 0.6875rem;
+		color: var(--p-prep-accent);
+		cursor: pointer;
+		padding: var(--spacing-1);
+		font-weight: 500;
+	}
+	.show-more-btn:hover {
+		text-decoration: underline;
 	}
 </style>

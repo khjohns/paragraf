@@ -86,13 +86,19 @@ export interface ForarbeidDetailResponse {
 	full_title: string | null;
 	session: string | null;
 	source_url: string | null;
-	section: {
+	sections: Array<{
 		number: string;
 		title: string | null;
-		level: number | null;
-		text: string | null;
 		parent_path: string | null;
-	} | null;
+	}>;
+}
+
+export interface ForarbeidSectionResponse {
+	number: string;
+	title: string | null;
+	level: number | null;
+	text: string | null;
+	parent_path: string | null;
 	law_references: Array<{
 		law_name: string;
 		law_section: string;

@@ -207,7 +207,7 @@ def _build_edges(
                     "isDelimitation": False,
                 })
 
-    # --- Forarbeider → Provision edges ---
+    # --- Forarbeider → Provision edges (one node per document) ---
     for prov_id in provisions:
         law_name, law_section = parse_provision(prov_id)
         prep_refs = _section_filter(
@@ -220,7 +220,8 @@ def _build_edges(
         for ref in prep_refs.data or []:
             doc_id = ref["doc_id"]
             prep_doc_ids.add(doc_id)
-            node_id = f"forarbeid:{doc_id}:{ref['section_number']}"
+            # One edge per document→provision (not per section)
+            node_id = f"forarbeid:{doc_id}"
             key = (node_id, prov_id)
             if key not in seen_edges:
                 seen_edges.add(key)
@@ -235,15 +236,15 @@ def _build_edges(
                 .execute()
             )
             prep_map = {p["doc_id"]: p for p in (prep_data.data or [])}
-            for ref in prep_refs.data or []:
-                node_id = f"forarbeid:{ref['doc_id']}:{ref['section_number']}"
+            for did in prep_doc_ids:
+                node_id = f"forarbeid:{did}"
                 if node_id not in seen_prep:
                     seen_prep.add(node_id)
-                    meta = prep_map.get(ref["doc_id"], {})
+                    meta = prep_map.get(did, {})
                     prep_nodes.append({
                         "id": node_id,
                         "type": "prep_work",
-                        "label": meta.get("title") or ref["doc_id"],
+                        "label": meta.get("title") or did,
                         "subtitle": meta.get("full_title") or "",
                         "citations": 0,
                         "iteration": 1,

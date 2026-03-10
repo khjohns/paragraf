@@ -7,7 +7,7 @@ from cases import get_case_detail
 from provisions import get_provision_detail
 from curation import generate_curation
 from eu_cases import get_eu_case_detail
-from forarbeider import get_forarbeid_detail
+from forarbeider import get_forarbeid_detail, get_forarbeid_section
 
 STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
 
@@ -88,17 +88,20 @@ def eu_case_detail(eu_case_id):
     return jsonify(result)
 
 
-@app.route("/api/forarbeider/<path:forarbeid_path>")
-def forarbeid_detail(forarbeid_path):
-    # Split on last '/' — doc_id may contain slashes
-    sep = forarbeid_path.rfind("/")
-    if sep == -1:
-        return jsonify({"error": "URL must be /api/forarbeider/{doc_id}/{section_number}"}), 400
-    doc_id = forarbeid_path[:sep]
-    section_number = forarbeid_path[sep + 1:]
-    result = get_forarbeid_detail(doc_id, section_number)
+@app.route("/api/forarbeider/<path:doc_id>")
+def forarbeid_detail(doc_id):
+    provision = request.args.get("provision")
+    result = get_forarbeid_detail(doc_id, provision)
     if result is None:
         return jsonify({"error": "Forarbeid not found"}), 404
+    return jsonify(result)
+
+
+@app.route("/api/forarbeider/<path:doc_id>/section/<path:section_number>")
+def forarbeid_section(doc_id, section_number):
+    result = get_forarbeid_section(doc_id, section_number)
+    if result is None:
+        return jsonify({"error": "Section not found"}), 404
     return jsonify(result)
 
 

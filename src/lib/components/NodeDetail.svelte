@@ -291,8 +291,8 @@
 
 				<!-- Forarbeid detail -->
 				{#if selectedNode.type === 'prep_work'}
-					{@const parts = selectedNode.id.split(':')}
-					<ForarbeidDetail docId={parts.length > 3 ? parts.slice(1, -1).join(':') : parts[1] ?? ''} sectionNumber={parts[parts.length - 1] ?? ''} />
+					{@const docId = selectedNode.id.replace('forarbeid:', '')}
+					<ForarbeidDetail {docId} />
 				{/if}
 
 				<!-- Notes -->

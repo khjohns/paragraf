@@ -4,6 +4,7 @@ import type {
 	ProvisionDetailResponse,
 	EuCaseDetailResponse,
 	ForarbeidDetailResponse,
+	ForarbeidSectionResponse,
 } from '$lib/types/api';
 
 export async function fetchCaseDetail(sakNr: string): Promise<CaseDetailResponse> {
@@ -27,9 +28,19 @@ export async function fetchEuCaseDetail(euCaseId: string): Promise<EuCaseDetailR
 
 export async function fetchForarbeidDetail(
 	docId: string,
-	sectionNumber: string,
+	provision?: string,
 ): Promise<ForarbeidDetailResponse> {
+	const params = provision ? `?provision=${encodeURIComponent(provision)}` : '';
 	return apiFetch<ForarbeidDetailResponse>(
-		`/api/forarbeider/${encodeURIComponent(docId)}/${encodeURIComponent(sectionNumber)}`,
+		`/api/forarbeider/${encodeURIComponent(docId)}${params}`,
+	);
+}
+
+export async function fetchForarbeidSection(
+	docId: string,
+	sectionNumber: string,
+): Promise<ForarbeidSectionResponse> {
+	return apiFetch<ForarbeidSectionResponse>(
+		`/api/forarbeider/${encodeURIComponent(docId)}/section/${encodeURIComponent(sectionNumber)}`,
 	);
 }
