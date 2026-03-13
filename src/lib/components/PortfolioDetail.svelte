@@ -1,5 +1,6 @@
 <script lang="ts">
-  import type { AnalysisDbResponse, AnalysisStatus } from '$lib/types/analysis';
+  import type { AnalysisDbResponse } from '$lib/types/analysis';
+  import { STATUS_META } from '$lib/utils/analysisStatus';
 
   interface Props {
     analysis: AnalysisDbResponse;
@@ -8,19 +9,6 @@
   }
 
   const { analysis, onOpen, onClose }: Props = $props();
-
-  const STATUS_META: Record<string, { label: string; color: string }> = {
-    scoping: { label: 'Oppsett', color: '#B0A99E' },
-    scoping_complete: { label: 'Oppsett', color: '#B0A99E' },
-    searching: { label: 'Primærsøk', color: '#4A6670' },
-    candidates_ready: { label: 'Primærsøk', color: '#4A6670' },
-    screening: { label: 'Screening', color: '#8B6914' },
-    screening_complete: { label: 'Screening', color: '#8B6914' },
-    post_search: { label: 'Ettersøk', color: '#A67B2E' },
-    synthesis: { label: 'Sammenstilling', color: '#3D7A4A' },
-    qa: { label: 'QA', color: '#3D7A4A' },
-    complete: { label: 'Ferdig', color: '#3D7A4A' },
-  };
 
   let meta = $derived(STATUS_META[analysis.status] ?? { label: analysis.status, color: '#B0A99E' });
 
@@ -46,7 +34,7 @@
   });
 
   let totalCases = $derived(analysis.candidates.length);
-  let totalRead = $derived(analysis.candidates.filter((c) => c.read_at).length);
+  let totalRead = $derived(Object.values(categoryStats).reduce((sum, s) => sum + s.read, 0));
 </script>
 
 <div class="detail-panel">

@@ -207,6 +207,15 @@ class AnalysisState {
     this.dbSaveTimeout = setTimeout(() => this.saveToDb(), 1000);
   }
 
+  /** Flush any pending DB save immediately (called on beforeunload) */
+  flushDbSave() {
+    if (this.dbSaveTimeout) {
+      clearTimeout(this.dbSaveTimeout);
+      this.dbSaveTimeout = null;
+      this.saveToDb();
+    }
+  }
+
   private async saveToDb() {
     if (!this.dbId) return;
     try {
@@ -273,7 +282,11 @@ class AnalysisState {
 
 export const analysisState = new AnalysisState();
 
-// Flush pending save on tab close
+// Flush pending saves on tab close
 if (typeof window !== 'undefined') {
-  window.addEventListener('beforeunload', () => analysisState.save());
+  window.addEventListener('beforeunload', () => {
+    analysisState.save();
+    // Also flush pending DB save (best-effort, fire-and-forget)
+    analysisState.flushDbSave();
+  });
 }

@@ -1,7 +1,6 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
-  import { createAnalysesListQuery } from '$lib/queries/analyses';
-  import { createAnalysisQuery } from '$lib/queries/analyses';
+  import { createAnalysesListQuery, createAnalysisQuery } from '$lib/queries/analyses';
   import { createAnalysis } from '$lib/api/analyses';
   import Portfolio from '$lib/components/Portfolio.svelte';
   import PortfolioDetail from '$lib/components/PortfolioDetail.svelte';

@@ -19,8 +19,8 @@ export function createAnalysis(title: string, problem = ''): Promise<AnalysisDbR
 export function updateAnalysis(
   id: string,
   updates: Record<string, unknown>
-): Promise<AnalysisDbResponse> {
-  return apiFetch<AnalysisDbResponse>(`/api/analyses/${id}`, {
+): Promise<{ ok: boolean }> {
+  return apiFetch<{ ok: boolean }>(`/api/analyses/${id}`, {
     method: 'PATCH',
     body: JSON.stringify(updates),
   });

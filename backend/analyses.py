@@ -13,41 +13,23 @@ def list_analyses(user_id=None):
 
 
 def get_analysis(analysis_id):
-    """Get a single analysis with its seeds."""
-    client = get_client()
-
-    analysis = (
-        client.table("analyses")
-        .select("*")
+    """Get a single analysis with its seeds and candidates (single query with joins)."""
+    result = (
+        get_client()
+        .table("analyses")
+        .select("*, analysis_seeds(*), analysis_candidates(id, sak_nr, category, signals, iteration, screening_status, user_notes, is_delimitation, read_at)")
         .eq("id", analysis_id)
         .single()
         .execute()
         .data
     )
-    if not analysis:
+    if not result:
         return None
 
-    seeds = (
-        client.table("analysis_seeds")
-        .select("*")
-        .eq("analysis_id", analysis_id)
-        .order("created_at")
-        .execute()
-        .data
-    )
-
-    candidates = (
-        client.table("analysis_candidates")
-        .select("id, sak_nr, category, signals, iteration, screening_status, user_notes, is_delimitation, read_at")
-        .eq("analysis_id", analysis_id)
-        .order("category")
-        .execute()
-        .data
-    )
-
-    analysis["seeds"] = seeds
-    analysis["candidates"] = candidates
-    return analysis
+    # Rename joined keys to match API contract
+    result["seeds"] = result.pop("analysis_seeds", [])
+    result["candidates"] = result.pop("analysis_candidates", [])
+    return result
 
 
 def create_analysis(title, problem=""):

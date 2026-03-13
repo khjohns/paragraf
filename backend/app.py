@@ -139,12 +139,10 @@ def update_analysis_route(analysis_id):
     if "seeds" in body:
         upsert_seeds(analysis_id, body.pop("seeds"))
     if body:
-        update_analysis(analysis_id, body)
-    # Return updated analysis
-    result = get_analysis(analysis_id)
-    if not result:
-        return jsonify({"error": "Not found"}), 404
-    return jsonify(result)
+        result = update_analysis(analysis_id, body)
+        if result is None and not body:
+            return jsonify({"error": "Not found"}), 404
+    return jsonify({"ok": True})
 
 
 @app.route("/api/analyses/<analysis_id>/candidates/<path:sak_nr>", methods=["PATCH"])

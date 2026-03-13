@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { AnalysisSummary, AnalysisStatus } from '$lib/types/analysis';
+  import { STATUS_META } from '$lib/utils/analysisStatus';
 
   interface Props {
     analyses: AnalysisSummary[];
@@ -12,19 +13,6 @@
 
   let search = $state('');
   let statusFilter = $state<AnalysisStatus | null>(null);
-
-  const STATUS_META: Record<string, { label: string; color: string }> = {
-    scoping: { label: 'Oppsett', color: '#B0A99E' },
-    scoping_complete: { label: 'Oppsett', color: '#B0A99E' },
-    searching: { label: 'Primærsøk', color: '#4A6670' },
-    candidates_ready: { label: 'Primærsøk', color: '#4A6670' },
-    screening: { label: 'Screening', color: '#8B6914' },
-    screening_complete: { label: 'Screening', color: '#8B6914' },
-    post_search: { label: 'Ettersøk', color: '#A67B2E' },
-    synthesis: { label: 'Sammenstilling', color: '#3D7A4A' },
-    qa: { label: 'QA', color: '#3D7A4A' },
-    complete: { label: 'Ferdig', color: '#3D7A4A' },
-  };
 
   let filtered = $derived.by(() => {
     let items = analyses;
@@ -48,15 +36,16 @@
     return counts;
   });
 
-  // Unique status phases for filter chips
-  const STATUS_PHASES: { key: string; label: string; color: string }[] = [
-    { key: 'scoping', label: 'Oppsett', color: '#B0A99E' },
-    { key: 'candidates_ready', label: 'Primærsøk', color: '#4A6670' },
-    { key: 'screening', label: 'Screening', color: '#8B6914' },
-    { key: 'post_search', label: 'Ettersøk', color: '#A67B2E' },
-    { key: 'synthesis', label: 'Sammenstilling', color: '#3D7A4A' },
-    { key: 'complete', label: 'Ferdig', color: '#3D7A4A' },
+  // Unique status phases for filter chips (derived from shared STATUS_META)
+  const STATUS_PHASE_KEYS: AnalysisStatus[] = [
+    'scoping',
+    'candidates_ready',
+    'screening',
+    'post_search',
+    'synthesis',
+    'complete',
   ];
+  const STATUS_PHASES = STATUS_PHASE_KEYS.map((key) => ({ key, ...STATUS_META[key] }));
 
   function formatTime(dateStr: string): string {
     const d = new Date(dateStr);
