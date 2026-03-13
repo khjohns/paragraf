@@ -17,7 +17,7 @@
     analysis.seeds.filter((s) => s.seed_type === 'provision').map((s) => s.value)
   );
 
-  // Reading progress per category
+  // Reading progress per category (single pass)
   let categoryStats = $derived.by(() => {
     const stats: Record<string, { total: number; read: number }> = {
       A: { total: 0, read: 0 },
@@ -42,7 +42,16 @@
   <div class="detail-header">
     <div class="header-top">
       <span class="status-label" style:color={meta.color}>{meta.label}</span>
-      <button class="close-btn" onclick={onClose}>×</button>
+      <button class="close-btn" onclick={onClose}>
+        <svg width="12" height="12" viewBox="0 0 12 12">
+          <path
+            d="M3 3L9 9M9 3L3 9"
+            stroke="currentColor"
+            stroke-width="1.5"
+            stroke-linecap="round"
+          />
+        </svg>
+      </button>
     </div>
     <div class="detail-title">{analysis.title}</div>
     {#if analysis.problem}
@@ -93,18 +102,6 @@
       </div>
     {/if}
 
-    <!-- Propositions placeholder -->
-    <div class="detail-section">
-      <div class="section-label">Rettssetninger</div>
-      <div class="placeholder-text">Kommer i sprint 14</div>
-    </div>
-
-    <!-- Gaps placeholder -->
-    <div class="detail-section">
-      <div class="section-label">Hull</div>
-      <div class="placeholder-text">Kommer i sprint 14</div>
-    </div>
-
     <!-- AI next step -->
     <div class="detail-section no-border">
       <div class="ai-suggestion">
@@ -136,7 +133,7 @@
   }
 
   .detail-header {
-    padding: 14px 16px;
+    padding: 16px;
     border-bottom: 1px solid var(--p-border);
     flex-shrink: 0;
   }
@@ -144,7 +141,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 6px;
+    margin-bottom: 8px;
   }
   .status-label {
     font-size: 10px;
@@ -157,8 +154,18 @@
     border: none;
     cursor: pointer;
     color: var(--p-ink4);
-    font-size: 15px;
-    padding: 0 2px;
+    padding: 4px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition:
+      color 0.1s ease,
+      background 0.1s ease;
+  }
+  .close-btn:hover {
+    color: var(--p-ink2);
+    background: var(--p-hover);
   }
 
   .detail-title {
@@ -167,10 +174,10 @@
     color: var(--p-ink);
     line-height: 1.3;
     letter-spacing: -0.01em;
-    margin-bottom: 6px;
+    margin-bottom: 4px;
   }
   .detail-problem {
-    font-size: 12.5px;
+    font-size: 12px;
     line-height: 1.55;
     color: var(--p-ink2);
   }
@@ -179,7 +186,7 @@
     margin-top: 12px;
     width: 100%;
     padding: 8px 12px;
-    border-radius: 5px;
+    border-radius: 4px;
     background: var(--p-ink);
     color: var(--p-panel);
     border: none;
@@ -210,25 +217,25 @@
     color: var(--p-ink4);
     letter-spacing: 0.05em;
     text-transform: uppercase;
-    margin-bottom: 6px;
+    margin-bottom: 8px;
   }
 
   .provisions-list {
     display: flex;
     flex-direction: column;
-    gap: 3px;
+    gap: 4px;
   }
   .provision-row {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
   }
   .provision-name {
     font-family: var(--font-data);
     font-size: 12px;
     font-weight: 600;
-    color: var(--p-prov);
-    min-width: 55px;
+    color: var(--p-provision-accent);
+    min-width: 56px;
   }
   .provision-line {
     flex: 1;
@@ -239,16 +246,17 @@
   .cat-progress-row {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
     margin-bottom: 4px;
   }
   .cat-badge {
     font-size: 10px;
     font-weight: 600;
-    padding: 1px 4px;
-    border-radius: 3px;
-    min-width: 18px;
+    padding: 0 4px;
+    border-radius: 4px;
+    min-width: 20px;
     text-align: center;
+    line-height: 18px;
   }
   .cat-badge.cat-a {
     background: rgba(26, 24, 20, 0.08);
@@ -264,7 +272,7 @@
   }
   .cat-bar {
     flex: 1;
-    height: 3px;
+    height: 4px;
     border-radius: 2px;
     background: var(--p-input);
     overflow: hidden;
@@ -282,35 +290,29 @@
     font-family: var(--font-data);
     font-size: 10px;
     color: var(--p-ink3);
-    min-width: 20px;
+    min-width: 24px;
     text-align: right;
   }
 
-  .placeholder-text {
-    font-size: 11px;
-    color: var(--p-ink4);
-    font-style: italic;
-  }
-
   .ai-suggestion {
-    padding: 8px 10px;
-    border-radius: 5px;
-    background: var(--p-highlight, #fbf5e8);
+    padding: 8px 12px;
+    border-radius: 4px;
+    background: var(--p-warn-bg);
     border-left: 3px solid rgba(139, 105, 20, 0.2);
     display: flex;
     align-items: flex-start;
-    gap: 6px;
+    gap: 8px;
   }
   .ai-badge {
     font-size: 9px;
     font-weight: 700;
-    padding: 1px 4px;
-    border-radius: 3px;
+    padding: 0 4px;
+    border-radius: 4px;
     background: var(--p-surface);
     border: 1px solid rgba(139, 105, 20, 0.2);
-    color: #8b6914;
+    color: var(--p-kofa-accent);
     flex-shrink: 0;
-    margin-top: 1px;
+    line-height: 16px;
   }
   .ai-text {
     font-size: 12px;

@@ -17,7 +17,6 @@
     { num: 7, label: 'Deponering' },
   ] as const;
 
-  // Map status to which step is active (1-indexed)
   const STATUS_TO_STEP: Record<AnalysisStatus, number> = {
     scoping: 1,
     scoping_complete: 2,
@@ -31,7 +30,6 @@
     complete: 7,
   };
 
-  // Map status to how many steps are fully completed
   const STATUS_TO_COMPLETED: Record<AnalysisStatus, number> = {
     scoping: 0,
     scoping_complete: 1,
@@ -50,35 +48,31 @@
 </script>
 
 <div class="progress-indicator">
-  {#each STEPS as step}
+  {#each STEPS as step, i}
     {@const isCompleted = step.num <= completedSteps}
     {@const isActive = step.num === activeStep && !isCompleted}
-    {@const isPending = step.num > activeStep && !isCompleted}
-    <div
-      class="step"
-      class:completed={isCompleted}
-      class:active={isActive}
-      class:pending={isPending}
-    >
-      <div class="step-circle" class:completed={isCompleted} class:active={isActive}>
-        {#if isCompleted}
-          <svg width="10" height="10" viewBox="0 0 10 10">
-            <path
-              d="M2 5L4.5 7.5L8 3"
-              stroke="currentColor"
-              stroke-width="1.5"
-              fill="none"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            />
-          </svg>
-        {:else}
-          <span class="step-num">{step.num}</span>
+    <div class="step" class:completed={isCompleted} class:active={isActive}>
+      <div class="step-track">
+        <div class="step-circle" class:completed={isCompleted} class:active={isActive}>
+          {#if isCompleted}
+            <svg width="10" height="10" viewBox="0 0 10 10">
+              <path
+                d="M2 5L4.5 7.5L8 3"
+                stroke="currentColor"
+                stroke-width="1.5"
+                fill="none"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+          {:else}
+            <span class="step-num">{step.num}</span>
+          {/if}
+        </div>
+        {#if i < STEPS.length - 1}
+          <div class="step-connector" class:completed={step.num < activeStep || isCompleted}></div>
         {/if}
       </div>
-      {#if step.num < STEPS.length}
-        <div class="step-line" class:completed={step.num < activeStep || isCompleted}></div>
-      {/if}
       <span class="step-label">{step.label}</span>
     </div>
   {/each}
@@ -88,21 +82,25 @@
   .progress-indicator {
     display: flex;
     flex-direction: column;
-    gap: 0;
-    padding: 2px 0;
   }
 
   .step {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 8px;
-    position: relative;
-    padding: 3px 0;
+  }
+
+  .step-track {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex-shrink: 0;
+    width: 20px;
   }
 
   .step-circle {
-    width: 18px;
-    height: 18px;
+    width: 20px;
+    height: 20px;
     border-radius: 50%;
     display: flex;
     align-items: center;
@@ -111,8 +109,6 @@
     border: 1.5px solid var(--p-ink4);
     color: var(--p-ink4);
     background: transparent;
-    position: relative;
-    z-index: 1;
   }
   .step-circle.completed {
     background: var(--p-ink);
@@ -120,9 +116,9 @@
     color: var(--p-panel);
   }
   .step-circle.active {
-    border-color: #8b6914;
-    color: #8b6914;
-    background: rgba(139, 105, 20, 0.08);
+    border-color: var(--p-kofa-accent);
+    color: var(--p-kofa-accent);
+    background: rgba(139, 105, 20, 0.06);
   }
 
   .step-num {
@@ -131,16 +127,13 @@
     line-height: 1;
   }
 
-  .step-line {
-    position: absolute;
-    left: 8px;
-    top: 21px;
+  .step-connector {
     width: 1.5px;
-    height: 12px;
+    height: 8px;
     background: var(--p-input);
-    z-index: 0;
+    flex-shrink: 0;
   }
-  .step-line.completed {
+  .step-connector.completed {
     background: var(--p-ink);
   }
 
@@ -148,6 +141,7 @@
     font-size: 11px;
     color: var(--p-ink3);
     font-weight: 500;
+    line-height: 20px;
   }
   .step.completed .step-label {
     color: var(--p-ink2);

@@ -36,7 +36,6 @@
     return counts;
   });
 
-  // Unique status phases for filter chips (derived from shared STATUS_META)
   const STATUS_PHASE_KEYS: AnalysisStatus[] = [
     'scoping',
     'candidates_ready',
@@ -64,7 +63,6 @@
 <div class="portfolio-list">
   <!-- Toolbar -->
   <div class="portfolio-toolbar">
-    <!-- Search -->
     <div class="search-box">
       <svg width="13" height="13" viewBox="0 0 13 13" class="search-icon">
         <circle cx="5.5" cy="5.5" r="4" stroke="currentColor" stroke-width="1.3" fill="none" />
@@ -84,13 +82,21 @@
         class="search-input"
       />
       {#if search}
-        <button class="search-clear" onclick={() => (search = '')}>×</button>
+        <button class="search-clear" onclick={() => (search = '')}>
+          <svg width="10" height="10" viewBox="0 0 10 10">
+            <path
+              d="M2.5 2.5L7.5 7.5M7.5 2.5L2.5 7.5"
+              stroke="currentColor"
+              stroke-width="1.3"
+              stroke-linecap="round"
+            />
+          </svg>
+        </button>
       {/if}
     </div>
 
     <div class="toolbar-sep"></div>
 
-    <!-- Status filter chips -->
     {#each STATUS_PHASES.filter((s) => statusCounts[s.key]) as phase}
       <button
         class="status-chip"
@@ -111,7 +117,7 @@
 
   <!-- Column headers -->
   <div class="col-headers">
-    <div class="col-dot"></div>
+    <div class="col-dot-spacer"></div>
     <span class="col-analyse">Analyse</span>
     <span class="col-fase">Fase</span>
     <span class="col-sist">Sist aktiv</span>
@@ -145,9 +151,10 @@
       </button>
     {/each}
 
-    <!-- New analysis row -->
     <button class="new-analysis-row" onclick={onCreate}>
-      <span class="new-plus">+</span>
+      <svg width="12" height="12" viewBox="0 0 12 12" class="new-icon">
+        <path d="M6 2V10M2 6H10" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" />
+      </svg>
       Ny analyse
     </button>
   </div>
@@ -166,7 +173,7 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 8px 20px;
+    padding: 8px 16px;
     border-bottom: 1px solid var(--p-border);
     background: var(--p-panel);
     flex-shrink: 0;
@@ -176,12 +183,16 @@
   .search-box {
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 4px 10px;
-    border-radius: 5px;
+    gap: 8px;
+    padding: 4px 12px;
+    border-radius: 4px;
     background: var(--p-input);
     border: 1px solid var(--p-border);
     flex: 0 1 220px;
+    transition: border-color 0.1s ease;
+  }
+  .search-box:focus-within {
+    border-color: var(--p-border-s);
   }
   .search-icon {
     flex-shrink: 0;
@@ -197,14 +208,21 @@
     padding: 0;
     font-family: inherit;
   }
+  .search-input::placeholder {
+    color: var(--p-ink4);
+  }
   .search-clear {
     background: transparent;
     border: none;
     cursor: pointer;
     color: var(--p-ink4);
-    font-size: 13px;
     padding: 0;
-    line-height: 1;
+    display: flex;
+    align-items: center;
+    transition: color 0.1s ease;
+  }
+  .search-clear:hover {
+    color: var(--p-ink2);
   }
 
   .toolbar-sep {
@@ -218,7 +236,7 @@
     display: flex;
     align-items: center;
     gap: 4px;
-    padding: 3px 8px;
+    padding: 4px 8px;
     border-radius: 4px;
     font-size: 10px;
     font-weight: 500;
@@ -227,14 +245,18 @@
     color: var(--p-ink3);
     transition: all 0.1s ease;
   }
+  .status-chip:hover {
+    border-color: var(--p-border-s);
+    color: var(--p-ink2);
+  }
   .status-chip.active {
     border-color: var(--chip-color);
     background: color-mix(in srgb, var(--chip-color) 7%, transparent);
     color: var(--chip-color);
   }
   .chip-dot {
-    width: 5px;
-    height: 5px;
+    width: 4px;
+    height: 4px;
     border-radius: 50%;
     opacity: 0.6;
   }
@@ -254,8 +276,8 @@
   .col-headers {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 6px 20px;
+    gap: 12px;
+    padding: 8px 16px;
     border-bottom: 1px solid var(--p-border-m);
     font-size: 10px;
     font-weight: 600;
@@ -264,8 +286,8 @@
     background: var(--p-bg);
     flex-shrink: 0;
   }
-  .col-dot {
-    width: 7px;
+  .col-dot-spacer {
+    width: 8px;
   }
   .col-analyse {
     flex: 1;
@@ -295,8 +317,8 @@
     all: unset;
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 10px 20px;
+    gap: 12px;
+    padding: 12px 16px;
     cursor: pointer;
     border-bottom: 1px solid var(--p-border);
     border-left: 3px solid transparent;
@@ -305,7 +327,7 @@
     box-sizing: border-box;
   }
   .analysis-row:hover {
-    background: rgba(26, 24, 20, 0.02);
+    background: var(--p-hover);
   }
   .analysis-row.selected {
     background: var(--p-active);
@@ -313,8 +335,8 @@
   }
 
   .row-dot {
-    width: 7px;
-    height: 7px;
+    width: 8px;
+    height: 8px;
     border-radius: 50%;
     opacity: 0.7;
     flex-shrink: 0;
@@ -325,7 +347,7 @@
     min-width: 0;
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 4px;
   }
   .row-title {
     font-size: 13px;
@@ -342,6 +364,7 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    line-height: 1.4;
   }
 
   .row-status {
@@ -358,27 +381,33 @@
     min-width: 80px;
     text-align: right;
     flex-shrink: 0;
+    font-family: var(--font-data);
   }
 
   .new-analysis-row {
     all: unset;
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 12px 20px;
+    gap: 8px;
+    padding: 12px 16px;
     cursor: pointer;
     color: var(--p-ink3);
     font-size: 12px;
     font-weight: 500;
-    transition: color 0.12s ease;
+    transition:
+      color 0.1s ease,
+      background 0.1s ease;
     width: 100%;
     box-sizing: border-box;
   }
   .new-analysis-row:hover {
     color: var(--p-ink);
+    background: var(--p-hover);
   }
-  .new-plus {
-    font-size: 16px;
-    line-height: 1;
+  .new-icon {
+    opacity: 0.5;
+  }
+  .new-analysis-row:hover .new-icon {
+    opacity: 0.8;
   }
 </style>

@@ -20,15 +20,13 @@
   }
 </script>
 
-<div class="flex h-screen flex-col bg-[#F5F3EE] font-sans text-[#1A1814]">
-  <!-- Header -->
-  <div class="flex shrink-0 items-center gap-2.5 border-b border-black/8 bg-[#FAF9F6] px-5 py-2.5">
-    <span class="text-[15px] font-bold tracking-tight">Paragraf</span>
-    <span class="flex-1"></span>
-  </div>
+<div class="portfolio-page">
+  <header class="portfolio-header">
+    <span class="brand">Paragraf</span>
+    <span class="spacer"></span>
+  </header>
 
-  <!-- Body -->
-  <div class="flex flex-1 overflow-hidden">
+  <div class="portfolio-body">
     {#if analysesQuery.data}
       <Portfolio
         analyses={analysesQuery.data}
@@ -47,3 +45,33 @@
     {/if}
   </div>
 </div>
+
+<style>
+  .portfolio-page {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    background: var(--p-bg);
+    color: var(--p-ink);
+  }
+
+  .portfolio-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    border-bottom: 1px solid var(--p-border-m);
+    background: var(--p-panel);
+    flex-shrink: 0;
+  }
+  .brand {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--p-ink2);
+  }
+  .spacer {
+    flex: 1;
+  }
+</style>
