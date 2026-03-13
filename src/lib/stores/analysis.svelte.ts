@@ -1,6 +1,7 @@
 import type { GraphNode, GraphEdge, GapPair } from '$lib/types/graph';
-import type { Analysis, Seeds, IterationEntry } from '$lib/types/analysis';
+import type { Analysis, Seeds, IterationEntry, AnalysisDbResponse } from '$lib/types/analysis';
 import type { SuggestedProvision } from '$lib/types/api';
+import { updateAnalysis } from '$lib/api/analyses';
 import { toastState } from './toast.svelte';
 
 const STORAGE_KEY = 'paragraf-analysis';
@@ -24,6 +25,10 @@ class AnalysisState {
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   });
+
+  /** The DB analysis ID — set when loading a workspace */
+  private dbId: string | null = null;
+  private dbSaveTimeout: ReturnType<typeof setTimeout> | null = null;
 
   /** Node IDs from before the current iteration (used to detect new nodes) */
   private previousNodeIds = new Set<string>();
@@ -153,7 +158,71 @@ class AnalysisState {
     this.filterIteration = this.filterIteration === iteration ? null : iteration;
   }
 
-  // --- Persistence ---
+  // --- DB Persistence ---
+
+  /** Load from DB response — maps AnalysisDbResponse to internal Analysis shape */
+  loadFromDb(data: AnalysisDbResponse) {
+    this.dbId = data.id;
+
+    // Convert DB seeds to local Seeds format
+    const provisions = data.seeds.filter((s) => s.seed_type === 'provision').map((s) => s.value);
+    const ftsTerms = data.seeds.filter((s) => s.seed_type === 'fts').map((s) => s.value);
+    const vectorQuery = data.seeds.find((s) => s.seed_type === 'vector')?.value ?? '';
+    const cases = data.seeds.filter((s) => s.seed_type === 'case').map((s) => s.value);
+
+    // Convert DB candidates to readStatus/notes/delimitations
+    const readStatus: Record<string, boolean> = {};
+    const notes: Record<string, string> = {};
+    const delimitations: Record<string, boolean> = {};
+    for (const c of data.candidates) {
+      const nodeId = `kofa:${c.sak_nr}`;
+      if (c.read_at) readStatus[nodeId] = true;
+      if (c.user_notes) notes[nodeId] = c.user_notes;
+      if (c.is_delimitation) delimitations[nodeId] = true;
+    }
+
+    this.analysis = {
+      id: data.id,
+      title: data.title,
+      problemStatement: data.problem,
+      seeds: { provisions, ftsTerms, vectorQuery, cases },
+      iteration: data.iteration,
+      status: data.status,
+      readStatus,
+      notes,
+      delimitations,
+      iterationHistory: [],
+      createdAt: data.created_at,
+      updatedAt: data.updated_at,
+    };
+
+    // Also save to localStorage as cache
+    this.save();
+  }
+
+  /** Persist current state to DB (debounced) */
+  private debouncedDbSave() {
+    if (!this.dbId) return;
+    if (this.dbSaveTimeout) clearTimeout(this.dbSaveTimeout);
+    this.dbSaveTimeout = setTimeout(() => this.saveToDb(), 1000);
+  }
+
+  private async saveToDb() {
+    if (!this.dbId) return;
+    try {
+      await updateAnalysis(this.dbId, {
+        problem: this.analysis.problemStatement,
+        title: this.analysis.title ?? '',
+        seeds: this.analysis.seeds,
+        iteration: this.analysis.iteration,
+        status: this.analysis.status ?? 'scoping',
+      });
+    } catch {
+      // DB save failed — localStorage still has the data
+    }
+  }
+
+  // --- localStorage Persistence ---
 
   private saveTimeout: ReturnType<typeof setTimeout> | null = null;
 
@@ -198,6 +267,7 @@ class AnalysisState {
   private touch() {
     this.analysis.updatedAt = new Date().toISOString();
     this.debouncedSave();
+    this.debouncedDbSave();
   }
 }
 

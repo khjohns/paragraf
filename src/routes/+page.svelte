@@ -1,55 +1,50 @@
 <script lang="ts">
-  import AppShell from '$lib/components/AppShell.svelte';
-  import LeftPanel from '$lib/components/LeftPanel.svelte';
-  import Toolbar from '$lib/components/Toolbar.svelte';
-  import NodeList from '$lib/components/NodeList.svelte';
-  import GraphView from '$lib/components/GraphView.svelte';
-  import NodeDetail from '$lib/components/NodeDetail.svelte';
-  import KeyboardShortcuts from '$lib/components/KeyboardShortcuts.svelte';
-  import { onMount, untrack } from 'svelte';
-  import { analysisState } from '$lib/stores/analysis.svelte';
-  import { uiState } from '$lib/stores/ui.svelte';
-  import { createTraversalQuery } from '$lib/queries/traversal';
+  import { goto } from '$app/navigation';
+  import { createAnalysesListQuery } from '$lib/queries/analyses';
+  import { createAnalysisQuery } from '$lib/queries/analyses';
+  import { createAnalysis } from '$lib/api/analyses';
+  import Portfolio from '$lib/components/Portfolio.svelte';
+  import PortfolioDetail from '$lib/components/PortfolioDetail.svelte';
 
-  const traversal = createTraversalQuery(() => ({
-    provisions: analysisState.analysis.seeds.provisions,
-    ftsTerms: analysisState.analysis.seeds.ftsTerms,
-    vectorQuery: analysisState.analysis.seeds.vectorQuery,
-    cases: analysisState.analysis.seeds.cases,
-    regulationFilter: uiState.regulationFilter ? 'new' : 'all',
-  }));
+  const analysesQuery = createAnalysesListQuery();
 
-  // Sync query results to store (untrack prevents cascading state updates)
-  $effect(() => {
-    const data = traversal.data;
-    if (data) {
-      untrack(() => {
-        analysisState.setResults(data.nodes, data.edges, data.gaps, data.suggestedProvisions);
-      });
-    }
-  });
+  let selectedId = $state<string | null>(null);
+  const selectedQuery = createAnalysisQuery(() => selectedId);
 
-  // Load persisted state on mount (saves are handled by touch() in store)
-  onMount(() => analysisState.load());
+  async function handleCreate() {
+    const analysis = await createAnalysis('Ny analyse');
+    goto(`/analyse/${analysis.id}`);
+  }
+
+  function handleOpen(id: string) {
+    goto(`/analyse/${id}`);
+  }
 </script>
 
-<KeyboardShortcuts />
+<div class="flex h-screen flex-col bg-[#F5F3EE] font-sans text-[#1A1814]">
+  <!-- Header -->
+  <div class="flex shrink-0 items-center gap-2.5 border-b border-black/8 bg-[#FAF9F6] px-5 py-2.5">
+    <span class="text-[15px] font-bold tracking-tight">Paragraf</span>
+    <span class="flex-1"></span>
+  </div>
 
-<AppShell>
-  {#snippet leftPanel()}
-    <LeftPanel />
-  {/snippet}
-
-  {#snippet middlePanel()}
-    <Toolbar />
-    {#if uiState.viewMode === 'graph'}
-      <GraphView />
-    {:else}
-      <NodeList />
+  <!-- Body -->
+  <div class="flex flex-1 overflow-hidden">
+    {#if analysesQuery.data}
+      <Portfolio
+        analyses={analysesQuery.data}
+        {selectedId}
+        onSelect={(id) => (selectedId = id)}
+        onCreate={handleCreate}
+      />
     {/if}
-  {/snippet}
 
-  {#snippet rightPanel()}
-    <NodeDetail />
-  {/snippet}
-</AppShell>
+    {#if selectedId && selectedQuery.data}
+      <PortfolioDetail
+        analysis={selectedQuery.data}
+        onOpen={handleOpen}
+        onClose={() => (selectedId = null)}
+      />
+    {/if}
+  </div>
+</div>

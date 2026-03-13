@@ -3,11 +3,13 @@
   import { toastState } from '$lib/stores/toast.svelte';
   import { uiState } from '$lib/stores/ui.svelte';
   import LeftPanelSection from './LeftPanelSection.svelte';
+  import ProgressIndicator from './ProgressIndicator.svelte';
   import SeedInput from './SeedInput.svelte';
   import CategoryBadge from './CategoryBadge.svelte';
   import DelimBadge from './DelimBadge.svelte';
   import ValencePip from './ValencePip.svelte';
   import { formatProvision } from '$lib/utils/provisions';
+  import type { AnalysisStatus } from '$lib/types/analysis';
 
   // Stats
   let cases = $derived(analysisState.nodes.filter((n) => n.category));
@@ -33,6 +35,17 @@
   // Gap matrix
   let gaps = $derived(analysisState.gaps);
   let zeroGaps = $derived(gaps.filter((g) => g.count === 0));
+
+  // Derive analysis status for progress indicator
+  let derivedStatus: AnalysisStatus = $derived.by(() => {
+    if (analysisState.analysis.status) return analysisState.analysis.status;
+    if (analysisState.nodes.length === 0) return 'scoping';
+    const readCount = Object.values(analysisState.analysis.readStatus).filter(Boolean).length;
+    const caseCount = analysisState.nodes.filter((n) => n.category).length;
+    if (readCount === 0) return 'candidates_ready';
+    if (readCount < caseCount) return 'screening';
+    return 'screening_complete';
+  });
 </script>
 
 <div class="left-panel-inner">
@@ -49,6 +62,11 @@
   </div>
 
   <div class="sections">
+    <!-- 0. Fremdrift -->
+    <LeftPanelSection num="0" title="Fremdrift" defaultOpen>
+      <ProgressIndicator status={derivedStatus} />
+    </LeftPanelSection>
+
     <!-- 1. Problemstilling -->
     <LeftPanelSection num="1" title="Problemstilling" defaultOpen>
       <div class="problem-area">

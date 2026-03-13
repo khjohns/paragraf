@@ -8,6 +8,7 @@ from provisions import get_provision_detail
 from curation import generate_curation
 from eu_cases import get_eu_case_detail
 from forarbeider import get_forarbeid_detail, get_forarbeid_section
+from analyses import list_analyses, get_analysis, create_analysis, update_analysis, upsert_seeds, update_candidate
 
 STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
 
@@ -102,6 +103,58 @@ def forarbeid_section(doc_id, section_number):
     result = get_forarbeid_section(doc_id, section_number)
     if result is None:
         return jsonify({"error": "Section not found"}), 404
+    return jsonify(result)
+
+
+@app.route("/api/analyses", methods=["GET"])
+def list_analyses_route():
+    return jsonify(list_analyses())
+
+
+@app.route("/api/analyses", methods=["POST"])
+def create_analysis_route():
+    body = request.get_json()
+    if not body or not body.get("title"):
+        return jsonify({"error": "title required"}), 400
+    result = create_analysis(body["title"], body.get("problem", ""))
+    if not result:
+        return jsonify({"error": "Failed to create"}), 500
+    return jsonify(result), 201
+
+
+@app.route("/api/analyses/<analysis_id>")
+def get_analysis_route(analysis_id):
+    result = get_analysis(analysis_id)
+    if not result:
+        return jsonify({"error": "Not found"}), 404
+    return jsonify(result)
+
+
+@app.route("/api/analyses/<analysis_id>", methods=["PATCH"])
+def update_analysis_route(analysis_id):
+    body = request.get_json()
+    if not body:
+        return jsonify({"error": "Body required"}), 400
+    # Handle seeds separately
+    if "seeds" in body:
+        upsert_seeds(analysis_id, body.pop("seeds"))
+    if body:
+        update_analysis(analysis_id, body)
+    # Return updated analysis
+    result = get_analysis(analysis_id)
+    if not result:
+        return jsonify({"error": "Not found"}), 404
+    return jsonify(result)
+
+
+@app.route("/api/analyses/<analysis_id>/candidates/<path:sak_nr>", methods=["PATCH"])
+def update_candidate_route(analysis_id, sak_nr):
+    body = request.get_json()
+    if not body:
+        return jsonify({"error": "Body required"}), 400
+    result = update_candidate(analysis_id, sak_nr, body)
+    if not result:
+        return jsonify({"error": "Not found"}), 404
     return jsonify(result)
 
 
