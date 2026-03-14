@@ -37,41 +37,42 @@ class AnalysisState {
 
   // --- Mutations ---
 
+  /** Mark new vs existing nodes with iteration numbers, returns count of new nodes */
+  private applyIterationMarkers(nodes: GraphNode[]): number {
+    const prevIterMap = new Map(this.nodes.map((n) => [n.id, n.iteration]));
+    let newCount = 0;
+    for (const node of nodes) {
+      if (this.previousNodeIds.has(node.id)) {
+        node.iteration = prevIterMap.get(node.id) ?? 1;
+      } else {
+        node.iteration = this.analysis.iteration;
+        newCount++;
+      }
+    }
+    return newCount;
+  }
+
   setResults(
     nodes: GraphNode[],
     edges: GraphEdge[],
     gaps: GapPair[],
     suggested?: SuggestedProvision[]
   ) {
-    // If we're in iteration 2+, mark new nodes with the current iteration number
     if (this.analysis.iteration > 1 && this.previousNodeIds.size > 0) {
-      const prevIterMap = new Map(this.nodes.map((n) => [n.id, n.iteration]));
-      let newCount = 0;
-      for (const node of nodes) {
-        if (this.previousNodeIds.has(node.id)) {
-          node.iteration = prevIterMap.get(node.id) ?? 1;
-        } else {
-          node.iteration = this.analysis.iteration;
-          newCount++;
-        }
-      }
-      // Update iteration history with actual new node count
-      const history = this.analysis.iterationHistory ?? [];
-      const current = history.find((h) => h.iteration === this.analysis.iteration);
-      if (current) {
-        current.newNodeCount = newCount;
-      }
+      const newCount = this.applyIterationMarkers(nodes);
+      const current = (this.analysis.iterationHistory ?? []).find(
+        (h) => h.iteration === this.analysis.iteration
+      );
+      if (current) current.newNodeCount = newCount;
     }
 
     this.nodes = nodes;
     this.edges = edges;
     this.gaps = gaps;
     this.suggestedProvisions = suggested ?? [];
-    // Snapshot seeds so startNewIteration can diff against what was used for this run
     this.previousSeeds = { ...this.analysis.seeds };
     this.debouncedSave();
     if (nodes.length > 0) {
-      // Defer toast to avoid effect_update_depth_exceeded when called from $effect
       queueMicrotask(() => toastState.show(`Analyse fullført — ${nodes.length} treff`, 'success'));
     }
   }

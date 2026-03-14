@@ -1,7 +1,7 @@
 <script lang="ts">
   import { analysisState } from '$lib/stores/analysis.svelte';
   import { uiState } from '$lib/stores/ui.svelte';
-  import { computeAggregatedLayout } from '$lib/utils/layout';
+  import { computeAggregatedLayout, LAYER_CONFIG } from '$lib/utils/layout';
   import GraphNode from './GraphNode.svelte';
   import GraphEdge from './GraphEdge.svelte';
   import GraphTooltip from './GraphTooltip.svelte';
@@ -211,39 +211,33 @@
   });
 
   // Layer labels
+  import type { NodeType } from '$lib/types/graph';
+
+  function updateLayerMinY(
+    layers: Record<string, { label: string; minY: number }>,
+    type: NodeType,
+    y: number
+  ) {
+    const key = LAYER_CONFIG[type].label;
+    if (!layers[key] || y < layers[key].minY) {
+      layers[key] = { label: key, minY: y };
+    }
+  }
+
   let layerLabels = $derived.by(() => {
     if (!layout) return [];
     const layers: Record<string, { label: string; minY: number }> = {};
+
     for (const node of analysisState.nodes) {
       if (!visibleNodeIds.has(node.id)) continue;
       const pos = layout!.nodes.get(node.id);
-      if (!pos) continue;
-      let layerKey: string;
-      if (node.type === 'provision') layerKey = 'BESTEMMELSER';
-      else if (node.type === 'kofa_case') layerKey = 'PRAKSIS';
-      else if (node.type === 'eu_case' || node.type === 'court_case') layerKey = 'EU-DOMMER';
-      else layerKey = 'FORARBEIDER';
-
-      if (!layers[layerKey] || pos.y < layers[layerKey].minY) {
-        layers[layerKey] = { label: layerKey, minY: pos.y };
-      }
+      if (pos) updateLayerMinY(layers, node.type, pos.y);
     }
-    // Also check aggregate nodes for layer labels
-    if (layout) {
-      for (const agg of layout.aggregates) {
-        const pos = layout.nodes.get(agg.id);
-        if (!pos) continue;
-        let layerKey: string;
-        if (agg.type === 'kofa_case') layerKey = 'PRAKSIS';
-        else if (agg.type === 'eu_case' || agg.type === 'court_case') layerKey = 'EU-DOMMER';
-        else layerKey = 'FORARBEIDER';
-
-        if (!layers[layerKey] || pos.y < layers[layerKey].minY) {
-          layers[layerKey] = { label: layerKey, minY: pos.y };
-        }
-      }
+    for (const agg of layout!.aggregates) {
+      const pos = layout!.nodes.get(agg.id);
+      if (pos) updateLayerMinY(layers, agg.type, pos.y);
     }
-    // Sort by y position and ensure minimum spacing to avoid overlap
+
     const sorted = Object.values(layers).sort((a, b) => a.minY - b.minY);
     for (let i = 1; i < sorted.length; i++) {
       if (sorted[i].minY - sorted[i - 1].minY < 40) {

@@ -30,13 +30,13 @@ export interface AggregatedLayout extends GraphLayout {
 /** Threshold: only aggregate groups with more than this many nodes */
 const AGGREGATE_THRESHOLD = 5;
 
-// Layer rank for invisible constraint edges (0 = top in TB layout)
-const LAYER_RANK: Record<NodeType, number> = {
-  prep_work: 0,
-  provision: 1,
-  kofa_case: 2,
-  eu_case: 3,
-  court_case: 3,
+/** Layer config: rank controls vertical order in dagre, label is the UI heading */
+export const LAYER_CONFIG: Record<NodeType, { rank: number; label: string }> = {
+  prep_work: { rank: 0, label: 'FORARBEIDER' },
+  provision: { rank: 1, label: 'BESTEMMELSER' },
+  kofa_case: { rank: 2, label: 'PRAKSIS' },
+  eu_case: { rank: 3, label: 'EU-DOMMER' },
+  court_case: { rank: 3, label: 'EU-DOMMER' },
 };
 
 /** Node size scales with citation count */
@@ -61,21 +61,14 @@ function aggregateSize(): { width: number; height: number } {
   return { width: 100, height: 40 };
 }
 
-/**
- * Compute an aggregated layout where case nodes connected to the same provision
- * are grouped into virtual aggregate nodes when the group exceeds AGGREGATE_THRESHOLD.
- *
- * @param expandedAggregates Set of aggregate IDs that have been expanded by the user
- */
-export function computeAggregatedLayout(
-  nodes: GraphNode[],
+/** Build maps from provision→cases and case→provisions based on edges */
+function buildProvisionCaseMaps(
   edges: GraphEdge[],
-  expandedAggregates: Set<string>
-): AggregatedLayout {
-  const nodeMap = new Map(nodes.map((n) => [n.id, n]));
-
-  // Group case nodes by their connected provision(s)
-  // A case node is grouped under a provision if there's an edge from the provision to the case
+  nodeMap: Map<string, GraphNode>
+): {
+  provisionToCases: Map<string, GraphNode[]>;
+  caseToProvisions: Map<string, string[]>;
+} {
   const provisionToCases = new Map<string, GraphNode[]>();
   const caseToProvisions = new Map<string, string[]>();
 
@@ -83,7 +76,6 @@ export function computeAggregatedLayout(
     const fromNode = nodeMap.get(edge.from);
     const toNode = nodeMap.get(edge.to);
 
-    // Edges may point in either direction: provision→case or case→provision
     let provId: string | null = null;
     let caseNode: GraphNode | null = null;
 
@@ -104,14 +96,24 @@ export function computeAggregatedLayout(
     }
   }
 
-  // Build aggregates: for each provision, if the group of connected case nodes of the
-  // same type exceeds the threshold, create an aggregate
+  return { provisionToCases, caseToProvisions };
+}
+
+/** Build aggregate nodes from provision-case groupings */
+function buildAggregates(
+  provisionToCases: Map<string, GraphNode[]>,
+  caseToProvisions: Map<string, string[]>,
+  expandedAggregates: Set<string>
+): {
+  aggregates: AggregateNode[];
+  aggregatedNodeIds: Set<string>;
+  memberToAggregate: Map<string, string>;
+} {
   const aggregates: AggregateNode[] = [];
   const aggregatedNodeIds = new Set<string>();
   const memberToAggregate = new Map<string, string>();
 
   for (const [provId, caseNodes] of provisionToCases) {
-    // Group by node type
     const byType = new Map<NodeType, GraphNode[]>();
     for (const cn of caseNodes) {
       if (!byType.has(cn.type)) byType.set(cn.type, []);
@@ -120,50 +122,52 @@ export function computeAggregatedLayout(
 
     for (const [type, group] of byType) {
       const aggId = `agg:${provId}:${type}`;
-
-      // Skip if this aggregate is expanded
       if (expandedAggregates.has(aggId)) continue;
+      if (group.length <= AGGREGATE_THRESHOLD) continue;
 
-      if (group.length > AGGREGATE_THRESHOLD) {
-        // Check that these nodes aren't shared with another provision
-        // (if a case is connected to multiple provisions, don't aggregate it)
-        const exclusiveMembers = group.filter((n) => {
-          const provs = caseToProvisions.get(n.id);
-          return provs && provs.length === 1;
-        });
+      // Only aggregate nodes exclusive to one provision
+      const exclusiveMembers = group.filter((n) => {
+        const provs = caseToProvisions.get(n.id);
+        return provs && provs.length === 1;
+      });
 
-        if (exclusiveMembers.length > AGGREGATE_THRESHOLD) {
-          const countA = exclusiveMembers.filter((n) => n.category === 'A').length;
-          const countB = exclusiveMembers.filter((n) => n.category === 'B').length;
-          const countC = exclusiveMembers.filter((n) => n.category === 'C').length;
+      if (exclusiveMembers.length <= AGGREGATE_THRESHOLD) continue;
 
-          const agg: AggregateNode = {
-            id: aggId,
-            provisionId: provId,
-            type,
-            totalCount: exclusiveMembers.length,
-            countA,
-            countB,
-            countC,
-            memberIds: exclusiveMembers.map((n) => n.id),
-          };
-          aggregates.push(agg);
+      const counts = { A: 0, B: 0, C: 0 };
+      for (const n of exclusiveMembers) {
+        if (n.category) counts[n.category]++;
+      }
 
-          for (const member of exclusiveMembers) {
-            aggregatedNodeIds.add(member.id);
-            memberToAggregate.set(member.id, aggId);
-          }
-        }
+      aggregates.push({
+        id: aggId,
+        provisionId: provId,
+        type,
+        totalCount: exclusiveMembers.length,
+        countA: counts.A,
+        countB: counts.B,
+        countC: counts.C,
+        memberIds: exclusiveMembers.map((n) => n.id),
+      });
+
+      for (const member of exclusiveMembers) {
+        aggregatedNodeIds.add(member.id);
+        memberToAggregate.set(member.id, aggId);
       }
     }
   }
 
-  // Build the node list for dagre: real nodes (minus aggregated) + aggregate nodes
-  const layoutNodes = nodes.filter((n) => !aggregatedNodeIds.has(n.id));
-  const layoutEdges: GraphEdge[] = [];
+  return { aggregates, aggregatedNodeIds, memberToAggregate };
+}
 
-  // Remap edges: if an edge targets an aggregated node, point to its aggregate instead
+/** Remap edges so that aggregated nodes point to their aggregate instead */
+function remapEdges(
+  edges: GraphEdge[],
+  aggregatedNodeIds: Set<string>,
+  memberToAggregate: Map<string, string>
+): GraphEdge[] {
+  const result: GraphEdge[] = [];
   const edgeSet = new Set<string>();
+
   for (const edge of edges) {
     let from = edge.from;
     let to = edge.to;
@@ -172,34 +176,95 @@ export function computeAggregatedLayout(
     const key = `${from}→${to}`;
     if (!edgeSet.has(key) && from !== to) {
       edgeSet.add(key);
-      layoutEdges.push({ from, to, valence: edge.valence });
+      result.push({ from, to, valence: edge.valence });
     }
   }
 
-  // Build dagre graph
+  return result;
+}
+
+/** Add layer constraint edges to enforce vertical hierarchy in dagre */
+function addLayerConstraints(
+  g: dagre.graphlib.Graph,
+  layoutNodes: GraphNode[],
+  aggregates: AggregateNode[],
+  realEdgeKeys: Set<string>
+) {
+  const byLayer = new Map<number, string[]>();
+
+  for (const node of layoutNodes) {
+    const rank = LAYER_CONFIG[node.type].rank;
+    if (!byLayer.has(rank)) byLayer.set(rank, []);
+    byLayer.get(rank)!.push(node.id);
+  }
+  for (const agg of aggregates) {
+    const rank = LAYER_CONFIG[agg.type].rank;
+    if (!byLayer.has(rank)) byLayer.set(rank, []);
+    byLayer.get(rank)!.push(agg.id);
+  }
+
+  const layerKeys = [...byLayer.keys()].sort((a, b) => a - b);
+  for (let i = 0; i < layerKeys.length - 1; i++) {
+    const upper = byLayer.get(layerKeys[i])!;
+    const lower = byLayer.get(layerKeys[i + 1])!;
+    if (upper.length === 0 || lower.length === 0) continue;
+
+    const upperAnchor = upper[0];
+    const lowerAnchor = lower[0];
+    for (const id of upper) {
+      if (!realEdgeKeys.has(`${id}→${lowerAnchor}`)) {
+        g.setEdge(id, lowerAnchor, { weight: 2, minlen: 2 });
+      }
+    }
+    for (const id of lower) {
+      if (!realEdgeKeys.has(`${upperAnchor}→${id}`)) {
+        g.setEdge(upperAnchor, id, { weight: 2, minlen: 2 });
+      }
+    }
+  }
+}
+
+/**
+ * Compute an aggregated layout where case nodes connected to the same provision
+ * are grouped into virtual aggregate nodes when the group exceeds AGGREGATE_THRESHOLD.
+ *
+ * @param expandedAggregates Set of aggregate IDs that have been expanded by the user
+ */
+export function computeAggregatedLayout(
+  nodes: GraphNode[],
+  edges: GraphEdge[],
+  expandedAggregates: Set<string>
+): AggregatedLayout {
+  const nodeMap = new Map(nodes.map((n) => [n.id, n]));
+
+  // Phase 1: Build provision↔case mappings
+  const { provisionToCases, caseToProvisions } = buildProvisionCaseMaps(edges, nodeMap);
+
+  // Phase 2: Build aggregates
+  const { aggregates, aggregatedNodeIds, memberToAggregate } = buildAggregates(
+    provisionToCases,
+    caseToProvisions,
+    expandedAggregates
+  );
+
+  // Phase 3: Remap edges through aggregates
+  const layoutNodes = nodes.filter((n) => !aggregatedNodeIds.has(n.id));
+  const layoutEdges = remapEdges(edges, aggregatedNodeIds, memberToAggregate);
+
+  // Phase 4: Build dagre graph
   const g = new dagre.graphlib.Graph();
-  g.setGraph({
-    rankdir: 'TB',
-    ranksep: 80,
-    nodesep: 30,
-    marginx: 40,
-    marginy: 40,
-  });
+  g.setGraph({ rankdir: 'TB', ranksep: 80, nodesep: 30, marginx: 40, marginy: 40 });
   g.setDefaultEdgeLabel(() => ({}));
 
-  // Add real nodes
   for (const node of layoutNodes) {
     const size = nodeSize(node);
     g.setNode(node.id, { width: size.width, height: size.height });
   }
-
-  // Add aggregate nodes
   for (const agg of aggregates) {
     const size = aggregateSize();
     g.setNode(agg.id, { width: size.width, height: size.height });
   }
 
-  // Add real edges (track them so we can filter out constraint edges later)
   const realEdgeKeys = new Set<string>();
   for (const edge of layoutEdges) {
     if (g.hasNode(edge.from) && g.hasNode(edge.to)) {
@@ -208,47 +273,10 @@ export function computeAggregatedLayout(
     }
   }
 
-  // Layer constraints
-  const byLayer = new Map<number, string[]>();
-  for (const node of layoutNodes) {
-    const layer = LAYER_RANK[node.type];
-    if (!byLayer.has(layer)) byLayer.set(layer, []);
-    byLayer.get(layer)!.push(node.id);
-  }
-  // Aggregate nodes inherit their type's layer
-  for (const agg of aggregates) {
-    const layer = LAYER_RANK[agg.type];
-    if (!byLayer.has(layer)) byLayer.set(layer, []);
-    byLayer.get(layer)!.push(agg.id);
-  }
-
-  // Add invisible constraint edges between all adjacent layers to enforce hierarchy.
-  // Connect EVERY node in a layer to an anchor in the adjacent layer so that
-  // real edges (case→EU) can't pull nodes out of their designated layer.
-  // IMPORTANT: Don't overwrite real edges — only add constraints where no edge exists.
-  const layerKeys = [...byLayer.keys()].sort((a, b) => a - b);
-  for (let i = 0; i < layerKeys.length - 1; i++) {
-    const upper = byLayer.get(layerKeys[i])!;
-    const lower = byLayer.get(layerKeys[i + 1])!;
-    if (upper.length > 0 && lower.length > 0) {
-      const upperAnchor = upper[0];
-      const lowerAnchor = lower[0];
-      for (const id of upper) {
-        if (!realEdgeKeys.has(`${id}→${lowerAnchor}`)) {
-          g.setEdge(id, lowerAnchor, { weight: 2, minlen: 2 });
-        }
-      }
-      for (const id of lower) {
-        if (!realEdgeKeys.has(`${upperAnchor}→${id}`)) {
-          g.setEdge(upperAnchor, id, { weight: 2, minlen: 2 });
-        }
-      }
-    }
-  }
-
+  addLayerConstraints(g, layoutNodes, aggregates, realEdgeKeys);
   dagre.layout(g);
 
-  // Extract results
+  // Phase 5: Extract results
   const resultNodes = new Map<string, NodeLayout>();
   for (const id of g.nodes()) {
     const n = g.node(id);
@@ -257,7 +285,6 @@ export function computeAggregatedLayout(
     }
   }
 
-  // Only include real edges (not invisible constraint edges)
   const resultEdges: EdgeLayout[] = [];
   for (const e of g.edges()) {
     if (!realEdgeKeys.has(`${e.v}→${e.w}`)) continue;
