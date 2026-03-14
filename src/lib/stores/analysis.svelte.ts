@@ -1,5 +1,5 @@
 import type { GraphNode, GraphEdge, GapPair } from '$lib/types/graph';
-import type { Analysis, AnalysisStatus, Seeds, IterationEntry, AnalysisDbResponse, AnalysisCandidate } from '$lib/types/analysis';
+import type { Analysis, AnalysisStatus, Seeds, IterationEntry, AnalysisDbResponse, AnalysisCandidate, ScreeningResult, ScreeningAssignment, ScreeningMode } from '$lib/types/analysis';
 import type { SuggestedProvision } from '$lib/types/api';
 import { updateAnalysis } from '$lib/api/analyses';
 import { toastState } from './toast.svelte';
@@ -13,6 +13,16 @@ class AnalysisState {
   suggestedProvisions = $state<SuggestedProvision[]>([]);
   /** Screening status per node ID from DB candidates */
   screeningStatus = $state<Record<string, AnalysisCandidate['screening_status']>>({});
+  /** AI screening results per sak_nr */
+  screeningResults = $state<Record<string, ScreeningResult>>({});
+  /** Screening assignment per sak_nr (overrides category mode when in 'pick' mode) */
+  screeningAssignments = $state<Record<string, ScreeningAssignment>>({});
+  /** Category-level screening mode */
+  screeningModes = $state<Record<string, ScreeningMode>>({ A: 'claude', B: 'claude', C: 'pick' });
+  /** Currently streaming sak_nr (being screened by Claude) */
+  streamingSakNr = $state<string | null>(null);
+  /** Whether screening has been started */
+  screeningStarted = $state(false);
   /** When set, list/graph filters to nodes from this iteration only */
   filterIteration = $state<number | null>(null);
   analysis = $state<Analysis>({
@@ -27,6 +37,13 @@ class AnalysisState {
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   });
+
+  /** Whether the analysis is in a screening-relevant phase */
+  isScreeningPhase = $derived(
+    this.analysis.status === 'screening' ||
+    this.analysis.status === 'screening_complete' ||
+    this.analysis.status === 'candidates_ready'
+  );
 
   /** The DB analysis ID — set when loading a workspace */
   private dbId: string | null = null;
@@ -166,6 +183,46 @@ class AnalysisState {
     this.filterIteration = this.filterIteration === iteration ? null : iteration;
   }
 
+  // --- Screening ---
+
+  /** Get the effective assignment for a case */
+  getAssignment(sakNr: string, category: string | undefined | null): ScreeningAssignment {
+    const cat = category ?? 'C';
+    const mode = this.screeningModes[cat] ?? 'claude';
+    if (mode === 'pick') return this.screeningAssignments[sakNr] ?? 'claude';
+    return mode as ScreeningAssignment;
+  }
+
+  /** Set per-case assignment (switches category to 'pick' mode if needed) */
+  setAssignment(sakNr: string, category: string | undefined | null, value: ScreeningAssignment) {
+    const cat = category ?? 'C';
+    if (this.screeningModes[cat] !== 'pick') {
+      this.screeningModes[cat] = 'pick';
+    }
+    this.screeningAssignments[sakNr] = value;
+  }
+
+  /** Set category-level screening mode */
+  setCategoryMode(category: string, mode: ScreeningMode) {
+    this.screeningModes[category] = mode;
+  }
+
+  /** Add a screening result (from SSE stream) */
+  addScreeningResult(result: ScreeningResult) {
+    this.screeningResults[result.sak_nr] = result;
+    this.screeningStatus[`kofa:${result.sak_nr}`] = 'ai_screened';
+  }
+
+  /** Mark screening as started */
+  startScreening() {
+    this.screeningStarted = true;
+  }
+
+  /** Set the currently streaming case */
+  setStreamingSakNr(sakNr: string | null) {
+    this.streamingSakNr = sakNr;
+  }
+
   // --- DB Persistence ---
 
   /** Load from DB response — maps AnalysisDbResponse to internal Analysis shape */
@@ -183,14 +240,19 @@ class AnalysisState {
     const notes: Record<string, string> = {};
     const delimitations: Record<string, boolean> = {};
     const screening: Record<string, AnalysisCandidate['screening_status']> = {};
+    const screeningResults: Record<string, ScreeningResult> = {};
     for (const c of data.candidates) {
       const nodeId = `kofa:${c.sak_nr}`;
       if (c.read_at) readStatus[nodeId] = true;
       if (c.user_notes) notes[nodeId] = c.user_notes;
       if (c.is_delimitation) delimitations[nodeId] = true;
       if (c.screening_status) screening[nodeId] = c.screening_status;
+      if (c.ai_screening) {
+        screeningResults[c.sak_nr] = c.ai_screening;
+      }
     }
     this.screeningStatus = screening;
+    this.screeningResults = screeningResults;
 
     this.analysis = {
       id: data.id,

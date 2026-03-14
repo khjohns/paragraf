@@ -17,7 +17,7 @@ def get_analysis(analysis_id):
     result = (
         get_client()
         .table("analyses")
-        .select("*, analysis_seeds(*), analysis_candidates(id, sak_nr, category, signals, iteration, screening_status, user_notes, is_delimitation, read_at)")
+        .select("*, analysis_seeds(*), analysis_candidates(id, sak_nr, category, signals, iteration, screening_status, ai_screening, user_notes, is_delimitation, read_at)")
         .eq("id", analysis_id)
         .single()
         .execute()
@@ -148,7 +148,7 @@ def parse_seed_rows(seed_rows):
 
 def update_candidate(analysis_id, sak_nr, updates):
     """Update a candidate's user_notes, is_delimitation, read_at, or screening_status."""
-    allowed = {"user_notes", "is_delimitation", "read_at", "screening_status"}
+    allowed = {"user_notes", "is_delimitation", "read_at", "screening_status", "ai_screening"}
     filtered = {k: v for k, v in updates.items() if k in allowed}
     if not filtered:
         return None

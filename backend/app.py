@@ -1,6 +1,7 @@
+import json
 import os
 
-from flask import Flask, jsonify, request, send_from_directory
+from flask import Flask, Response, jsonify, request, send_from_directory
 from flask_cors import CORS
 from traversal import build_traversal_response
 from cases import get_case_detail
@@ -10,6 +11,7 @@ from eu_cases import get_eu_case_detail
 from forarbeider import get_forarbeid_detail, get_forarbeid_section
 from analyses import list_analyses, get_analysis, get_analysis_with_seeds, create_analysis, update_analysis, upsert_seeds, update_candidate, persist_candidates, parse_seed_rows
 from scoping import generate_scope, ScopeError
+from screening import screen_cases, rescreen_case, ScreeningError
 
 STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
 
@@ -218,6 +220,52 @@ def update_candidate_route(analysis_id, sak_nr):
     if not result:
         return jsonify({"error": "Not found"}), 404
     return jsonify(result)
+
+
+@app.route("/api/analyses/<analysis_id>/screen", methods=["POST"])
+def screen_analysis_route(analysis_id):
+    """Screen cases with Claude AI. Streams results via SSE as they complete."""
+    body = request.get_json()
+    if not body or not body.get("sak_nrs"):
+        return jsonify({"error": "sak_nrs required"}), 400
+
+    sak_nrs = body["sak_nrs"]
+    max_parallel = body.get("max_parallel", 3)
+
+    # Update analysis status
+    update_analysis(analysis_id, {"status": "screening"})
+
+    def generate():
+        try:
+            for sak_nr, result in screen_cases(analysis_id, sak_nrs, max_parallel):
+                event_data = json.dumps(result, ensure_ascii=False)
+                yield f"data: {event_data}\n\n"
+        except ScreeningError as e:
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+        # Send done event
+        yield f"data: {json.dumps({'done': True})}\n\n"
+
+    return Response(
+        generate(),
+        mimetype="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+@app.route("/api/analyses/<analysis_id>/screen/<path:sak_nr>/rescreen", methods=["POST"])
+def rescreen_case_route(analysis_id, sak_nr):
+    """Re-screen a single case with additional sections."""
+    body = request.get_json() or {}
+    sections = body.get("sections", ["vurdering", "bakgrunn"])
+
+    try:
+        result = rescreen_case(analysis_id, sak_nr, sections)
+        return jsonify(result)
+    except ScreeningError as e:
+        return jsonify({"error": str(e)}), 500
 
 
 # SPA fallback — serve static frontend in production

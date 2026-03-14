@@ -68,6 +68,7 @@ export interface AnalysisCandidate {
   signals: { ref: boolean; fts: boolean; vec: boolean };
   iteration: number;
   screening_status: 'pending' | 'ai_screened' | 'user_read' | 'both';
+  ai_screening: ScreeningResult | null;
   user_notes: string | null;
   is_delimitation: boolean;
   read_at: string | null;
@@ -101,6 +102,26 @@ export interface ScopingResult {
   };
   reasoning: string;
 }
+
+/** AI screening result for a case */
+export interface ScreeningResult {
+  sak_nr: string;
+  factum: string;
+  assessment: string;
+  proposition: string;
+  quotes: { p: number; text: string }[];
+  nuances: string | null;
+  relevance: 'A' | 'B' | 'C';
+  relevance_reasoning: string;
+  star: boolean;
+  error?: string;
+}
+
+/** Screening assignment — who screens each case */
+export type ScreeningAssignment = 'claude' | 'me';
+
+/** Category-level screening mode */
+export type ScreeningMode = 'claude' | 'me' | 'pick';
 
 /** DB response shape — mapped to Analysis in loadFromDb */
 export interface AnalysisDbResponse {
