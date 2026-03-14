@@ -3,14 +3,10 @@
 Sends all propositions + key quotes to Claude for thematic grouping,
 evolution analysis, and tension identification across cases.
 """
-import json
 import logging
-import os
-
-import anthropic
 
 from db import get_client
-from llm_utils import CLAUDE_MODEL
+from llm_utils import load_analysis_context, call_claude_structured, format_sub_problems
 
 logger = logging.getLogger(__name__)
 
@@ -148,28 +144,12 @@ def generate_cross_propositions(analysis_id: str) -> dict:
     Sends all screening propositions + quotes to Claude for cross-analysis.
     Returns propositions grouped by theme with evolution and tensions.
     """
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
-    if not api_key:
-        raise CrossPropositionsError("ANTHROPIC_API_KEY ikke konfigurert")
-
-    client = get_client()
-
-    # Load analysis context
-    analysis = (
-        client.table("analyses")
-        .select("problem, refined_problem, sub_problems")
-        .eq("id", analysis_id)
-        .single()
-        .execute()
-        .data
-    )
-    if not analysis:
-        raise CrossPropositionsError("Analyse ikke funnet")
-
-    problem = analysis.get("refined_problem") or analysis.get("problem", "")
-    sub_problems = analysis.get("sub_problems") or []
+    ctx = load_analysis_context(analysis_id)
+    problem = ctx["problem"]
+    sub_problems = ctx["sub_problems"]
 
     # Load all screened candidates with their screening results
+    client = get_client()
     candidates = (
         client.table("analysis_candidates")
         .select("sak_nr, category, ai_screening")
@@ -202,8 +182,6 @@ def generate_cross_propositions(analysis_id: str) -> dict:
   {f'<nyanser>{nuances}</nyanser>' if nuances else ''}
 </case>""")
 
-    sub_str = "\n".join(f"  {i+1}. {sp}" for i, sp in enumerate(sub_problems)) if sub_problems else "  Ingen delspørsmål"
-
     user_message = f"""<screened_cases>
 {chr(10).join(case_parts)}
 </screened_cases>
@@ -211,44 +189,20 @@ def generate_cross_propositions(analysis_id: str) -> dict:
 <analysis_context>
 <problemstilling>{problem}</problemstilling>
 <delspørsmål>
-{sub_str}
+{format_sub_problems(sub_problems)}
 </delspørsmål>
 </analysis_context>
 
 Analyser rettssetningene tverrgående. Grupper tematisk, spor utvikling \
 over tid, og identifiser spenninger mellom rettssetninger."""
 
-    llm_client = anthropic.Anthropic(api_key=api_key, timeout=120.0)
-    response = llm_client.messages.create(
-        model=CLAUDE_MODEL,
+    result = call_claude_structured(
+        system_prompt=CROSS_PROPOSITIONS_SYSTEM_PROMPT,
+        user_message=user_message,
+        schema=CROSS_PROPOSITIONS_SCHEMA,
         max_tokens=8000,
-        output_config={
-            "format": {
-                "type": "json_schema",
-                "schema": CROSS_PROPOSITIONS_SCHEMA,
-            },
-            "effort": "high",
-        },
-        system=[
-            {
-                "type": "text",
-                "text": CROSS_PROPOSITIONS_SYSTEM_PROMPT,
-                "cache_control": {"type": "ephemeral"},
-            }
-        ],
-        messages=[{"role": "user", "content": user_message}],
+        log_label=f"Cross-propositions for {analysis_id}",
     )
-
-    text = response.content[0].text
-    logger.info(
-        "Cross-propositions for %s: %d input tokens (%d cached), %d output tokens",
-        analysis_id,
-        response.usage.input_tokens,
-        getattr(response.usage, "cache_read_input_tokens", 0),
-        response.usage.output_tokens,
-    )
-
-    result = json.loads(text)
 
     # Persist propositions to DB
     _persist_cross_propositions(analysis_id, result)
@@ -257,31 +211,29 @@ over tid, og identifiser spenninger mellom rettssetninger."""
 
 
 def _persist_cross_propositions(analysis_id: str, result: dict):
-    """Persist cross-propositions to the analysis_propositions table."""
+    """Persist cross-propositions to the analysis_propositions table (batch upsert)."""
     client = get_client()
     propositions = result.get("propositions", [])
 
+    rows = []
     for prop in propositions:
-        # Use the first instance's case as source_case
         instances = prop.get("instances", [])
         source_case = instances[0]["caseId"] if instances else None
         source_paragraph = instances[0].get("paragraph") if instances else None
 
-        tension_id = None
-        if prop.get("tension"):
-            # We'll resolve tension IDs after all propositions are inserted
-            pass
+        rows.append({
+            "analysis_id": analysis_id,
+            "proposition_text": prop["proposition"],
+            "theme": prop.get("theme"),
+            "source_case": source_case,
+            "source_paragraph": source_paragraph,
+            "evolution_type": instances[0]["evolution"] if instances else None,
+            "source": "ai_cross",
+            "confirmed": False,
+        })
 
+    if rows:
         client.table("analysis_propositions").upsert(
-            {
-                "analysis_id": analysis_id,
-                "proposition_text": prop["proposition"],
-                "theme": prop.get("theme"),
-                "source_case": source_case,
-                "source_paragraph": source_paragraph,
-                "evolution_type": instances[0]["evolution"] if instances else None,
-                "source": "ai_cross",
-                "confirmed": False,
-            },
+            rows,
             on_conflict="analysis_id,source_case,source",
         ).execute()

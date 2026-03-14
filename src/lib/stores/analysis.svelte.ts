@@ -249,6 +249,16 @@ class AnalysisState {
     if (prop) prop.confirmed = !prop.confirmed;
   }
 
+  /** Set cross-propositions loading state */
+  setCrossPropositionsLoading(loading: boolean) {
+    this.crossPropositionsLoading = loading;
+  }
+
+  /** Set post-search loading state */
+  setPostSearchLoading(loading: boolean) {
+    this.postSearchLoading = loading;
+  }
+
   // --- DB Persistence ---
 
   /** Load from DB response — maps AnalysisDbResponse to internal Analysis shape */

@@ -2,14 +2,7 @@
   import { analysisState } from '$lib/stores/analysis.svelte';
   import { crossPropositions } from '$lib/api/analyses';
   import { toastState } from '$lib/stores/toast.svelte';
-  import type { Proposition, PropositionInstance, EvolutionType } from '$lib/types/analysis';
-
-  const EVOLUTION: Record<string, { label: string; color: string; bg: string }> = {
-    established: { label: 'Etablert', color: 'var(--p-ink)', bg: 'rgba(26,24,20,0.06)' },
-    confirmed: { label: 'Bekreftet', color: 'var(--p-success)', bg: 'var(--p-success-bg)' },
-    qualified: { label: 'Presisert', color: 'var(--p-warn)', bg: 'var(--p-warn-bg)' },
-    consolidating: { label: 'Konsoliderende', color: 'var(--p-provision-accent)', bg: '#E8EEF0' },
-  };
+  import { EVOLUTION_CONFIG, type Proposition, type PropositionInstance, type EvolutionType } from '$lib/types/analysis';
 
   type OrderedEntry = { prop: Proposition; tensionAfter?: { withId: string; note: string } };
 
@@ -37,7 +30,7 @@
   }
 
   function evolutionColor(type: string): string {
-    return EVOLUTION[type]?.color ?? 'var(--p-ink3)';
+    return EVOLUTION_CONFIG[type as EvolutionType]?.color ?? 'var(--p-ink3)';
   }
 
   // Track which proposition cards are collapsed (all open by default)
@@ -65,7 +58,7 @@
 
   async function runCrossAnalysis() {
     const id = analysisState.analysis.id;
-    analysisState.crossPropositionsLoading = true;
+    analysisState.setCrossPropositionsLoading(true);
     try {
       const result = await crossPropositions(id);
       analysisState.setPropositions(result.propositions);
@@ -76,7 +69,7 @@
     } catch {
       toastState.show('Tverrgående analyse feilet', 'error');
     } finally {
-      analysisState.crossPropositionsLoading = false;
+      analysisState.setCrossPropositionsLoading(false);
     }
   }
 </script>
@@ -174,7 +167,7 @@
                     <div class="prop-instances">
                       {#each prop.instances as inst, idx}
                         {@const isLast = idx === prop.instances.length - 1}
-                        {@const ev = EVOLUTION[inst.evolution]}
+                        {@const ev = EVOLUTION_CONFIG[inst.evolution]}
                         <div class="instance" class:last={isLast}>
                           <!-- Timeline dot -->
                           <div
@@ -198,7 +191,7 @@
                               {/if}
                               <span class="instance-date">{inst.date}</span>
                               {#if inst.suggested}
-                                <span class="ai-tag">AI-forslag</span>
+                                <span class="ai-badge">AI-forslag</span>
                               {/if}
                             </div>
                             <div class="instance-quote">«{inst.quote}»</div>
@@ -472,15 +465,6 @@
   .instance-date {
     font-size: 11px;
     color: var(--p-ink4);
-  }
-  .ai-tag {
-    font-size: 9px;
-    font-weight: 700;
-    padding: 1px 5px;
-    border-radius: 3px;
-    background: var(--p-highlight);
-    border: 1px solid rgba(166, 139, 91, 0.2);
-    color: var(--p-ai-text);
   }
   .evo-badge {
     font-size: 10px;

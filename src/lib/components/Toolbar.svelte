@@ -3,6 +3,9 @@
   import type { ListSort } from '$lib/stores/ui.svelte';
   import { analysisState } from '$lib/stores/analysis.svelte';
   import { NODE_TYPE_ACCENT, nodeMatchesSearch } from '$lib/types/graph';
+  import { EVOLUTION_CONFIG } from '$lib/types/analysis';
+
+  let tensionCount = $derived(analysisState.propositions.filter((p) => p.tension).length);
 
   let graphMatchCount = $derived.by(() => {
     const q = uiState.graphSearch.toLowerCase().trim();
@@ -77,7 +80,6 @@
     {#if uiState.viewMode === 'propositions'}
       <span class="toolbar-sep"></span>
       <span class="prop-count">{analysisState.propositions.length} rettssetninger</span>
-      {@const tensionCount = analysisState.propositions.filter(p => p.tension).length}
       {#if tensionCount > 0}
         <span class="toolbar-sep-dot">·</span>
         <span class="prop-tension-count">{tensionCount} {tensionCount === 1 ? 'spenning' : 'spenninger'}</span>
@@ -175,7 +177,7 @@
     {#if uiState.viewMode === 'propositions'}
       <!-- Evolution legend -->
       <div class="evolution-legend">
-        {#each [{ key: 'established', label: 'Etablert', color: 'var(--p-ink)' }, { key: 'confirmed', label: 'Bekreftet', color: 'var(--p-success)' }, { key: 'qualified', label: 'Presisert', color: 'var(--p-warn)' }, { key: 'consolidating', label: 'Konsoliderende', color: 'var(--p-provision-accent)' }] as ev}
+        {#each Object.values(EVOLUTION_CONFIG) as ev}
           <div class="evolution-item">
             <div class="evolution-dot" style:border-color={ev.color}></div>
             <span>{ev.label}</span>

@@ -3,14 +3,10 @@
 Sends screening results + gap matrix + seeds to Claude to suggest
 additional search terms, provisions, and patterns to explore.
 """
-import json
 import logging
-import os
-
-import anthropic
 
 from db import get_client
-from llm_utils import CLAUDE_MODEL
+from llm_utils import load_analysis_context, call_claude_structured, format_sub_problems
 
 logger = logging.getLogger(__name__)
 
@@ -132,40 +128,25 @@ def generate_post_search(analysis_id: str) -> dict:
     Sends compressed screening results + gaps + seeds to Claude.
     Returns structured suggestions for additional searches.
     """
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
-    if not api_key:
-        raise PostSearchError("ANTHROPIC_API_KEY ikke konfigurert")
+    ctx = load_analysis_context(analysis_id, extra_columns=["gaps"])
 
+    problem = ctx["problem"]
+    sub_problems = ctx["sub_problems"]
+    provisions = ctx["provisions"]
+    gaps = ctx.get("gaps") or []
+
+    # Load additional seed types for current-seeds display
+    from db import get_client
     client = get_client()
-
-    # Load analysis context
-    analysis = (
-        client.table("analyses")
-        .select("problem, refined_problem, sub_problems, gaps")
-        .eq("id", analysis_id)
-        .single()
-        .execute()
-        .data
-    )
-    if not analysis:
-        raise PostSearchError("Analyse ikke funnet")
-
-    problem = analysis.get("refined_problem") or analysis.get("problem", "")
-    sub_problems = analysis.get("sub_problems") or []
-    gaps = analysis.get("gaps") or []
-
-    # Load current seeds
-    seeds = (
+    all_seeds = (
         client.table("analysis_seeds")
         .select("seed_type, value")
         .eq("analysis_id", analysis_id)
         .execute()
         .data
     ) or []
-
-    provisions = [s["value"] for s in seeds if s["seed_type"] == "provision"]
-    fts_terms = [s["value"] for s in seeds if s["seed_type"] == "fts"]
-    vector_queries = [s["value"] for s in seeds if s["seed_type"] == "vector"]
+    fts_terms = [s["value"] for s in all_seeds if s["seed_type"] == "fts"]
+    vector_queries = [s["value"] for s in all_seeds if s["seed_type"] == "vector"]
 
     # Compress screening results
     screening_summary = _compress_screening_results(analysis_id)
@@ -175,8 +156,6 @@ def generate_post_search(analysis_id: str) -> dict:
         f"- {g.get('provision1', '?')} ∩ {g.get('provision2', '?')}: {g.get('count', 0)} saker"
         for g in gaps
     )
-
-    sub_str = "\n".join(f"  {i+1}. {sp}" for i, sp in enumerate(sub_problems)) if sub_problems else "  Ingen delspørsmål"
 
     user_message = f"""<screening_results>
 {screening_summary}
@@ -195,40 +174,15 @@ def generate_post_search(analysis_id: str) -> dict:
 <analysis_context>
 <problemstilling>{problem}</problemstilling>
 <delspørsmål>
-{sub_str}
+{format_sub_problems(sub_problems)}
 </delspørsmål>
 </analysis_context>
 
 Analyser dekningen og foreslå supplerende søk for å dekke hull i analysen."""
 
-    llm_client = anthropic.Anthropic(api_key=api_key, timeout=120.0)
-    response = llm_client.messages.create(
-        model=CLAUDE_MODEL,
-        max_tokens=4000,
-        output_config={
-            "format": {
-                "type": "json_schema",
-                "schema": POST_SEARCH_SCHEMA,
-            },
-            "effort": "high",
-        },
-        system=[
-            {
-                "type": "text",
-                "text": POST_SEARCH_SYSTEM_PROMPT,
-                "cache_control": {"type": "ephemeral"},
-            }
-        ],
-        messages=[{"role": "user", "content": user_message}],
+    return call_claude_structured(
+        system_prompt=POST_SEARCH_SYSTEM_PROMPT,
+        user_message=user_message,
+        schema=POST_SEARCH_SCHEMA,
+        log_label=f"Post-search for {analysis_id}",
     )
-
-    text = response.content[0].text
-    logger.info(
-        "Post-search for %s: %d input tokens (%d cached), %d output tokens",
-        analysis_id,
-        response.usage.input_tokens,
-        getattr(response.usage, "cache_read_input_tokens", 0),
-        response.usage.output_tokens,
-    )
-
-    return json.loads(text)

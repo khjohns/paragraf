@@ -7,7 +7,7 @@
 
   async function runPostSearch() {
     const id = analysisState.analysis.id;
-    analysisState.postSearchLoading = true;
+    analysisState.setPostSearchLoading(true);
     try {
       const result = await postSearch(id);
       analysisState.setPostSearchSuggestions(result);
@@ -15,7 +15,7 @@
     } catch {
       toastState.show('Ettersøk feilet', 'error');
     } finally {
-      analysisState.postSearchLoading = false;
+      analysisState.setPostSearchLoading(false);
     }
   }
 
