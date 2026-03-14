@@ -2,7 +2,7 @@
 import json
 import re
 
-CLAUDE_MODEL = "claude-sonnet-4-20250514"
+CLAUDE_MODEL = "claude-sonnet-4-6"
 GEMINI_MODEL = "gemini-3-flash-preview"
 
 
