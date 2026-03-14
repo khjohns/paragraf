@@ -123,6 +123,48 @@ export type ScreeningAssignment = 'claude' | 'me';
 /** Category-level screening mode */
 export type ScreeningMode = 'claude' | 'me' | 'pick';
 
+/** Evolution type for a proposition instance */
+export type EvolutionType = 'established' | 'confirmed' | 'qualified' | 'consolidating';
+
+/** A single instance where a proposition appears in a case */
+export interface PropositionInstance {
+  caseId: string;
+  paragraph: number;
+  date: string;
+  evolution: EvolutionType;
+  quote: string;
+  suggested?: boolean;
+}
+
+/** A proposition with its instances across cases */
+export interface Proposition {
+  id: string;
+  theme: string;
+  proposition: string;
+  instances: PropositionInstance[];
+  tension?: {
+    withId: string;
+    note: string;
+  };
+  confirmed: boolean;
+  source: 'ai_screening' | 'ai_cross' | 'user';
+}
+
+/** Post-search suggestion from Claude */
+export interface PostSearchSuggestion {
+  fts_terms: string[];
+  vector_queries: string[];
+  provisions: string[];
+  patterns: string[];
+  reasoning: string;
+}
+
+/** Cross-propositions result from Claude */
+export interface CrossPropositionsResult {
+  propositions: Proposition[];
+  themes: string[];
+}
+
 /** DB response shape — mapped to Analysis in loadFromDb */
 export interface AnalysisDbResponse {
   id: string;
