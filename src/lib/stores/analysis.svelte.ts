@@ -1,5 +1,5 @@
 import type { GraphNode, GraphEdge, GapPair } from '$lib/types/graph';
-import type { Analysis, AnalysisStatus, Seeds, IterationEntry, AnalysisDbResponse, AnalysisCandidate, ScreeningResult, ScreeningAssignment, ScreeningMode } from '$lib/types/analysis';
+import type { Analysis, AnalysisStatus, Seeds, IterationEntry, AnalysisDbResponse, AnalysisCandidate, ScreeningResult, ScreeningAssignment, ScreeningMode, Proposition, PostSearchSuggestion } from '$lib/types/analysis';
 import type { SuggestedProvision } from '$lib/types/api';
 import { updateAnalysis } from '$lib/api/analyses';
 import { toastState } from './toast.svelte';
@@ -25,6 +25,14 @@ class AnalysisState {
   screeningStarted = $state(false);
   /** When set, list/graph filters to nodes from this iteration only */
   filterIteration = $state<number | null>(null);
+  /** Cross-propositions from Claude analysis */
+  propositions = $state<Proposition[]>([]);
+  /** Post-search suggestions from Claude */
+  postSearchSuggestions = $state<PostSearchSuggestion | null>(null);
+  /** Whether cross-propositions analysis is loading */
+  crossPropositionsLoading = $state(false);
+  /** Whether post-search is loading */
+  postSearchLoading = $state(false);
   analysis = $state<Analysis>({
     id: crypto.randomUUID(),
     problemStatement: '',
@@ -221,6 +229,24 @@ class AnalysisState {
   /** Set the currently streaming case */
   setStreamingSakNr(sakNr: string | null) {
     this.streamingSakNr = sakNr;
+  }
+
+  // --- Propositions ---
+
+  /** Set cross-propositions from Claude analysis */
+  setPropositions(propositions: Proposition[]) {
+    this.propositions = propositions;
+  }
+
+  /** Set post-search suggestions */
+  setPostSearchSuggestions(suggestions: PostSearchSuggestion | null) {
+    this.postSearchSuggestions = suggestions;
+  }
+
+  /** Toggle confirmed state on a proposition */
+  togglePropositionConfirmed(id: string) {
+    const prop = this.propositions.find(p => p.id === id);
+    if (prop) prop.confirmed = !prop.confirmed;
   }
 
   // --- DB Persistence ---

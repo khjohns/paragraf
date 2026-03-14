@@ -78,6 +78,11 @@
 	--p-signal-on: #1A1814;
 	--p-signal-off: #D5D0C8;
 
+	/* Proposition registry — tensions & evolution */
+	--p-tension: #A63D3D;
+	--p-tension-bg: rgba(166,61,61,0.04);
+	--p-tension-border: rgba(166,61,61,0.18);
+
 	/* AI curation (Phase 2) — trust boundary styling */
 	--p-highlight: #FBF5E8;
 	--p-highlight-strong: #F5EBD6;

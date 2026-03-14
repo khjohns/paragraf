@@ -1,5 +1,5 @@
 import { apiFetch } from './client';
-import type { AnalysisSummary, AnalysisDbResponse, ScopingResult, ScreeningResult } from '$lib/types/analysis';
+import type { AnalysisSummary, AnalysisDbResponse, ScopingResult, ScreeningResult, PostSearchSuggestion, CrossPropositionsResult } from '$lib/types/analysis';
 import type { TraversalResponse } from '$lib/types/api';
 
 export function fetchAnalyses(): Promise<AnalysisSummary[]> {
@@ -131,6 +131,18 @@ export function screenCases(
     });
 
   return controller;
+}
+
+export function postSearch(analysisId: string): Promise<PostSearchSuggestion> {
+  return apiFetch<PostSearchSuggestion>(`/api/analyses/${analysisId}/post-search`, {
+    method: 'POST',
+  });
+}
+
+export function crossPropositions(analysisId: string): Promise<CrossPropositionsResult> {
+  return apiFetch<CrossPropositionsResult>(`/api/analyses/${analysisId}/cross-propositions`, {
+    method: 'POST',
+  });
 }
 
 export function rescreenCase(

@@ -5,6 +5,7 @@
   import Toolbar from '$lib/components/Toolbar.svelte';
   import NodeList from '$lib/components/NodeList.svelte';
   import GraphView from '$lib/components/GraphView.svelte';
+  import PropositionRegistry from '$lib/components/PropositionRegistry.svelte';
   import NodeDetail from '$lib/components/NodeDetail.svelte';
   import ScopingOverlay from '$lib/components/ScopingOverlay.svelte';
   import KeyboardShortcuts from '$lib/components/KeyboardShortcuts.svelte';
@@ -79,6 +80,8 @@
       <Toolbar />
       {#if uiState.viewMode === 'graph'}
         <GraphView />
+      {:else if uiState.viewMode === 'propositions'}
+        <PropositionRegistry />
       {:else}
         <NodeList />
       {/if}

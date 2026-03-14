@@ -67,9 +67,22 @@
         class:active={uiState.viewMode === 'graph'}
         onclick={() => uiState.setViewMode('graph')}>Graf</button
       >
+      <button
+        class="view-btn"
+        class:active={uiState.viewMode === 'propositions'}
+        onclick={() => uiState.setViewMode('propositions')}>Rettssetninger</button
+      >
     </div>
 
-    {#if uiState.viewMode === 'list'}
+    {#if uiState.viewMode === 'propositions'}
+      <span class="toolbar-sep"></span>
+      <span class="prop-count">{analysisState.propositions.length} rettssetninger</span>
+      {@const tensionCount = analysisState.propositions.filter(p => p.tension).length}
+      {#if tensionCount > 0}
+        <span class="toolbar-sep-dot">·</span>
+        <span class="prop-tension-count">{tensionCount} {tensionCount === 1 ? 'spenning' : 'spenninger'}</span>
+      {/if}
+    {:else if uiState.viewMode === 'list'}
       <span class="toolbar-sep"></span>
 
       <!-- Filters -->
@@ -159,7 +172,17 @@
   </div>
 
   <div class="toolbar-right">
-    {#if uiState.viewMode === 'list'}
+    {#if uiState.viewMode === 'propositions'}
+      <!-- Evolution legend -->
+      <div class="evolution-legend">
+        {#each [{ key: 'established', label: 'Etablert', color: 'var(--p-ink)' }, { key: 'confirmed', label: 'Bekreftet', color: 'var(--p-success)' }, { key: 'qualified', label: 'Presisert', color: 'var(--p-warn)' }, { key: 'consolidating', label: 'Konsoliderende', color: 'var(--p-provision-accent)' }] as ev}
+          <div class="evolution-item">
+            <div class="evolution-dot" style:border-color={ev.color}></div>
+            <span>{ev.label}</span>
+          </div>
+        {/each}
+      </div>
+    {:else if uiState.viewMode === 'list'}
       <!-- Sort -->
       <div class="sort">
         <label class="sort-label" for="sort-select">Sorter:</label>
@@ -499,6 +522,40 @@
   }
   .search-clear:hover {
     color: var(--p-ink2);
+  }
+
+  /* Propositions toolbar */
+  .prop-count {
+    font-size: 11px;
+    color: var(--p-ink3);
+  }
+  .toolbar-sep-dot {
+    color: var(--p-border-s);
+    font-size: 11px;
+  }
+  .prop-tension-count {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--p-tension, #a63d3d);
+  }
+  .evolution-legend {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .evolution-item {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 10px;
+    color: var(--p-ink4);
+  }
+  .evolution-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    border: 2px solid currentColor;
+    background: var(--p-surface);
   }
 
   .sort-warning {

@@ -6,6 +6,7 @@
   import ProgressIndicator from './ProgressIndicator.svelte';
   import SeedInput from './SeedInput.svelte';
   import ScreeningPanel from './ScreeningPanel.svelte';
+  import PostSearchPanel from './PostSearchPanel.svelte';
   import CategoryBadge from './CategoryBadge.svelte';
   import DelimBadge from './DelimBadge.svelte';
   import ValencePip from './ValencePip.svelte';
@@ -137,6 +138,13 @@
     {#if counts.total > 0}
       <LeftPanelSection num="3b" title="Screening" defaultOpen>
         <ScreeningPanel />
+      </LeftPanelSection>
+    {/if}
+
+    <!-- 3c. Ettersøk -->
+    {#if analysisState.isScreeningPhase || analysisState.analysis.status === 'screening_complete' || analysisState.analysis.status === 'post_search'}
+      <LeftPanelSection num="3c" title="Ettersøk" subtitle="AI-forslag">
+        <PostSearchPanel />
       </LeftPanelSection>
     {/if}
 
