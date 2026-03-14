@@ -206,6 +206,25 @@ Scoping-flyten (steg 0) er *innebygd i workspace-ruten* som en modal/fullskjerm-
 - Team-tab i portefølje synlig men dimmet — aktiveres når auth er på plass
 - Overlapp-beregning (portefølje-mock) forutsetter team-data — implementeres med auth
 
+### Claude API — features og best practices
+
+Følgende API-features skal vurderes for alle Claude-kall:
+
+- **Structured outputs** (`output_config.format.json_schema`): Garanterer valid JSON — bruk når responsen skal parses maskinelt. Eliminerer behov for regex-fallback. Ref: https://docs.anthropic.com/en/docs/build-with-claude/structured-output
+- **Effort** (`output_config.effort`): `low`/`medium`/`high` — styrer tenketid vs. kostnad. Bruk `medium` for rutinekall, `high` for kompleks analyse (syntese, QA)
+- **Prompt caching** (`cache_control: {"type": "ephemeral"}`): ~90% rabatt på system-prompt tokens ved gjentatte kall. Legg på system-blokken. Ref: https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching
+- **Citations** (vurder for Sprint 13+): Kan returnere kildereferanser til input-tekst — relevant for screening der vi sender avgjørelsestekst
+- **Batch API** (vurder for Sprint 13): 50% rabatt ved asynkron prosessering — relevant for parallell screening av mange saker
+
+**Prompting best practices** (gjelder alle system-prompts):
+- Strukturer med XML-tags (`<instructions>`, `<task>`, `<formatting_rules>`)
+- Gi Claude en klar rolle med kontekst og motivasjon
+- Plasser data først, instruksjoner sist ved lange kontekster
+- Vær spesifikk om ønsket output — unngå vage instruksjoner
+- Ref: https://docs.anthropic.com/en/docs/build-with-claude/prompt-engineering/claude-prompting-best-practices
+
+**Delt konfigurasjon:** `backend/llm_utils.py` inneholder `CLAUDE_MODEL` (`claude-sonnet-4-6`), `GEMINI_MODEL`, og `parse_json_response`. Alle Claude-kall skal bruke `CLAUDE_MODEL`.
+
 ### Token-økonomi
 - Screening-kall: ~12-18K inn, ~3K ut (per sak)
 - Syntese: ~25-35K inn, ~8-12K ut (per analyse)
