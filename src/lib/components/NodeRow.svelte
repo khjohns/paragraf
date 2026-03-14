@@ -35,7 +35,7 @@
   );
   let expanded = $state(false);
 
-  let rowEl: HTMLButtonElement | undefined = $state();
+  let rowEl: HTMLDivElement | undefined = $state();
   $effect(() => {
     if (isSelected && rowEl) {
       rowEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
@@ -84,7 +84,8 @@
   class="node-row-wrapper"
   class:streaming={isStreaming}
 >
-  <button
+  <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+  <div
     bind:this={rowEl}
     class="node-row"
     class:selected={isSelected}
@@ -224,7 +225,7 @@
         {/if}
       </div>
     </div>
-  </button>
+  </div>
 
   <!-- Expanded screening result -->
   {#if expanded && screeningResult}

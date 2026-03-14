@@ -179,7 +179,7 @@ class AnalysisState {
   // --- Screening ---
 
   /** Get the effective assignment for a case */
-  getAssignment(sakNr: string, category: string | null): ScreeningAssignment {
+  getAssignment(sakNr: string, category: string | undefined | null): ScreeningAssignment {
     const cat = category ?? 'C';
     const mode = this.screeningModes[cat] ?? 'claude';
     if (mode === 'pick') return this.screeningAssignments[sakNr] ?? 'claude';
@@ -187,7 +187,7 @@ class AnalysisState {
   }
 
   /** Set per-case assignment (switches category to 'pick' mode if needed) */
-  setAssignment(sakNr: string, category: string | null, value: ScreeningAssignment) {
+  setAssignment(sakNr: string, category: string | undefined | null, value: ScreeningAssignment) {
     const cat = category ?? 'C';
     if (this.screeningModes[cat] !== 'pick') {
       this.screeningModes[cat] = 'pick';
