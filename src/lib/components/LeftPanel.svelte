@@ -5,6 +5,7 @@
   import LeftPanelSection from './LeftPanelSection.svelte';
   import ProgressIndicator from './ProgressIndicator.svelte';
   import SeedInput from './SeedInput.svelte';
+  import ScreeningPanel from './ScreeningPanel.svelte';
   import CategoryBadge from './CategoryBadge.svelte';
   import DelimBadge from './DelimBadge.svelte';
   import ValencePip from './ValencePip.svelte';
@@ -131,6 +132,13 @@
         </div>
       </div>
     </LeftPanelSection>
+
+    <!-- 3b. Screening -->
+    {#if counts.total > 0}
+      <LeftPanelSection num="3b" title="Screening" defaultOpen>
+        <ScreeningPanel />
+      </LeftPanelSection>
+    {/if}
 
     <!-- 4. Kartlegging -->
     <LeftPanelSection
