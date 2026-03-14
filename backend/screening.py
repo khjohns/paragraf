@@ -249,17 +249,12 @@ def screen_single_case(
     return result
 
 
-def screen_cases(
-    analysis_id: str,
-    sak_nrs: list[str],
-    max_parallel: int = 3,
-):
-    """Screen multiple cases in parallel, yielding results as they complete.
+def _load_screening_context(analysis_id: str) -> tuple[str, list[str], list[str]]:
+    """Load analysis context needed for screening.
 
-    Yields (sak_nr, result_dict) tuples. Each result is also persisted to DB.
-    On error, yields (sak_nr, {"error": message}).
+    Returns (problem, sub_problems, provisions).
+    Raises ScreeningError if analysis not found.
     """
-    # Load analysis context
     client = get_client()
     analysis = (
         client.table("analyses")
@@ -275,7 +270,6 @@ def screen_cases(
     problem = analysis.get("refined_problem") or analysis.get("problem", "")
     sub_problems = analysis.get("sub_problems") or []
 
-    # Get seed provisions
     seeds = (
         client.table("analysis_seeds")
         .select("value")
@@ -285,8 +279,21 @@ def screen_cases(
         .data
     )
     provisions = [s["value"] for s in (seeds or [])]
+    return problem, sub_problems, provisions
 
-    # Screen in parallel batches
+
+def screen_cases(
+    analysis_id: str,
+    sak_nrs: list[str],
+    max_parallel: int = 3,
+):
+    """Screen multiple cases in parallel, yielding results as they complete.
+
+    Yields (sak_nr, result_dict) tuples. Each result is also persisted to DB.
+    On error, yields (sak_nr, {"error": message}).
+    """
+    problem, sub_problems, provisions = _load_screening_context(analysis_id)
+
     with ThreadPoolExecutor(max_workers=max_parallel) as executor:
         futures = {
             executor.submit(
@@ -299,7 +306,6 @@ def screen_cases(
             sak_nr = futures[future]
             try:
                 result = future.result()
-                # Persist to DB
                 _persist_screening_result(analysis_id, sak_nr, result)
                 yield sak_nr, result
             except Exception as e:
@@ -313,37 +319,13 @@ def rescreen_case(
     sections: list[str] | None = None,
 ) -> dict:
     """Re-screen a single case with more context (additional sections)."""
-    client = get_client()
-    analysis = (
-        client.table("analyses")
-        .select("problem, refined_problem, sub_problems")
-        .eq("id", analysis_id)
-        .single()
-        .execute()
-        .data
-    )
-    if not analysis:
-        raise ScreeningError("Analyse ikke funnet")
-
-    problem = analysis.get("refined_problem") or analysis.get("problem", "")
-    sub_problems = analysis.get("sub_problems") or []
-
-    seeds = (
-        client.table("analysis_seeds")
-        .select("value")
-        .eq("analysis_id", analysis_id)
-        .eq("seed_type", "provision")
-        .execute()
-        .data
-    )
-    provisions = [s["value"] for s in (seeds or [])]
+    problem, sub_problems, provisions = _load_screening_context(analysis_id)
 
     result = screen_single_case(
         sak_nr, problem, sub_problems, provisions,
         sections=sections or ["vurdering", "bakgrunn"],
     )
 
-    # Persist updated result
     _persist_screening_result(analysis_id, sak_nr, result)
     return result
 
@@ -358,23 +340,15 @@ def _persist_screening_result(analysis_id: str, sak_nr: str, result: dict):
         "screening_status": "ai_screened",
     }).eq("analysis_id", analysis_id).eq("sak_nr", sak_nr).execute()
 
-    # Extract proposition to analysis_propositions
+    # Extract proposition to analysis_propositions (upsert by source_case+source)
     if result.get("proposition"):
-        # Check if proposition already exists for this case
-        existing = (
-            client.table("analysis_propositions")
-            .select("id")
-            .eq("analysis_id", analysis_id)
-            .eq("source_case", sak_nr)
-            .eq("source", "ai_screening")
-            .execute()
-            .data
-        )
-        if not existing:
-            client.table("analysis_propositions").insert({
+        client.table("analysis_propositions").upsert(
+            {
                 "analysis_id": analysis_id,
                 "proposition_text": result["proposition"],
                 "source_case": sak_nr,
                 "source": "ai_screening",
                 "confirmed": False,
-            }).execute()
+            },
+            on_conflict="analysis_id,source_case,source",
+        ).execute()

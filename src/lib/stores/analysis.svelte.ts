@@ -38,6 +38,13 @@ class AnalysisState {
     updatedAt: new Date().toISOString(),
   });
 
+  /** Whether the analysis is in a screening-relevant phase */
+  isScreeningPhase = $derived(
+    this.analysis.status === 'screening' ||
+    this.analysis.status === 'screening_complete' ||
+    this.analysis.status === 'candidates_ready'
+  );
+
   /** The DB analysis ID — set when loading a workspace */
   private dbId: string | null = null;
   private dbSaveTimeout: ReturnType<typeof setTimeout> | null = null;

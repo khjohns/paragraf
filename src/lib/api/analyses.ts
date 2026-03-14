@@ -94,42 +94,34 @@ export function screenCases(
       const decoder = new TextDecoder();
       let buffer = '';
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() ?? '';
-
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            try {
-              const data = JSON.parse(line.slice(6));
-              if (data.done) {
-                onDone();
-              } else {
-                onResult(data);
-              }
-            } catch {
-              // Ignore parse errors for partial lines
-            }
-          }
-        }
-      }
-
-      // Process remaining buffer
-      if (buffer.startsWith('data: ')) {
+      const processLine = (line: string) => {
+        if (!line.startsWith('data: ')) return;
         try {
-          const data = JSON.parse(buffer.slice(6));
-          if (data.done) {
-            onDone();
-          } else {
-            onResult(data);
-          }
+          const data = JSON.parse(line.slice(6));
+          if (data.done) onDone();
+          else onResult(data);
         } catch {
-          // Ignore
+          // Ignore parse errors for partial lines
         }
+      };
+
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() ?? '';
+
+          for (const line of lines) {
+            processLine(line);
+          }
+        }
+        // Process remaining buffer
+        processLine(buffer);
+      } finally {
+        reader.releaseLock();
       }
     })
     .catch((err) => {

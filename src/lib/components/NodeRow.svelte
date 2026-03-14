@@ -28,11 +28,7 @@
   let assignment = $derived(
     isCase ? analysisState.getAssignment(sakNr, node.category) : undefined
   );
-  let showScreening = $derived(
-    analysisState.analysis.status === 'screening' ||
-    analysisState.analysis.status === 'screening_complete' ||
-    analysisState.analysis.status === 'candidates_ready'
-  );
+  let showScreening = $derived(analysisState.isScreeningPhase);
   let expanded = $state(false);
 
   let rowEl: HTMLDivElement | undefined = $state();
