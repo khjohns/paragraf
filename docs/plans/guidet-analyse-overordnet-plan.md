@@ -12,8 +12,8 @@ Paragraf er i dag et single-analysis-verktøy:
 - Én analyse om gangen, tilstand i `localStorage` via `AnalysisState`
 - Seed-input → traversal API → liste/graf → detaljpanel
 - Backend: Flask med `traverse`, `cases`, `provisions`, `curation`, `eu_cases`, `forarbeider`
-- Ingen Claude API-integrasjon i backend (curation bruker Anthropic/Gemini men for kuratering, ikke screening)
-- Ingen autentisering, ingen databasepersistert analyse
+- Claude API-integrasjon i backend for scoping (Sprint 11) og kuratering; delt via `llm_utils.py`
+- Ingen autentisering; analyser persistert i Supabase (Sprint 10)
 
 ## Arkitekturbeslutning: routing
 
@@ -55,13 +55,21 @@ Scoping-flyten (steg 0) er *innebygd i workspace-ruten* som en modal/fullskjerm-
 
 ### Sprint 11: Scoping — Claude-assistert problemdefinisjon (steg 0)
 
+**Status:** ✅ Implementert
+
 **Mål:** Juristen skriver fritt, Claude foreslår struktur, juristen godkjenner.
 
 **Backend:**
 - `POST /api/analyses/:id/scope` — sender problemstilling til Claude, returnerer strukturert JSON (refined_problem, sub_problems, provisions, search_strategy, reasoning)
-- System-prompt basert på SKILL.md scoping-regler
+- System-prompt basert på SKILL.md scoping-regler, strukturert med XML-tags (`<instructions>`, `<task>`, `<formatting_rules>`) per Claude prompting best practices
 - Bestemmelsesverifisering: hent ordlyd fra `lovdata_sections` for alle foreslåtte bestemmelser
 - ~8-12K tokens per kall, synkront
+- `ScopeError`-exception for feilhåndtering (ikke in-band error-dict)
+
+**Claude API-features brukt:**
+- **Structured outputs** (`output_config.format.json_schema`): Garanterer valid JSON som matcher `SCOPING_SCHEMA` — ingen regex-fallback nødvendig
+- **Effort** (`output_config.effort: "medium"`): Reduserer Sonnet-kostnader uten vesentlig kvalitetstap for denne oppgaven
+- **Prompt caching** (`cache_control: {"type": "ephemeral"}`): ~90% rabatt på system-prompt tokens ved gjentatte kall
 
 **Frontend:**
 - Scoping-overlay i workspace-ruten (tre faser fra mock):
@@ -71,6 +79,17 @@ Scoping-flyten (steg 0) er *innebygd i workspace-ruten* som en modal/fullskjerm-
 - Stegindikator øverst: Problemstilling → Scoping → Søk → Kandidater
 - «Be Claude revidere» sender oppdatert scope tilbake til Claude
 - Godkjenning persisterer seeds i `analysis_seeds`, status → `candidates_ready`
+
+**Filer opprettet/endret:**
+- `backend/scoping.py` — `generate_scope()`, `_verify_provisions()`, `ScopeError`, `SCOPING_SCHEMA`, `SCOPING_SYSTEM_PROMPT`
+- `backend/llm_utils.py` — delt `CLAUDE_MODEL` (`claude-sonnet-4-6`), `GEMINI_MODEL`, `parse_json_response`
+- `backend/app.py` — ny route `POST /api/analyses/<id>/scope`
+- `backend/curation.py` — refaktorert til å bruke `llm_utils`
+- `src/lib/components/ScopingOverlay.svelte` — 3-fase overlay med stegindikator
+- `src/lib/api/analyses.ts` — `scopeAnalysis()` API-funksjon
+- `src/lib/types/analysis.ts` — `ScopingProvision`, `ScopingResult` interfaces
+- `src/lib/stores/analysis.svelte.ts` — `setStatus()` metode
+- `src/routes/analyse/[id]/+page.svelte` — `showScoping` derived, betinget rendering
 
 **Leveranse:** Komplett steg 0 — fra problemstilling til godkjent scope med verifiserte bestemmelser.
 
@@ -187,6 +206,25 @@ Scoping-flyten (steg 0) er *innebygd i workspace-ruten* som en modal/fullskjerm-
 - Team-tab i portefølje synlig men dimmet — aktiveres når auth er på plass
 - Overlapp-beregning (portefølje-mock) forutsetter team-data — implementeres med auth
 
+### Claude API — features og best practices
+
+Følgende API-features skal vurderes for alle Claude-kall:
+
+- **Structured outputs** (`output_config.format.json_schema`): Garanterer valid JSON — bruk når responsen skal parses maskinelt. Eliminerer behov for regex-fallback. Ref: https://docs.anthropic.com/en/docs/build-with-claude/structured-output
+- **Effort** (`output_config.effort`): `low`/`medium`/`high` — styrer tenketid vs. kostnad. Bruk `medium` for rutinekall, `high` for kompleks analyse (syntese, QA)
+- **Prompt caching** (`cache_control: {"type": "ephemeral"}`): ~90% rabatt på system-prompt tokens ved gjentatte kall. Legg på system-blokken. Ref: https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching
+- **Citations** (vurder for Sprint 13+): Kan returnere kildereferanser til input-tekst — relevant for screening der vi sender avgjørelsestekst
+- **Batch API** (vurder for Sprint 13): 50% rabatt ved asynkron prosessering — relevant for parallell screening av mange saker
+
+**Prompting best practices** (gjelder alle system-prompts):
+- Strukturer med XML-tags (`<instructions>`, `<task>`, `<formatting_rules>`)
+- Gi Claude en klar rolle med kontekst og motivasjon
+- Plasser data først, instruksjoner sist ved lange kontekster
+- Vær spesifikk om ønsket output — unngå vage instruksjoner
+- Ref: https://docs.anthropic.com/en/docs/build-with-claude/prompt-engineering/claude-prompting-best-practices
+
+**Delt konfigurasjon:** `backend/llm_utils.py` inneholder `CLAUDE_MODEL` (`claude-sonnet-4-6`), `GEMINI_MODEL`, og `parse_json_response`. Alle Claude-kall skal bruke `CLAUDE_MODEL`.
+
 ### Token-økonomi
 - Screening-kall: ~12-18K inn, ~3K ut (per sak)
 - Syntese: ~25-35K inn, ~8-12K ut (per analyse)
@@ -194,9 +232,10 @@ Scoping-flyten (steg 0) er *innebygd i workspace-ruten* som en modal/fullskjerm-
 - Capsule-komprimering er nøkkelen — screening er komprimeringslaget
 
 ### Backend-evolusjon
-- Sprint 10-12: kun CRUD + eksisterende traversal
-- Sprint 13+: Claude API-integrasjon, parallelle kall, SSE-streaming
-- Backend forblir Flask men får `anthropic`-SDK som dependency
+- Sprint 10: CRUD + eksisterende traversal
+- Sprint 11: Claude API-integrasjon (structured outputs, effort, prompt caching) via `anthropic`-SDK
+- Sprint 12: kandidatpersistering
+- Sprint 13+: parallelle Claude-kall, SSE-streaming
 - Alternativ: vurder om Claude-kall bør gå via edge functions (Supabase) for bedre skalerbarhet
 
 ### Implementeringsprinsipper

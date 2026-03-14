@@ -1,15 +1,11 @@
-import json
 import logging
 import os
-import re
 
 from cases import get_case_detail
 from curation_cache import cache_curation, get_cached_curation, make_problem_hash
+from llm_utils import CLAUDE_MODEL, GEMINI_MODEL, parse_json_response
 
 logger = logging.getLogger(__name__)
-
-CLAUDE_MODEL = "claude-sonnet-4-20250514"
-GEMINI_MODEL = "gemini-3-flash-preview"
 MAX_PARAGRAPHS_CHARS = 12000  # Truncate very long decisions
 
 # JSON schema for structured Gemini output
@@ -108,18 +104,6 @@ def _build_user_prompt(
     return "\n\n".join(parts)
 
 
-def _parse_json_response(text: str) -> dict | None:
-    """Parse JSON from LLM response, handling markdown code blocks."""
-    try:
-        return json.loads(text)
-    except json.JSONDecodeError:
-        match = re.search(r"\{[\s\S]*\}", text)
-        if match:
-            try:
-                return json.loads(match.group())
-            except json.JSONDecodeError:
-                return None
-        return None
 
 
 def _call_claude(user_prompt: str) -> str | None:
@@ -224,7 +208,7 @@ def generate_curation(
     logger.info("Curation generated via %s for %s", provider, sak_nr)
 
     # Parse response
-    curation = _parse_json_response(text)
+    curation = parse_json_response(text)
     if not curation:
         return {
             "highlights": [],

@@ -6,6 +6,7 @@
   import NodeList from '$lib/components/NodeList.svelte';
   import GraphView from '$lib/components/GraphView.svelte';
   import NodeDetail from '$lib/components/NodeDetail.svelte';
+  import ScopingOverlay from '$lib/components/ScopingOverlay.svelte';
   import KeyboardShortcuts from '$lib/components/KeyboardShortcuts.svelte';
   import { onMount, untrack } from 'svelte';
   import { analysisState } from '$lib/stores/analysis.svelte';
@@ -14,6 +15,14 @@
   import { fetchAnalysis } from '$lib/api/analyses';
 
   const { data: pageData }: { data: PageData } = $props();
+
+  // Show scoping overlay when analysis is in scoping status
+  // Skip overlay for legacy analyses that have nodes but no explicit status
+  let showScoping = $derived(
+    (analysisState.analysis.status === 'scoping' ||
+    analysisState.analysis.status === undefined) &&
+    analysisState.nodes.length === 0
+  );
 
   const traversal = createTraversalQuery(() => ({
     provisions: analysisState.analysis.seeds.provisions,
@@ -57,21 +66,25 @@
 
 <KeyboardShortcuts />
 
-<AppShell>
-  {#snippet leftPanel()}
-    <LeftPanel />
-  {/snippet}
+{#if showScoping}
+  <ScopingOverlay />
+{:else}
+  <AppShell>
+    {#snippet leftPanel()}
+      <LeftPanel />
+    {/snippet}
 
-  {#snippet middlePanel()}
-    <Toolbar />
-    {#if uiState.viewMode === 'graph'}
-      <GraphView />
-    {:else}
-      <NodeList />
-    {/if}
-  {/snippet}
+    {#snippet middlePanel()}
+      <Toolbar />
+      {#if uiState.viewMode === 'graph'}
+        <GraphView />
+      {:else}
+        <NodeList />
+      {/if}
+    {/snippet}
 
-  {#snippet rightPanel()}
-    <NodeDetail />
-  {/snippet}
-</AppShell>
+    {#snippet rightPanel()}
+      <NodeDetail />
+    {/snippet}
+  </AppShell>
+{/if}
