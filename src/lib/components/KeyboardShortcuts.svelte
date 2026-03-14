@@ -14,54 +14,46 @@
     return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
   }
 
+  function navigateList(direction: 'ArrowDown' | 'ArrowUp') {
+    if (caseNodes.length === 0) return;
+    const idx = caseNodes.findIndex((n) => n.id === uiState.selectedNodeId);
+    const next =
+      idx === -1
+        ? 0
+        : direction === 'ArrowDown'
+          ? Math.min(idx + 1, caseNodes.length - 1)
+          : Math.max(idx - 1, 0);
+    uiState.selectNode(caseNodes[next].id);
+  }
+
+  function toggleSelectedRead() {
+    if (!uiState.selectedNodeId) return;
+    analysisState.toggleRead(uiState.selectedNodeId);
+    const isNowRead = !!analysisState.analysis.readStatus[uiState.selectedNodeId];
+    const readCount = Object.values(analysisState.analysis.readStatus).filter(Boolean).length;
+    toastState.show(
+      isNowRead ? `Markert som lest · ${readCount} av ${caseNodes.length}` : 'Fjernet lesemarkering',
+      'success'
+    );
+  }
+
+  const keyHandlers: Record<string, (e: KeyboardEvent) => void> = {
+    ArrowDown: (e) => { e.preventDefault(); navigateList('ArrowDown'); },
+    ArrowUp: (e) => { e.preventDefault(); navigateList('ArrowUp'); },
+    m: () => toggleSelectedRead(),
+    M: () => toggleSelectedRead(),
+    r: () => { if (uiState.selectedNodeId) window.dispatchEvent(new CustomEvent('paragraf:shortcut', { detail: 'read' })); },
+    R: () => { if (uiState.selectedNodeId) window.dispatchEvent(new CustomEvent('paragraf:shortcut', { detail: 'read' })); },
+    Escape: () => {
+      if (showHelp) showHelp = false;
+      else if (uiState.selectedNodeId) window.dispatchEvent(new CustomEvent('paragraf:shortcut', { detail: 'escape' }));
+    },
+    '?': () => { showHelp = !showHelp; },
+  };
+
   function handleKeydown(e: KeyboardEvent) {
     if (isInputFocused()) return;
-
-    switch (e.key) {
-      case 'ArrowDown':
-      case 'ArrowUp': {
-        e.preventDefault();
-        if (caseNodes.length === 0) return;
-        const idx = caseNodes.findIndex((n) => n.id === uiState.selectedNodeId);
-        const next =
-          idx === -1
-            ? 0
-            : e.key === 'ArrowDown'
-              ? Math.min(idx + 1, caseNodes.length - 1)
-              : Math.max(idx - 1, 0);
-        uiState.selectNode(caseNodes[next].id);
-        break;
-      }
-      case 'm':
-      case 'M':
-        if (uiState.selectedNodeId) {
-          analysisState.toggleRead(uiState.selectedNodeId);
-          const isNowRead = !!analysisState.analysis.readStatus[uiState.selectedNodeId];
-          const readCount = Object.values(analysisState.analysis.readStatus).filter(Boolean).length;
-          const total = caseNodes.length;
-          toastState.show(
-            isNowRead ? `Markert som lest · ${readCount} av ${total}` : 'Fjernet lesemarkering',
-            'success'
-          );
-        }
-        break;
-      case 'r':
-      case 'R':
-        if (uiState.selectedNodeId) {
-          window.dispatchEvent(new CustomEvent('paragraf:shortcut', { detail: 'read' }));
-        }
-        break;
-      case 'Escape':
-        if (showHelp) {
-          showHelp = false;
-        } else if (uiState.selectedNodeId) {
-          window.dispatchEvent(new CustomEvent('paragraf:shortcut', { detail: 'escape' }));
-        }
-        break;
-      case '?':
-        showHelp = !showHelp;
-        break;
-    }
+    keyHandlers[e.key]?.(e);
   }
 
   const shortcuts = [
