@@ -1,11 +1,12 @@
 """Scoping endpoint — Claude-assisted problem definition (Sprint 11)."""
+import json
 import logging
 import os
 
 import anthropic
 
 from db import get_client
-from llm_utils import CLAUDE_MODEL, parse_json_response
+from llm_utils import CLAUDE_MODEL
 from provisions import _ALIAS_TO_DOK_ID
 
 logger = logging.getLogger(__name__)
@@ -14,6 +15,64 @@ logger = logging.getLogger(__name__)
 class ScopeError(Exception):
     """Raised when scoping fails (missing key, bad response, etc.)."""
 
+
+# JSON schema for structured output — guarantees valid JSON from Claude
+SCOPING_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "refined_problem": {"type": "string"},
+        "sub_problems": {
+            "type": "array",
+            "items": {"type": "string"},
+        },
+        "context": {
+            "type": "object",
+            "properties": {
+                "procedure": {"type": ["string", "null"]},
+                "service_area": {"type": ["string", "null"]},
+                "market": {"type": ["string", "null"]},
+                "threshold": {"type": ["string", "null"]},
+            },
+            "required": ["procedure", "service_area", "market", "threshold"],
+            "additionalProperties": False,
+        },
+        "provisions": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "ref": {"type": "string"},
+                    "label": {"type": "string"},
+                    "primary": {"type": "boolean"},
+                    "reason": {"type": "string"},
+                },
+                "required": ["ref", "label", "primary", "reason"],
+                "additionalProperties": False,
+            },
+        },
+        "search_strategy": {
+            "type": "object",
+            "properties": {
+                "ref_table": {"type": "array", "items": {"type": "string"}},
+                "fts": {"type": "array", "items": {"type": "string"}},
+                "vector": {"type": "array", "items": {"type": "string"}},
+                "prep_work": {"type": "array", "items": {"type": "string"}},
+            },
+            "required": ["ref_table", "fts", "vector", "prep_work"],
+            "additionalProperties": False,
+        },
+        "reasoning": {"type": "string"},
+    },
+    "required": [
+        "refined_problem",
+        "sub_problems",
+        "context",
+        "provisions",
+        "search_strategy",
+        "reasoning",
+    ],
+    "additionalProperties": False,
+}
 
 SCOPING_SYSTEM_PROMPT = """\
 Du er en juridisk forskningsassistent for norsk anskaffelsesrett. Du hjelper jurister med å presisere juridiske problemstillinger og planlegge systematisk søk i KOFA-praksis.
@@ -43,35 +102,7 @@ Regler:
 - Skriv alltid på norsk (bokmål)
 - Bruk bestemmelsesformat "foa:§-nummer" (f.eks. "foa:16-12", "foa:16-5")
 - For EU-direktiver bruk "dir:art-nummer" (f.eks. "dir:65")
-- Vær konservativ — foreslå kun bestemmelser du er sikker på er relevante
-- Returner KUN JSON, ingen annen tekst
-
-JSON-format:
-{
-  "refined_problem": "string — presisert problemstilling",
-  "sub_problems": ["string — delspørsmål 1", ...],
-  "context": {
-    "procedure": "string eller null",
-    "service_area": "string eller null",
-    "market": "string eller null",
-    "threshold": "string eller null"
-  },
-  "provisions": [
-    {
-      "ref": "foa:16-12",
-      "label": "Utvelgelse av leverandører",
-      "primary": true,
-      "reason": "Hjemmel for utvelgelseskriterier"
-    }
-  ],
-  "search_strategy": {
-    "ref_table": ["Beskrivelse av referansesøk 1", ...],
-    "fts": ["søketerm1", "søketerm2"],
-    "vector": ["konseptuell søkesetning"],
-    "prep_work": ["Forarbeider å sjekke"]
-  },
-  "reasoning": "string — kort begrunnelse for forslagene"
-}"""
+- Vær konservativ — foreslå kun bestemmelser du er sikker på er relevante"""
 
 
 def _verify_provisions(provisions: list[dict]) -> list[dict]:
@@ -118,6 +149,9 @@ def _verify_provisions(provisions: list[dict]) -> list[dict]:
 def generate_scope(problem: str) -> dict:
     """Send problem to Claude, return structured scoping result with verified provisions.
 
+    Uses structured outputs (output_config.format) for guaranteed valid JSON,
+    medium effort for cost/quality balance, and prompt caching for the system prompt.
+
     Raises ScopeError on failure (missing API key, empty problem, bad response).
     """
     api_key = os.environ.get("ANTHROPIC_API_KEY")
@@ -131,14 +165,34 @@ def generate_scope(problem: str) -> dict:
     response = client.messages.create(
         model=CLAUDE_MODEL,
         max_tokens=4000,
-        system=SCOPING_SYSTEM_PROMPT,
+        # Structured output — guarantees valid JSON matching SCOPING_SCHEMA
+        output_config={
+            "format": {
+                "type": "json_schema",
+                "schema": SCOPING_SCHEMA,
+            },
+            "effort": "medium",
+        },
+        # Prompt caching on system prompt — 90% savings on subsequent calls
+        system=[
+            {
+                "type": "text",
+                "text": SCOPING_SYSTEM_PROMPT,
+                "cache_control": {"type": "ephemeral"},
+            }
+        ],
         messages=[{"role": "user", "content": problem}],
     )
     text = response.content[0].text
+    logger.info(
+        "Scoping: %d input tokens (%d cached), %d output tokens",
+        response.usage.input_tokens,
+        getattr(response.usage, "cache_read_input_tokens", 0),
+        response.usage.output_tokens,
+    )
 
-    result = parse_json_response(text)
-    if not result:
-        raise ScopeError("Kunne ikke tolke AI-responsen")
+    # Structured output guarantees valid JSON — no regex fallback needed
+    result = json.loads(text)
 
     # Verify provisions against DB
     if "provisions" in result:
