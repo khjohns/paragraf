@@ -26,3 +26,12 @@ vite.config.ts.timestamp-*
 __pycache__/
 *.pyc
 backend/venv/
+
+# codegrasp index
+.codegrasp/
+
+# Local tooling
+.mcp.json
+.playwright-mcp/
+test-results/
+backend/=1.0.0

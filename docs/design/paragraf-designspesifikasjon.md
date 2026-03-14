@@ -1313,7 +1313,7 @@ Ikke alt kan bygges samtidig. Prioritering basert på to akser: verdi for jurist
 
 ### Fase 1 — MVP
 
-Tre-panel-layout med listevisning som default. Grafvisning med hierarkisk layout. A/B/C-kategorisering med signalprikker. Reguleringsversjon-filter. Gap-matrise. Lesestatus og notater med persistering. Avgrensning som innholdstag (manuell). Kantvalens (UI klart, data ukjent inntil NLP er implementert). Siteringsretning i grafen (rettede piler ved hover). Persistent valgt node på tvers av visninger. Tomme tilstander. Subtil tilbakemelding (toasts).
+Tre-panel-layout med listevisning som default. Grafvisning med hierarkisk layout. A/B/C-kategorisering med signalprikker. Reguleringsversjon-filter. Gap-matrise. Lesestatus og notater med persistering. Avgrensning som innholdstag (manuell). Kantvalens (UI klart, data ukjent inntil NLP er implementert). Siteringsretning i grafen (rettede piler ved hover). Persistent valgt node på tvers av visninger. Tomme tilstander. Subtil tilbakemelding (toasts). `traverse_legal_graph` som backend (seksjon 35) med materialisert `centrality_score` og `authority_weight` (seksjon 34).
 
 ### Fase 2 — AI-integrasjon
 
@@ -1416,6 +1416,38 @@ Differensiert invalidering:
 - B-saker: lazy re-kuratering (invalideres, regenereres ved neste klikk)
 - C-saker: lazy (som B)
 
+### Autoritetsrangering (authority_weight)
+
+Grafen har ingen representasjon av rettskildelæren. En mye-sitert KOFA-avgjørelse fremstår som mer sentral enn en Høyesterettsdom som overprøver den — fordi sentralitet måler sitatfrekvens, ikke rettslig vekt. Uten korreksjon forvrenger dette rangeringen systematisk.
+
+**Løsning:** En eksplisitt `authority_weight`-egenskap per nodetype, basert på Eckhoffs kilderangering:
+
+| Nodetype | authority_weight | Begrunnelse |
+|----------|-----------------|-------------|
+| Høyesterettsdom | 1.0 | Bindende prejudikat |
+| Lagmannsrettsdom | 0.7 | Rettspraksis, høyere enn forvaltningspraksis |
+| EU-dom (CJEU) | 0.9 | Direktivtolkning, forrang ved motstrid |
+| KOFA-avgjørelse | 0.4 | Forvaltningspraksis, ikke bindende |
+| Lovparagraf | 1.0 | Formell lov |
+| Forarbeid | 0.6 | Vekten avhenger av alder og klarhet |
+
+Implementering:
+
+```sql
+ALTER TABLE kofa_cases ADD COLUMN authority_weight float DEFAULT 0.4;
+
+-- Norske rettsavgjørelser med differensiert vekt
+-- (krever parsing av court_case_id-format: HR- = 1.0, LA-/LB- = 0.7)
+```
+
+`authority_weight` inngår i `final_score`-beregningen i `traverse_legal_graph` (seksjon 35) som én av tre faktorer: `signal_score * 0.4 + centrality_score * 0.3 + authority_weight * 0.3`. Dette demper siteringsretningsbiasen — en ny Høyesterettsdom med få siteringer kan rangeres høyere enn en gammel KOFA-sak med mange siteringer.
+
+**UI-konsekvens:** Autoritetstypen er allerede visuelt kodet gjennom nodeform (seksjon 8b). `authority_weight` påvirker rangeringen *bak* UI-et, ikke presentasjonen. Juristen ser effekten som endret rekkefølge i listen — rettsavgjørelser og EU-dommer løftes opp, KOFA-saker med ren sitatmasse senkes ned.
+
+**Begrensning:** Vektene er statiske per nodetype, ikke per sak. En KOFA-sak som er spesielt prinsipiell (f.eks. storkammersak) får samme vekt som en rutinesak. Mer granulær vekting krever manuell annotasjon eller AI-klassifisering — vurderes som del av annoteringssystemet (se Sonnet-samtalen om Bayesiansk annotasjon).
+
+---
+
 ### Databasefunn som påvirker design
 
 Undersøkelse av de faktiske tabellene i Supabase avdekket følgende:
@@ -1432,7 +1464,197 @@ Undersøkelse av de faktiske tabellene i Supabase avdekket følgende:
 
 ---
 
-## 35. Åpne spørsmål for implementering
+## 35. Backend-arkitektur — parameterisert graf-traversal
+
+### Kjerneprinsipp
+
+Venstepanelets fire seed-typer (bestemmelser, FTS, vektor, saker) og grafvisningens kantyper kompileres til **én parameterisert SQL-query** i backend. LLM-en (for sparringspartneren) og UI-et (for juristens søk) bruker samme grensesnitt. Grafen som allerede finnes i databasen — 4.663 KOFA-saker, 92.000+ lovparagrafer, 25.948 lovhenvisninger, 6.616 sakssiteringer, 1.875 EU-referanser — eksponeres som en traverserbar struktur, ikke som separate SQL-spørringer.
+
+### Verktøysignatur
+
+```typescript
+traverse_legal_graph({
+  seed: {
+    paragraphs?: string[]        // ["16-10", "17-1"] → kofa_law_references
+    cases?: string[]             // ["2019/123"] → kofa_case_references
+    eu_cases?: string[]          // ["C-601/13"] → kofa_eu_references
+    fts?: string                 // "forpliktelseserklæring" → search_vector @@ tsquery
+    vector?: string              // naturlig språk → embedding ANN
+  },
+  edges: Array<
+    "case→law" | "law→case" |
+    "case→case" |
+    "case→eu" | "eu→case" |
+    "case→court" |
+    "law→law"
+  >,
+  depth?: number,                // default 1, max 3
+  rank_by?: "centrality" | "citation_count" | "fts_score" | "vector_score" | "recency",
+  limit?: number,
+  filter?: {
+    year_from?: number
+    regulation_version?: "old" | "new"
+    sakstype?: string
+  }
+})
+```
+
+### SQL-arkitektur: recursive CTE med blandede seeds
+
+Traversalen kompileres til en recursive CTE der lag 0 er seed-resultatet og hvert påfølgende lag følger de valgte kanttypene:
+
+```sql
+WITH RECURSIVE traversal AS (
+  -- Lag 0: seed fra paragraf + FTS + vektor (union av alle seed-typer)
+  SELECT sak_nr, 0 AS depth, signal_score AS path_score, signal_type
+  FROM (
+    -- Paragraf-seed
+    SELECT DISTINCT sak_nr, 1.0 AS signal_score, 'R' AS signal_type
+    FROM kofa_law_references WHERE law_section = ANY(:paragraphs)
+    UNION ALL
+    -- FTS-seed
+    SELECT sak_nr, ts_rank(search_vector, q) AS signal_score, 'F' AS signal_type
+    FROM kofa_decision_text, to_tsquery(:fts_query) q
+    WHERE search_vector @@ q AND section = 'vurdering'
+    UNION ALL
+    -- Vektor-seed
+    SELECT sak_nr, 1 - (embedding <=> :query_embedding) AS signal_score, 'V' AS signal_type
+    FROM kofa_decision_text
+    ORDER BY embedding <=> :query_embedding LIMIT 50
+  ) seeds
+
+  UNION ALL
+
+  -- Lag 1+: følg valgte kantyper
+  SELECT r.to_sak_nr, t.depth + 1, t.path_score * 0.8, t.signal_type
+  FROM kofa_case_references r
+  JOIN traversal t ON r.from_sak_nr = t.sak_nr
+  WHERE t.depth < :max_depth
+),
+-- Konsolider: én rad per sak med alle signaler
+consolidated AS (
+  SELECT sak_nr,
+         MIN(depth) AS depth,
+         MAX(path_score) AS best_score,
+         array_agg(DISTINCT signal_type) AS signals,
+         COUNT(DISTINCT signal_type) AS signal_count  -- A=3, B=2, C=1
+  FROM traversal GROUP BY sak_nr
+)
+SELECT c.*, k.centrality_score,
+       (c.best_score * 0.4 + k.centrality_score * 0.3 + k.authority_weight * 0.3) AS final_score
+FROM consolidated c
+JOIN kofa_cases k USING (sak_nr)
+ORDER BY c.signal_count DESC, final_score DESC
+LIMIT :limit;
+```
+
+Seed-unionen er nøkkelen: alle fire seed-typer produserer `(sak_nr, signal_score, signal_type)`-tupler som mates inn i samme traversal. `signal_type` (R/F/V) bevares gjennom hele traversalen og aggregeres til A/B/C-kategorisering i `consolidated`-steget — dette er det som driver R/F/V-prikkene i UI-et (seksjon 11).
+
+### Materialisert sentralitetsscore
+
+Sentralitet kan ikke beregnes per spørring. Løsningen er en materialisert kolonne som oppdateres periodisk:
+
+```sql
+ALTER TABLE kofa_cases ADD COLUMN centrality_score float DEFAULT 0;
+
+UPDATE kofa_cases c SET centrality_score = sub.score
+FROM (
+  SELECT to_sak_nr, COUNT(*) AS score
+  FROM kofa_case_references GROUP BY to_sak_nr
+) sub WHERE c.sak_nr = sub.to_sak_nr;
+
+CREATE INDEX ON kofa_cases(centrality_score DESC);
+```
+
+Citation count som proxy for betweenness er godt nok for rangeringen og O(1) å lese. For mer sofistikert sentralitet (PageRank) kan `pgrouting`-extensionen vurderes, men citation count dekker >90% av behovet.
+
+### Indeksstrategi
+
+Alt som trengs er allerede indekserbart i Postgres:
+
+| Kantype | Backing-tabell | Indeks |
+|---|---|---|
+| `law→case` | `kofa_law_references` | `(law_section, sak_nr)` btree |
+| `case→case` | `kofa_case_references` | `(from_sak_nr)` + `(to_sak_nr)` btree |
+| `case→eu` | `kofa_eu_references` | `(eu_case_id, sak_nr)` btree |
+| `case→court` | `kofa_court_references` | `(court_case_id)` btree |
+| `law→law` | `lovdata_structure` | `(parent_id)` — allerede FK-indeksert |
+| FTS-seed | `kofa_decision_text.search_vector` | GIN — allerede eksisterende |
+| Vektor-seed | `kofa_decision_text.embedding` | HNSW — allerede eksisterende |
+
+Hvert hopp i traversalen er O(log n). Recursive CTE med depth ≤ 3 holder seg innenfor ~100ms mot 4.663 saker og 25.000+ kanter.
+
+### Forholdet til Steg 2 i metodikken
+
+`traverse_legal_graph` erstatter ikke Steg 2 — den *implementerer* det. De fire seed-typene i UI-et (seksjon 4) korresponderer direkte til Steg 2s fire søkefaser:
+
+| Steg 2 | Seed-type | Signal |
+|---|---|---|
+| Referansetabell (paragraf-interseksjon) | `paragraphs` | R |
+| FTS-supplement | `fts` | F |
+| Vektorsøk | `vector` | V |
+| Kjente saker | `cases` | R |
+
+Kryssvalideringen som Steg 2 gjør manuelt (A = alle tre signaler, B = to, C = ett) skjer automatisk i `consolidated`-steget. Transparensen bevares: R/F/V-prikkene viser juristen nøyaktig hvilke signaler som fant hver node.
+
+### Kjente begrensninger
+
+Begrensningene fra Steg 2-analysen (Sonnet-samtalen) gjelder uendret:
+
+- **Implisitte referanser:** Saker som anvender §16-10 uten å sitere den er usynlige for graf-traversal. FTS- og vektor-seeds kompenserer, men bare på lag 0 — dypere lag følger kun eksplisitte kanter.
+- **Siteringsretningsbias:** Eldre saker akkumulerer siteringer. `centrality_score` favoriserer systematisk gammel praksis. Dempes ved å inkludere `recency` som rangeringsfaktor og ved reguleringsversjon-filteret (seksjon 7).
+- **Kantkvalitet:** Feilparsede paragrafhenvisninger gir feil traversal. Dempes ved `confidence`-scoring (seksjon 34) og ved at tre uavhengige seed-signaler kryssvaliderer.
+- **Seed-forutsetning:** Feil seeds gir systematisk avgrenset resultatsett. Dempes ved AI Lag 1-verktøy som foreslår bestemmelser (seksjon 19) og ved den hermeneutiske sirkelen (seksjon 35b).
+
+---
+
+## 35b. Den hermeneutiske sirkelen — iterasjoner som kjernearbeidsflyt
+
+### Prinsipp
+
+Med `traverse_legal_graph` koster hver ny kartleggingsrunde millisekunder. Det endrer balansen: iterasjon er ikke en sekundær operasjon som gjøres én gang (Steg 2: primærsøk → ettersøk), men **kjernearbeidsflyten**.
+
+```
+Forforståelse (paragraf, begrep)
+        ↓
+[Traversal] → kandidatliste
+        ↓
+[Lesing/tolkning] → ny forforståelse
+        ↓
+        ├── Strukturell: nye paragrafer, saker → ny paragraf/saks-seed
+        └── Semantisk: nye begreper, formuleringer → ny FTS/vektor-seed
+        ↓
+[Traversal med utvidede seeds] → utvidet kandidatliste
+        ↓
+[Lesing] → ...
+```
+
+Tolkningsfasen avdekker to typer ny forforståelse: *strukturell* (nye paragrafer og saker som bør inkluderes) og *semantisk* (nye begreper som «binær vs. kvantitativ rådighet» som ikke har en direkte representasjon i grafen). `traverse_legal_graph` støtter begge gjennom blandede seed-typer.
+
+### UI-konsekvens for venstrepanelet (jf. seksjon 4)
+
+Iterasjon bør være lett og naturlig, ikke en formell operasjon:
+
+- **Seed-akkumulering:** Nye seeds legges til eksisterende seeds, ikke erstatter dem. Juristen ser hele sin søkehistorikk som en voksende liste av chips. Fjern en seed med ×, legg til med enter.
+- **Språkmønster som seed-forslag:** Når språkmønster-identifiseringen (seksjon 29) finner gjentakende formuleringer i markerte avsnitt, foreslås de som nye FTS-seeds direkte i seed-feltet — den hermeneutiske tilbakekoblingen fra lesing til søk.
+- **AI-genererte seed-forslag etter lesing:** Etter at juristen har markert 3+ saker som lest, kan sparringspartneren (eller Lag 1-verktøy) foreslå nye seeds basert på mønstrene i det som er lest. Forslaget vises som dempede chips med stiplet ramme, som for bestemmelsesforslag (seksjon 19).
+- **Iterasjonsbadges bevares** (seksjon 14): noder fra iterasjon 2+ vises med grønn «iter. N»-pill, slik at juristen ser hvilke noder som ble oppdaget i hvilken runde.
+
+### Iterasjonslogg i venstrepanelet
+
+Kartlegging-seksjonen (seksjon 4) bør vise en kompakt iterasjonslogg:
+
+```
+Iterasjon 1:  §16-10, §17-1, «forpliktelseserklæring»    → 27 treff (4A, 8B, 15C)
+Iterasjon 2:  + «binær vs. kvantitativ rådighet»          → +3 treff (0A, 1B, 2C)
+Iterasjon 3:  + §16-3, «konkret helhetsvurdering»         → +1 treff (0A, 1B, 0C)
+```
+
+Hver rad er klikkbar — klikk filtrerer listen/grafen til noder fra den iterasjonen. Loggen gjør den hermeneutiske sirkelen *observerbar*: juristen ser hvordan søkerommet ekspanderte og hva som utløste hver utvidelse.
+
+---
+
+## 36. Åpne spørsmål for implementering
 
 1. **Persistent lagring av lesestatus og notater:** Lagres per bruker per problemstilling. Krever brukerautentisering og en `user_annotations`-tabell. Notater bør synkroniseres — juristen forventer at notater hun skrev i forrige sesjon er der når hun kommer tilbake.
 
