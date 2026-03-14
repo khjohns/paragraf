@@ -1,5 +1,6 @@
 import { apiFetch } from './client';
 import type { AnalysisSummary, AnalysisDbResponse, ScopingResult } from '$lib/types/analysis';
+import type { TraversalResponse } from '$lib/types/api';
 
 export function fetchAnalyses(): Promise<AnalysisSummary[]> {
   return apiFetch<AnalysisSummary[]>('/api/analyses');
@@ -33,6 +34,17 @@ export function scopeAnalysis(
   return apiFetch<ScopingResult>(`/api/analyses/${analysisId}/scope`, {
     method: 'POST',
     body: JSON.stringify({ problem }),
+  });
+}
+
+export function traverseAnalysis(
+  analysisId: string,
+  iteration = 1,
+  regulationFilter: 'new' | 'all' = 'new'
+): Promise<TraversalResponse & { candidateCount: number }> {
+  return apiFetch(`/api/analyses/${analysisId}/traverse`, {
+    method: 'POST',
+    body: JSON.stringify({ iteration, regulationFilter }),
   });
 }
 

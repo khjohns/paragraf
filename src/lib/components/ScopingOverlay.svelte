@@ -1,12 +1,13 @@
 <script lang="ts">
   import type { ScopingResult, ScopingProvision } from '$lib/types/analysis';
   import { analysisState } from '$lib/stores/analysis.svelte';
-  import { scopeAnalysis } from '$lib/api/analyses';
+  import { scopeAnalysis, traverseAnalysis } from '$lib/api/analyses';
 
   type Phase = 'input' | 'loading' | 'proposal' | 'searching';
   let phase = $state<Phase>('input');
   let scopingResult = $state<ScopingResult | null>(null);
   let errorMessage = $state<string | null>(null);
+  let searchError = $state<string | null>(null);
 
   // Editable fields in proposal phase
   let editedProblem = $state('');
@@ -56,7 +57,7 @@
     runScoping(revisionPrompt, 'proposal');
   }
 
-  function approve() {
+  async function approve() {
     if (!scopingResult) return;
 
     // Map provisions to seed format
@@ -64,7 +65,7 @@
       .filter((p) => p.verified)
       .map((p) => p.ref);
 
-    // Update analysis with scoping results and transition directly to candidates_ready
+    // Update analysis with scoping results
     analysisState.setProblemStatement(editedProblem);
     analysisState.setSeeds({
       provisions,
@@ -72,10 +73,32 @@
       vectorQuery: editedVector.join('. '),
       cases: analysisState.analysis.seeds.cases,
     });
-    analysisState.setStatus('candidates_ready');
+    analysisState.setStatus('searching');
 
-    // Show searching phase briefly while traversal query runs
+    // Show searching phase with progress indicators
     phase = 'searching';
+    searchError = null;
+
+    try {
+      // Run traversal via backend — persists candidates and gaps
+      const result = await traverseAnalysis(
+        analysisState.analysis.id,
+        analysisState.analysis.iteration,
+      );
+
+      // Apply results to local state
+      analysisState.setResults(
+        result.nodes,
+        result.edges,
+        result.gaps,
+        result.suggestedProvisions
+      );
+      analysisState.setStatus('candidates_ready');
+    } catch (e) {
+      searchError = e instanceof Error ? e.message : 'Søk feilet';
+      analysisState.setStatus('scoping');
+      phase = 'proposal';
+    }
   }
 
   const contextLabels: Record<string, string> = {
@@ -292,6 +315,10 @@
           <div class="reasoning-content">{scopingResult.reasoning}</div>
         </details>
 
+        {#if searchError}
+          <div class="error-message">{searchError}</div>
+        {/if}
+
         <!-- Actions -->
         <div class="proposal-actions">
           <button class="btn-primary" onclick={approve}>
@@ -308,10 +335,26 @@
       </div>
 
     {:else if phase === 'searching'}
-      <div class="loading-phase">
+      <div class="searching-phase">
         <div class="spinner"></div>
         <div class="loading-title">Kjører primærsøk</div>
         <div class="loading-desc">Referansetabell · Fulltekstsøk · Vektorsøk</div>
+
+        <div class="search-steps">
+          {#each [
+            { label: 'Referansetabell', detail: editedProvisions.filter(p => p.verified).map(p => p.ref.replace('foa:', '§ ').replace('loa:', '§ ')).join(', ') },
+            { label: 'Fulltekstsøk', detail: editedFts.join(', ') },
+            { label: 'Vektorsøk', detail: editedVector.length > 0 ? 'konseptuelt' : '' },
+          ] as step}
+            {#if step.detail}
+              <div class="search-step running">
+                <div class="search-step-spinner"></div>
+                <span class="search-step-label">{step.label}</span>
+                <span class="search-step-detail">{step.detail}</span>
+              </div>
+            {/if}
+          {/each}
+        </div>
       </div>
     {/if}
   </div>
@@ -469,6 +512,49 @@
   .loading-desc {
     font-size: 13px;
     color: var(--p-ink3);
+  }
+
+  /* Searching phase */
+  .searching-phase {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 48px 24px;
+    text-align: center;
+  }
+  .search-steps {
+    margin-top: 24px;
+    text-align: left;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .search-step {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-radius: 5px;
+    background: var(--p-surface);
+    border: 1px solid var(--p-border);
+    font-size: 12px;
+  }
+  .search-step-spinner {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 1.5px solid var(--p-border-m);
+    border-top-color: var(--p-kofa);
+    animation: spin 0.8s linear infinite;
+    flex-shrink: 0;
+  }
+  .search-step-label {
+    font-weight: 600;
+    color: var(--p-ink);
+  }
+  .search-step-detail {
+    color: var(--p-ink3);
+    font-family: var(--font-data);
+    font-size: 11px;
   }
 
   /* Proposal phase */

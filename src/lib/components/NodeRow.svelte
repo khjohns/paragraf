@@ -11,6 +11,7 @@
 
   let isSelected = $derived(uiState.selectedNodeId === node.id);
   let isRead = $derived(!!analysisState.analysis.readStatus[node.id]);
+  let screeningStatus = $derived(analysisState.screeningStatus[node.id]);
   let isDelimitation = $derived(
     node.isDelimitation || !!analysisState.analysis.delimitations[node.id]
   );
@@ -107,6 +108,16 @@
         {/if}
         {#if node.iteration > 1}
           <span class="iter-badge">iter. {node.iteration}</span>
+        {/if}
+        {#if screeningStatus === 'ai_screened' || screeningStatus === 'both'}
+          <span class="screening-badge">Screenet</span>
+        {/if}
+        {#if screeningStatus === 'user_read' || screeningStatus === 'both'}
+          <span class="screening-read">
+            <svg width="10" height="10" viewBox="0 0 10 10">
+              <path d="M2 5L4.5 7.5L8 3" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" />
+            </svg>
+          </span>
         {/if}
         <span class="subtitle">{node.subtitle}</span>
       </div>
@@ -238,6 +249,22 @@
     padding: 1px 5px;
     border-radius: 8px;
     flex-shrink: 0;
+  }
+  .screening-badge {
+    font-size: 9px;
+    font-weight: 600;
+    padding: 1px 5px;
+    border-radius: 3px;
+    background: var(--p-highlight, #FBF5E8);
+    border: 1px solid var(--p-ai-border);
+    color: var(--p-kofa, #8B6914);
+    flex-shrink: 0;
+  }
+  .screening-read {
+    color: var(--p-success);
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
   }
 
   .subtitle {

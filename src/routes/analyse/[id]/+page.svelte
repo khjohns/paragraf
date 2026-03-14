@@ -16,10 +16,11 @@
 
   const { data: pageData }: { data: PageData } = $props();
 
-  // Show scoping overlay when analysis is in scoping status
+  // Show scoping overlay when analysis is in scoping or searching status
   // Skip overlay for legacy analyses that have nodes but no explicit status
   let showScoping = $derived(
     (analysisState.analysis.status === 'scoping' ||
+    analysisState.analysis.status === 'searching' ||
     analysisState.analysis.status === undefined) &&
     analysisState.nodes.length === 0
   );

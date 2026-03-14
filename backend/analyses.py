@@ -32,6 +32,23 @@ def get_analysis(analysis_id):
     return result
 
 
+def get_analysis_with_seeds(analysis_id):
+    """Get analysis with seeds only (no candidates). Used by traverse endpoint."""
+    result = (
+        get_client()
+        .table("analyses")
+        .select("id, status, iteration, analysis_seeds(*)")
+        .eq("id", analysis_id)
+        .single()
+        .execute()
+        .data
+    )
+    if not result:
+        return None
+    result["seeds"] = result.pop("analysis_seeds", [])
+    return result
+
+
 def create_analysis(title, problem=""):
     """Create a new analysis."""
     result = (
@@ -46,7 +63,7 @@ def create_analysis(title, problem=""):
 
 def update_analysis(analysis_id, updates):
     """Update analysis fields. Accepts: title, problem, refined_problem, sub_problems, context, status, iteration."""
-    allowed = {"title", "problem", "refined_problem", "sub_problems", "context", "status", "iteration"}
+    allowed = {"title", "problem", "refined_problem", "sub_problems", "context", "status", "iteration", "gaps"}
     filtered = {k: v for k, v in updates.items() if k in allowed}
     if not filtered:
         return None
@@ -80,6 +97,53 @@ def upsert_seeds(analysis_id, seeds_data):
 
     if rows:
         client.table("analysis_seeds").insert(rows).execute()
+
+
+def persist_candidates(analysis_id, case_nodes, iteration):
+    """Persist traversal case nodes as analysis_candidates.
+
+    Upserts: deletes existing candidates for this analysis+iteration, then inserts.
+    Preserves candidates from other iterations.
+    """
+    client = get_client()
+
+    # Delete existing candidates for this iteration (re-run safe)
+    client.table("analysis_candidates").delete().eq(
+        "analysis_id", analysis_id
+    ).eq("iteration", iteration).execute()
+
+    rows = []
+    for node in case_nodes:
+        if node.get("type") != "kofa_case":
+            continue
+        sak_nr = node.get("label") or node["id"].replace("kofa:", "")
+        rows.append({
+            "analysis_id": analysis_id,
+            "sak_nr": sak_nr,
+            "category": node.get("category"),
+            "signals": node.get("signals", {}),
+            "iteration": iteration,
+            "screening_status": "pending",
+        })
+
+    if rows:
+        client.table("analysis_candidates").insert(rows).execute()
+
+    return len(rows)
+
+
+def parse_seed_rows(seed_rows):
+    """Convert DB seed rows back to {provisions, fts_terms, vector_query, seed_cases}."""
+    provisions = [s["value"] for s in seed_rows if s["seed_type"] == "provision"]
+    fts_terms = [s["value"] for s in seed_rows if s["seed_type"] == "fts"]
+    vector_query = next((s["value"] for s in seed_rows if s["seed_type"] == "vector"), "")
+    seed_cases = [s["value"] for s in seed_rows if s["seed_type"] == "case"]
+    return {
+        "provisions": provisions,
+        "fts_terms": fts_terms,
+        "vector_query": vector_query,
+        "seed_cases": seed_cases,
+    }
 
 
 def update_candidate(analysis_id, sak_nr, updates):

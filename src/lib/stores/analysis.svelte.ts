@@ -1,5 +1,5 @@
 import type { GraphNode, GraphEdge, GapPair } from '$lib/types/graph';
-import type { Analysis, AnalysisStatus, Seeds, IterationEntry, AnalysisDbResponse } from '$lib/types/analysis';
+import type { Analysis, AnalysisStatus, Seeds, IterationEntry, AnalysisDbResponse, AnalysisCandidate } from '$lib/types/analysis';
 import type { SuggestedProvision } from '$lib/types/api';
 import { updateAnalysis } from '$lib/api/analyses';
 import { toastState } from './toast.svelte';
@@ -11,6 +11,8 @@ class AnalysisState {
   edges = $state<GraphEdge[]>([]);
   gaps = $state<GapPair[]>([]);
   suggestedProvisions = $state<SuggestedProvision[]>([]);
+  /** Screening status per node ID from DB candidates */
+  screeningStatus = $state<Record<string, AnalysisCandidate['screening_status']>>({});
   /** When set, list/graph filters to nodes from this iteration only */
   filterIteration = $state<number | null>(null);
   analysis = $state<Analysis>({
@@ -176,16 +178,19 @@ class AnalysisState {
     const vectorQuery = data.seeds.find((s) => s.seed_type === 'vector')?.value ?? '';
     const cases = data.seeds.filter((s) => s.seed_type === 'case').map((s) => s.value);
 
-    // Convert DB candidates to readStatus/notes/delimitations
+    // Convert DB candidates to readStatus/notes/delimitations/screeningStatus
     const readStatus: Record<string, boolean> = {};
     const notes: Record<string, string> = {};
     const delimitations: Record<string, boolean> = {};
+    const screening: Record<string, AnalysisCandidate['screening_status']> = {};
     for (const c of data.candidates) {
       const nodeId = `kofa:${c.sak_nr}`;
       if (c.read_at) readStatus[nodeId] = true;
       if (c.user_notes) notes[nodeId] = c.user_notes;
       if (c.is_delimitation) delimitations[nodeId] = true;
+      if (c.screening_status) screening[nodeId] = c.screening_status;
     }
+    this.screeningStatus = screening;
 
     this.analysis = {
       id: data.id,
