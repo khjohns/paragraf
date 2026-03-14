@@ -8,7 +8,7 @@ from provisions import get_provision_detail
 from curation import generate_curation
 from eu_cases import get_eu_case_detail
 from forarbeider import get_forarbeid_detail, get_forarbeid_section
-from analyses import list_analyses, get_analysis, create_analysis, update_analysis, upsert_seeds, update_candidate
+from analyses import list_analyses, get_analysis, get_analysis_with_seeds, create_analysis, update_analysis, upsert_seeds, update_candidate, persist_candidates, parse_seed_rows
 from scoping import generate_scope, ScopeError
 
 STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
@@ -169,6 +169,44 @@ def scope_analysis_route(analysis_id):
         update_analysis(analysis_id, updates)
 
     return jsonify(result)
+
+
+@app.route("/api/analyses/<analysis_id>/traverse", methods=["POST"])
+def traverse_analysis_route(analysis_id):
+    """Run traversal for an analysis, persist candidates and gaps, return results."""
+    body = request.get_json() or {}
+    iteration = body.get("iteration", 1)
+
+    # Get analysis with seeds only (no candidates — lighter query)
+    analysis = get_analysis_with_seeds(analysis_id)
+    if not analysis:
+        return jsonify({"error": "Analysis not found"}), 404
+
+    # Build seed lists from DB seeds
+    seed_lists = parse_seed_rows(analysis.get("seeds", []))
+
+    try:
+        result = build_traversal_response(
+            provisions=seed_lists["provisions"],
+            fts_terms=seed_lists["fts_terms"],
+            vector_query=seed_lists["vector_query"],
+            seed_cases=seed_lists["seed_cases"],
+            regulation_filter=body.get("regulationFilter", "new"),
+        )
+
+        # Persist candidates
+        candidate_count = persist_candidates(analysis_id, result["nodes"], iteration)
+
+        # Persist gaps on the analysis
+        update_analysis(analysis_id, {
+            "gaps": result.get("gaps", []),
+            "status": "candidates_ready",
+        })
+
+        result["candidateCount"] = candidate_count
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route("/api/analyses/<analysis_id>/candidates/<path:sak_nr>", methods=["PATCH"])
