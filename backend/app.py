@@ -9,6 +9,7 @@ from curation import generate_curation
 from eu_cases import get_eu_case_detail
 from forarbeider import get_forarbeid_detail, get_forarbeid_section
 from analyses import list_analyses, get_analysis, create_analysis, update_analysis, upsert_seeds, update_candidate
+from scoping import generate_scope, ScopeError
 
 STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
 
@@ -143,6 +144,31 @@ def update_analysis_route(analysis_id):
         if result is None and not body:
             return jsonify({"error": "Not found"}), 404
     return jsonify({"ok": True})
+
+
+@app.route("/api/analyses/<analysis_id>/scope", methods=["POST"])
+def scope_analysis_route(analysis_id):
+    body = request.get_json()
+    if not body or not body.get("problem"):
+        return jsonify({"error": "problem required"}), 400
+
+    try:
+        result = generate_scope(body["problem"])
+    except ScopeError as e:
+        return jsonify({"error": str(e)}), 500
+
+    # Persist refined problem and sub_problems to the analysis
+    updates = {}
+    if result.get("refined_problem"):
+        updates["refined_problem"] = result["refined_problem"]
+    if result.get("sub_problems"):
+        updates["sub_problems"] = result["sub_problems"]
+    if result.get("context"):
+        updates["context"] = result["context"]
+    if updates:
+        update_analysis(analysis_id, updates)
+
+    return jsonify(result)
 
 
 @app.route("/api/analyses/<analysis_id>/candidates/<path:sak_nr>", methods=["PATCH"])

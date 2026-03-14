@@ -1,5 +1,5 @@
 import type { GraphNode, GraphEdge, GapPair } from '$lib/types/graph';
-import type { Analysis, Seeds, IterationEntry, AnalysisDbResponse } from '$lib/types/analysis';
+import type { Analysis, AnalysisStatus, Seeds, IterationEntry, AnalysisDbResponse } from '$lib/types/analysis';
 import type { SuggestedProvision } from '$lib/types/api';
 import { updateAnalysis } from '$lib/api/analyses';
 import { toastState } from './toast.svelte';
@@ -84,6 +84,11 @@ class AnalysisState {
 
   setSeeds(seeds: Seeds) {
     this.analysis.seeds = seeds;
+    this.touch();
+  }
+
+  setStatus(status: AnalysisStatus) {
+    this.analysis.status = status;
     this.touch();
   }
 

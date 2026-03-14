@@ -1,5 +1,5 @@
 import { apiFetch } from './client';
-import type { AnalysisSummary, AnalysisDbResponse } from '$lib/types/analysis';
+import type { AnalysisSummary, AnalysisDbResponse, ScopingResult } from '$lib/types/analysis';
 
 export function fetchAnalyses(): Promise<AnalysisSummary[]> {
   return apiFetch<AnalysisSummary[]>('/api/analyses');
@@ -23,6 +23,16 @@ export function updateAnalysis(
   return apiFetch<{ ok: boolean }>(`/api/analyses/${id}`, {
     method: 'PATCH',
     body: JSON.stringify(updates),
+  });
+}
+
+export function scopeAnalysis(
+  analysisId: string,
+  problem: string
+): Promise<ScopingResult> {
+  return apiFetch<ScopingResult>(`/api/analyses/${analysisId}/scope`, {
+    method: 'POST',
+    body: JSON.stringify({ problem }),
   });
 }
 

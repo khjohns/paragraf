@@ -73,6 +73,35 @@ export interface AnalysisCandidate {
   read_at: string | null;
 }
 
+/** Scoping result from Claude */
+export interface ScopingProvision {
+  ref: string;
+  label: string;
+  primary: boolean;
+  reason: string;
+  verified: boolean;
+  excerpt: string | null;
+}
+
+export interface ScopingResult {
+  refined_problem: string;
+  sub_problems: string[];
+  context: {
+    procedure: string | null;
+    service_area: string | null;
+    market: string | null;
+    threshold: string | null;
+  };
+  provisions: ScopingProvision[];
+  search_strategy: {
+    ref_table: string[];
+    fts: string[];
+    vector: string[];
+    prep_work: string[];
+  };
+  reasoning: string;
+}
+
 /** DB response shape — mapped to Analysis in loadFromDb */
 export interface AnalysisDbResponse {
   id: string;
