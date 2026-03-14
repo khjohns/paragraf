@@ -17,7 +17,7 @@ def get_analysis(analysis_id):
     result = (
         get_client()
         .table("analyses")
-        .select("*, analysis_seeds(*), analysis_candidates(id, sak_nr, category, signals, iteration, screening_status, user_notes, is_delimitation, read_at)")
+        .select("*, analysis_seeds(*), analysis_candidates(id, sak_nr, category, signals, iteration, screening_status, ai_screening, user_notes, is_delimitation, read_at)")
         .eq("id", analysis_id)
         .single()
         .execute()
