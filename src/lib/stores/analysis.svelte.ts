@@ -240,8 +240,8 @@ class AnalysisState {
       if (c.user_notes) notes[nodeId] = c.user_notes;
       if (c.is_delimitation) delimitations[nodeId] = true;
       if (c.screening_status) screening[nodeId] = c.screening_status;
-      if ((c as AnalysisCandidate & { ai_screening?: ScreeningResult }).ai_screening) {
-        screeningResults[c.sak_nr] = (c as AnalysisCandidate & { ai_screening: ScreeningResult }).ai_screening;
+      if (c.ai_screening) {
+        screeningResults[c.sak_nr] = c.ai_screening;
       }
     }
     this.screeningStatus = screening;

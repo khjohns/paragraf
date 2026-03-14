@@ -68,6 +68,7 @@ export interface AnalysisCandidate {
   signals: { ref: boolean; fts: boolean; vec: boolean };
   iteration: number;
   screening_status: 'pending' | 'ai_screened' | 'user_read' | 'both';
+  ai_screening: ScreeningResult | null;
   user_notes: string | null;
   is_delimitation: boolean;
   read_at: string | null;
