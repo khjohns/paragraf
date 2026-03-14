@@ -64,16 +64,25 @@ Frontend sender `TraversalRequest` med seeds (provisions, ftsTerms, vectorQuery,
 
 ## Svelte 5 — VIKTIG
 
-Claude er ikke trent på Svelte 5 runes-syntaks. Bruk context7 MCP for oppdatert dokumentasjon ved behov.
+Claude er ikke trent på Svelte 5 runes-syntaks. Bruk context7 MCP (`/llmstxt/svelte_dev_llms-small_txt`) for oppdatert dokumentasjon ved behov.
+
+### Hva som endret seg fra Svelte 4
+
+| Svelte 4 (IKKE bruk) | Svelte 5 (BRUK) |
+|---|---|
+| `let count = 0` | `let count = $state(0)` |
+| `$: double = count * 2` | `const double = $derived(count * 2)` |
+| `$: console.log(x)` | `$effect(() => console.log(x))` |
+| `export let foo` | `let { foo } = $props()` |
+| `<slot />` / `<slot name="x">` | `{#snippet x()}{/snippet}` + `{@render x()}` |
+| `on:click={handler}` | `onclick={handler}` |
+| `createEventDispatcher()` | callback-props |
+
+Template-blokker (`{#if}`, `{#each}`, `{#await}`) er **uendret** fra Svelte 4.
 
 ### Obligatoriske regler
 
 ```
-- Bruk runes ($state, $derived, $effect), IKKE legacy $: syntaks
-- Bruk $props(), IKKE export let
-- Bruk snippets og {@render}, IKKE <slot>
-- Bruk onclick, IKKE on:click
-- Bruk callback-props, IKKE createEventDispatcher
 - Bruk $state.snapshot() ved sending til API
 - Bruk onMount eller +page.ts load for data-henting, IKKE $effect
 - Bruk import { browser } from '$app/environment' for localStorage-guard
