@@ -150,7 +150,7 @@ Scoping-flyten (steg 0) er *innebygd i workspace-ruten* som en modal/fullskjerm-
 **Frontend:**
 - Ettersøk-forslag vises som AI-markert panel i venstepanel
 - Juristen godkjenner nye seeds → nytt søk kjøres → nye kandidater merkes med `iteration: 2+`
-- Rettssetningsregister (designspec seksjon 21) vises i venstepanel: gruppert per tema, med spenninger markert
+- Rettssetningsregister som **midtpanel-visning** med egen toolbar-tab «Rettssetninger» (se mockup `paragraf-registry-concept.jsx` — IKKE venstepanel). Inneholder: tematisk gruppering (ThemeGroup), PropositionCard med tidslinje-instanser og evolution-badges (Etablert/Bekreftet/Presisert/Konsoliderende), TensionConnector for spenninger, AI-forslag-markering, evolution-legende i toolbar.
 - Iterasjonshistorikk synlig
 
 **Leveranse:** Iterativ utforskning med gap-søk og akkumulerende rettssetningsregister.
@@ -166,6 +166,7 @@ Scoping-flyten (steg 0) er *innebygd i workspace-ruten* som en modal/fullskjerm-
 - `POST /api/analyses/:id/synthesize` — komprimerte screeningresultater + rettssetningsregister + notater → Claude genererer notatutkast (~25-35K tokens inn)
 - Token-estimering og capsule-komprimering (A full, B komprimert, C minimal)
 - `POST /api/analyses/:id/qa` — sitatverifisering, logisk konsistens, dekningssjekk (2-3 separate kall)
+- **Sitatverifisering med Citations API:** Bruk `citations` i QA-steget for å maskinelt verifisere at `quotes`-arrayet fra Sprint 13 screening faktisk matcher avgjørelsesteksten. Sprint 13 valgte structured outputs over citations fordi screening er et kompresjonslag (rettssetninger er nyformulerte, ikke sitater) — men i QA kan citations gi automatisk verifisering uten å stole på selvrapporterte sitater.
 - QA-rapport som strukturert JSON
 
 **Frontend:**
@@ -213,7 +214,7 @@ Følgende API-features skal vurderes for alle Claude-kall:
 - **Structured outputs** (`output_config.format.json_schema`): Garanterer valid JSON — bruk når responsen skal parses maskinelt. Eliminerer behov for regex-fallback. Ref: https://docs.anthropic.com/en/docs/build-with-claude/structured-output
 - **Effort** (`output_config.effort`): `low`/`medium`/`high` — styrer tenketid vs. kostnad. Bruk `medium` for rutinekall, `high` for kompleks analyse (syntese, QA)
 - **Prompt caching** (`cache_control: {"type": "ephemeral"}`): ~90% rabatt på system-prompt tokens ved gjentatte kall. Legg på system-blokken. Ref: https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching
-- **Citations** (vurder for Sprint 13+): Kan returnere kildereferanser til input-tekst — relevant for screening der vi sender avgjørelsestekst
+- **Citations**: Vurdert for Sprint 13 screening, men **ikke brukt** — screening er et kompresjonslag som krever syntetiserte rettssetninger, relevansvurderinger og star-markering, ikke bare pekere tilbake til input. Rettssetningen er nyformulert og finnes ikke ordrett i teksten. **Anbefalt for Sprint 15 QA:** Bruk citations i sitatverifiserings-steget — da kan vi maskinelt verifisere at `quotes`-arrayet fra screening faktisk matcher avgjørelsesteksten, i stedet for å stole på selvrapporterte sitater.
 - **Batch API** (vurder for Sprint 13): 50% rabatt ved asynkron prosessering — relevant for parallell screening av mange saker
 
 **Prompting best practices** (gjelder alle system-prompts):
