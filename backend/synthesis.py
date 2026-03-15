@@ -257,18 +257,8 @@ def _load_propositions(analysis_id: str) -> str:
     return "\n".join(parts)
 
 
-def _load_user_notes(analysis_id: str) -> str:
-    """Load user notes from candidates."""
-    client = get_client()
-    candidates = (
-        client.table("analysis_candidates")
-        .select("sak_nr, user_notes")
-        .eq("analysis_id", analysis_id)
-        .not_.is_("user_notes", "null")
-        .execute()
-        .data
-    ) or []
-
+def _format_user_notes(candidates: list[dict]) -> str:
+    """Format user notes from already-loaded candidates."""
     notes = [c for c in candidates if c.get("user_notes")]
     if not notes:
         return "Ingen notater fra juristen."
@@ -307,9 +297,9 @@ def generate_synthesis(analysis_id: str) -> dict:
     # Build capsule-compressed screening data
     screening_capsule = _compress_screening_for_synthesis(candidates)
 
-    # Load propositions and notes
+    # Load propositions; extract notes from already-loaded candidates
     propositions_text = _load_propositions(analysis_id)
-    notes_text = _load_user_notes(analysis_id)
+    notes_text = _format_user_notes(candidates)
 
     # Build gap summary
     gap_summary = "Ingen hull." if not gaps else "\n".join(

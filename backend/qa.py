@@ -7,6 +7,7 @@ Three-part QA process:
 """
 import json
 import logging
+from concurrent.futures import ThreadPoolExecutor
 
 from db import get_client
 from llm_utils import (
@@ -190,24 +191,14 @@ Merk: C-kandidater trenger ikke nødvendigvis behandling.
 </instructions>"""
 
 
-def _verify_citations_with_api(analysis_id: str, note_markdown: str) -> dict:
+def _verify_citations_with_api(candidates: list[dict], note_markdown: str) -> dict:
     """Verify quotes using Citations API for machine verification.
 
+    Takes pre-loaded candidates to avoid redundant DB queries.
     Fetches the actual case text and sends it as a document for Claude to
     cite against, enabling automatic verification.
     """
     client_db = get_client()
-
-    # Get screened candidates with quotes
-    candidates = (
-        client_db.table("analysis_candidates")
-        .select("sak_nr, category, ai_screening")
-        .eq("analysis_id", analysis_id)
-        .not_.is_("ai_screening", "null")
-        .order("category")
-        .execute()
-        .data
-    ) or []
 
     # Collect quotes and their source cases
     quotes_to_verify = []
@@ -230,21 +221,26 @@ def _verify_citations_with_api(analysis_id: str, note_markdown: str) -> dict:
     important_cases = [c["sak_nr"] for c in candidates if c.get("category") in ("A", "B")]
     cases_to_fetch = [s for s in source_cases if s in important_cases][:8]
 
-    source_texts = {}
-    for sak_nr in cases_to_fetch:
-        rows = (
-            client_db.table("kofa_decision_text")
-            .select("paragraph_number, text")
-            .eq("sak_nr", sak_nr)
-            .eq("section", "vurdering")
-            .order("paragraph_number")
-            .execute()
-            .data
-        ) or []
-        if rows:
-            source_texts[sak_nr] = "\n\n".join(
-                f"[{r['paragraph_number']}] {r['text']}" for r in rows
-            )
+    # Batch fetch all case texts in a single query
+    all_rows = (
+        client_db.table("kofa_decision_text")
+        .select("sak_nr, paragraph_number, text")
+        .in_("sak_nr", cases_to_fetch)
+        .eq("section", "vurdering")
+        .order("paragraph_number")
+        .execute()
+        .data
+    ) or []
+
+    # Group by sak_nr
+    source_texts: dict[str, str] = {}
+    for row in all_rows:
+        sak_nr = row["sak_nr"]
+        line = f"[{row['paragraph_number']}] {row['text']}"
+        if sak_nr in source_texts:
+            source_texts[sak_nr] += f"\n\n{line}"
+        else:
+            source_texts[sak_nr] = line
 
     if not source_texts:
         return {"verified_quotes": [], "summary": "Kunne ikke hente kildetekster."}
@@ -411,12 +407,17 @@ def run_qa(analysis_id: str) -> dict:
 
     candidates_summary = _compress_candidates_for_qa(candidates)
 
-    # Run 3 QA checks
+    # Run 3 QA checks in parallel (all are independent LLM calls)
     logger.info("Starting QA for analysis %s", analysis_id)
 
-    citation_result = _verify_citations_with_api(analysis_id, note_markdown)
-    logic_result = _check_logical_consistency(note_markdown, candidates_summary)
-    coverage_result = _check_coverage(note_markdown, candidates_summary)
+    with ThreadPoolExecutor(max_workers=3) as executor:
+        citation_future = executor.submit(_verify_citations_with_api, candidates, note_markdown)
+        logic_future = executor.submit(_check_logical_consistency, note_markdown, candidates_summary)
+        coverage_future = executor.submit(_check_coverage, note_markdown, candidates_summary)
+
+        citation_result = citation_future.result()
+        logic_result = logic_future.result()
+        coverage_result = coverage_future.result()
 
     # Combine results
     report = {

@@ -60,28 +60,28 @@ export function updateCandidate(
 }
 
 /**
- * Start AI screening for multiple cases via SSE.
- * Returns an EventSource-like reader that yields ScreeningResult objects.
+ * Generic SSE stream reader — shared by KOFA and EU screening.
  */
-export function screenCases(
-  analysisId: string,
-  sakNrs: string[],
-  onResult: (result: ScreeningResult & { done?: boolean; error?: string }) => void,
+function streamSSE<T>(
+  url: string,
+  body: Record<string, unknown>,
+  errorLabel: string,
+  onResult: (result: T & { done?: boolean; error?: string }) => void,
   onDone: () => void,
   onError: (error: string) => void,
 ): AbortController {
   const controller = new AbortController();
 
-  fetch(`/api/analyses/${analysisId}/screen`, {
+  fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ sak_nrs: sakNrs }),
+    body: JSON.stringify(body),
     signal: controller.signal,
   })
     .then(async (response) => {
       if (!response.ok) {
         const data = await response.json().catch(() => null);
-        onError((data as { error?: string })?.error ?? 'Screening feilet');
+        onError((data as { error?: string })?.error ?? errorLabel);
         return;
       }
 
@@ -118,7 +118,6 @@ export function screenCases(
             processLine(line);
           }
         }
-        // Process remaining buffer
         processLine(buffer);
       } finally {
         reader.releaseLock();
@@ -131,6 +130,26 @@ export function screenCases(
     });
 
   return controller;
+}
+
+/**
+ * Start AI screening for multiple cases via SSE.
+ */
+export function screenCases(
+  analysisId: string,
+  sakNrs: string[],
+  onResult: (result: ScreeningResult & { done?: boolean; error?: string }) => void,
+  onDone: () => void,
+  onError: (error: string) => void,
+): AbortController {
+  return streamSSE<ScreeningResult>(
+    `/api/analyses/${analysisId}/screen`,
+    { sak_nrs: sakNrs },
+    'Screening feilet',
+    onResult,
+    onDone,
+    onError,
+  );
 }
 
 export function postSearch(analysisId: string): Promise<PostSearchSuggestion> {
@@ -172,66 +191,14 @@ export function screenEuCases(
   onDone: () => void,
   onError: (error: string) => void,
 ): AbortController {
-  const controller = new AbortController();
-
-  fetch(`/api/analyses/${analysisId}/eu-screen`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ eu_case_ids: euCaseIds }),
-    signal: controller.signal,
-  })
-    .then(async (response) => {
-      if (!response.ok) {
-        const data = await response.json().catch(() => null);
-        onError((data as { error?: string })?.error ?? 'EU-screening feilet');
-        return;
-      }
-
-      const reader = response.body?.getReader();
-      if (!reader) {
-        onError('Ingen respons-strøm');
-        return;
-      }
-
-      const decoder = new TextDecoder();
-      let buffer = '';
-
-      const processLine = (line: string) => {
-        if (!line.startsWith('data: ')) return;
-        try {
-          const data = JSON.parse(line.slice(6));
-          if (data.done) onDone();
-          else onResult(data);
-        } catch {
-          // Ignore parse errors for partial lines
-        }
-      };
-
-      try {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split('\n');
-          buffer = lines.pop() ?? '';
-
-          for (const line of lines) {
-            processLine(line);
-          }
-        }
-        processLine(buffer);
-      } finally {
-        reader.releaseLock();
-      }
-    })
-    .catch((err) => {
-      if (err.name !== 'AbortError') {
-        onError(err.message ?? 'Nettverksfeil');
-      }
-    });
-
-  return controller;
+  return streamSSE<EuScreeningResult>(
+    `/api/analyses/${analysisId}/eu-screen`,
+    { eu_case_ids: euCaseIds },
+    'EU-screening feilet',
+    onResult,
+    onDone,
+    onError,
+  );
 }
 
 // --- Synthesis ---

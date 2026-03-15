@@ -368,6 +368,16 @@ class AnalysisState {
       updatedAt: data.updated_at,
     };
 
+    // Reset Sprint 15 state to avoid stale data from previous analysis
+    this.euScreeningResults = {};
+    this.euScreeningLoading = false;
+    this.streamingEuCaseId = null;
+    this.synthesisResult = null;
+    this.synthesisMarkdown = '';
+    this.synthesisLoading = false;
+    this.qaReport = null;
+    this.qaLoading = false;
+
     // Also save to localStorage as cache
     this.save();
   }
