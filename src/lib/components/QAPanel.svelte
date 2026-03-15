@@ -1,7 +1,5 @@
 <script lang="ts">
   import { analysisState } from '$lib/stores/analysis.svelte';
-  import { runQA } from '$lib/api/analyses';
-  import { toastState } from '$lib/stores/toast.svelte';
   import { QA_SEVERITY_CONFIG, CITATION_STATUS_CONFIG } from '$lib/types/analysis';
 
   let expanded = $state<string | null>(null);
@@ -15,21 +13,6 @@
     report?.coverage.untreated_cases.filter((c) => !c.justified_omission) ?? []
   );
 
-  async function startQA() {
-    analysisState.setQaLoading(true);
-    try {
-      const result = await runQA(analysisState.analysis.id);
-      analysisState.setQaReport(result);
-      analysisState.setStatus('qa');
-      toastState.show(`QA fullført — ${result.total_flags} flagg`, result.total_flags > 0 ? 'info' : 'success');
-    } catch (e) {
-      toastState.show('QA feilet — prøv igjen', 'error');
-      console.error('QA failed:', e);
-    } finally {
-      analysisState.setQaLoading(false);
-    }
-  }
-
   function toggleSection(section: string) {
     expanded = expanded === section ? null : section;
   }
@@ -40,7 +23,7 @@
     <div class="qa-desc">
       Kvalitetssikring verifiserer sitater, sjekker logisk konsistens og dekningsgrad.
     </div>
-    <button class="qa-btn" onclick={startQA} disabled={analysisState.qaLoading || !analysisState.synthesisMarkdown}>
+    <button class="qa-btn" onclick={() => analysisState.startQA()} disabled={analysisState.qaLoading || (!analysisState.synthesisMarkdown && !analysisState.isPostSynthesisPhase)}>
       {#if analysisState.qaLoading}
         <span class="spinner"></span>
         Kjører QA…
@@ -48,7 +31,7 @@
         Kjør kvalitetssikring
       {/if}
     </button>
-    {#if !analysisState.synthesisMarkdown}
+    {#if !analysisState.synthesisMarkdown && !analysisState.isPostSynthesisPhase}
       <div class="qa-hint">Generer notat først</div>
     {/if}
   {:else}
@@ -150,7 +133,7 @@
     {/if}
 
     <!-- Re-run -->
-    <button class="qa-rerun" onclick={startQA} disabled={analysisState.qaLoading}>
+    <button class="qa-rerun" onclick={() => analysisState.startQA()} disabled={analysisState.qaLoading}>
       {analysisState.qaLoading ? 'Kjører…' : 'Kjør QA på nytt'}
     </button>
   {/if}

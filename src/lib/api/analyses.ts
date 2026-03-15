@@ -226,3 +226,53 @@ export function runQA(analysisId: string): Promise<QAReport> {
     method: 'POST',
   });
 }
+
+// --- Documents ---
+
+export interface AnalysisDocuments {
+  note?: { content: string; version: number };
+  qa_report?: { content: string; version: number };
+}
+
+export function fetchDocuments(analysisId: string): Promise<AnalysisDocuments> {
+  return apiFetch<AnalysisDocuments>(`/api/analyses/${analysisId}/documents`);
+}
+
+// --- Complete ---
+
+export function completeAnalysis(analysisId: string): Promise<{ ok: boolean }> {
+  return apiFetch<{ ok: boolean }>(`/api/analyses/${analysisId}/complete`, {
+    method: 'POST',
+  });
+}
+
+// --- Chat ---
+
+export interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+/**
+ * Stream a chat response via SSE. Returns AbortController for cancellation.
+ * Reuses streamSSE — maps {text} chunks to onChunk calls.
+ */
+export function streamChat(
+  analysisId: string,
+  messages: ChatMessage[],
+  onChunk: (text: string) => void,
+  onDone: () => void,
+  onError: (error: string) => void,
+): AbortController {
+  return streamSSE<{ text?: string }>(
+    `/api/analyses/${analysisId}/chat`,
+    { messages },
+    'Chat feilet',
+    (result) => {
+      if (result.error) onError(result.error);
+      else if (result.text) onChunk(result.text);
+    },
+    onDone,
+    onError,
+  );
+}

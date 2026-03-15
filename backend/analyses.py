@@ -146,6 +146,23 @@ def parse_seed_rows(seed_rows):
     }
 
 
+def get_analysis_documents(analysis_id):
+    """Get synthesis note and QA report for an analysis from analysis_documents."""
+    rows = (
+        get_client()
+        .table("analysis_documents")
+        .select("doc_type, content, version")
+        .eq("analysis_id", analysis_id)
+        .in_("doc_type", ["note", "qa_report"])
+        .execute()
+        .data
+    )
+    result = {}
+    for row in (rows or []):
+        result[row["doc_type"]] = row
+    return result
+
+
 def update_candidate(analysis_id, sak_nr, updates):
     """Update a candidate's user_notes, is_delimitation, read_at, or screening_status."""
     allowed = {"user_notes", "is_delimitation", "read_at", "screening_status", "ai_screening"}

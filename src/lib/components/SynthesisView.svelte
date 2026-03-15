@@ -17,6 +17,7 @@
   let lawyerSections = $derived(
     analysisState.synthesisResult?.sections.filter((s) => s.requires_lawyer_input) ?? []
   );
+  let showQABar = $derived(hasNote && !editing && analysisState.isPostSynthesisPhase);
 
   async function generateNote() {
     analysisState.setSynthesisLoading(true);
@@ -174,6 +175,44 @@
               <span class="tension-cases">{tension.cases.join(', ')}</span>
             </div>
           {/each}
+        </div>
+      {/if}
+
+      {#if showQABar}
+        <div class="workflow-bar">
+          {#if !analysisState.qaReport}
+            <div class="workflow-step">
+              <div class="workflow-label">Neste steg: Kvalitetssikring</div>
+              <div class="workflow-desc">Verifiser sitater, sjekk logikk og dekning mot kildene.</div>
+              <button class="workflow-btn" onclick={() => analysisState.startQA()} disabled={analysisState.qaLoading}>
+                {#if analysisState.qaLoading}
+                  <span class="spinner"></span>
+                  Kjører QA…
+                {:else}
+                  Kjør kvalitetssikring
+                {/if}
+              </button>
+            </div>
+          {:else}
+            <div class="workflow-step">
+              <div class="qa-inline-summary" class:clean={analysisState.qaReport.total_flags === 0}>
+                <span class="qa-inline-count">{analysisState.qaReport.total_flags}</span>
+                <span>{analysisState.qaReport.total_flags === 0 ? 'Ingen problemer funnet' : analysisState.qaReport.total_flags === 1 ? 'problem funnet' : 'problemer funnet'}</span>
+              </div>
+              <div class="workflow-actions">
+                <button class="workflow-btn secondary" onclick={() => analysisState.startQA()} disabled={analysisState.qaLoading}>
+                  {analysisState.qaLoading ? 'Kjører…' : 'Kjør QA på nytt'}
+                </button>
+                {#if analysisState.analysis.status !== 'complete'}
+                  <button class="workflow-btn" onclick={() => analysisState.markComplete()}>
+                    Ferdigstill analyse
+                  </button>
+                {:else}
+                  <div class="complete-badge">Ferdigstilt</div>
+                {/if}
+              </div>
+            </div>
+          {/if}
         </div>
       {/if}
     </div>
@@ -428,6 +467,92 @@
   .edit-area:focus {
     outline: none;
     border-color: var(--p-border-s);
+  }
+
+  /* Workflow bar */
+  .workflow-bar {
+    margin-top: 32px;
+    padding-top: 20px;
+    border-top: 1px solid var(--p-border);
+  }
+  .workflow-step {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .workflow-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--p-ink);
+  }
+  .workflow-desc {
+    font-size: 12px;
+    color: var(--p-ink3);
+    line-height: 1.45;
+  }
+  .workflow-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  .workflow-btn {
+    all: unset;
+    padding: 10px 20px;
+    border-radius: 6px;
+    background: var(--p-ink);
+    color: var(--p-panel);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .workflow-btn:hover { opacity: 0.85; }
+  .workflow-btn:disabled { opacity: 0.5; cursor: default; }
+  .workflow-btn.secondary {
+    background: transparent;
+    color: var(--p-ink3);
+    border: 1px solid var(--p-border);
+    padding: 9px 16px;
+    font-size: 12px;
+  }
+  .workflow-btn.secondary:hover {
+    background: var(--p-hover);
+    color: var(--p-ink);
+  }
+
+  .qa-inline-summary {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 14px;
+    border-radius: 6px;
+    background: var(--p-warn-bg);
+    border: 1px solid rgba(166, 123, 46, 0.12);
+    font-size: 13px;
+    color: var(--p-warn);
+    font-weight: 500;
+  }
+  .qa-inline-summary.clean {
+    background: var(--p-success-bg);
+    border-color: rgba(61, 122, 74, 0.1);
+    color: var(--p-success);
+  }
+  .qa-inline-count {
+    font-size: 16px;
+    font-weight: 700;
+    font-family: var(--font-data);
+  }
+
+  .complete-badge {
+    padding: 10px 20px;
+    border-radius: 6px;
+    background: var(--p-success-bg);
+    border: 1px solid rgba(61, 122, 74, 0.1);
+    color: var(--p-success);
+    font-size: 13px;
+    font-weight: 600;
   }
 
 
