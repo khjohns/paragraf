@@ -1,6 +1,6 @@
 # Paragraf — Implementeringsstatus vs. designspesifikasjon
 
-Oppdatert: 2026-03-10 (37 commits, Sprint 1–7 + graf-forbedringer)
+Oppdatert: 2026-03-15 (Sprint 10–16 fullført, ~55+ commits)
 
 ## Leseforklaring
 
@@ -137,12 +137,95 @@ Oppdatert: 2026-03-10 (37 commits, Sprint 1–7 + graf-forbedringer)
 
 ---
 
-## Fase 2 — AI-integrasjon
+## Fase 2 — Guidet analyse (Sprint 10–16)
+
+### Sprint 10: Portefølje, routing og fundament
+- ✅ Portefølje-rute `/` med liste over analyser (Portfolio.svelte)
+- ✅ Analyse-rute `/analyse/[id]` laster fra DB (ikke bare localStorage)
+- ✅ CRUD-endepunkter: GET/POST `/api/analyses`, GET/PATCH `/api/analyses/<id>`
+- ✅ PATCH `/api/analyses/<id>/candidates/<sak_nr>` for read_at, notes, delimitation
+- ✅ DB-tabeller: `analyses`, `analysis_seeds`, `analysis_candidates`, `analysis_documents`
+- ✅ `AnalysisState.loadFromDb()` og `saveToDb()` med 1s debounce
+- ✅ Hybrid persistering: localStorage (500ms) + Supabase DB (1s), `flushDbSave()` på beforeunload
+- ✅ 7-stegs fremdriftsindikator i venstepanel (ProgressIndicator.svelte)
+- ✅ Fremdrift utledes fra `analysis.status` enum
+
+### Sprint 11: Scoping — Claude-assistert problemdefinisjon (steg 0)
+- ✅ `backend/scoping.py` med `generate_scope()`, `SCOPING_SCHEMA`, `SCOPING_SYSTEM_PROMPT`
+- ✅ `_verify_provisions()` — slår opp ordlyd i `lovdata_sections` for alle foreslåtte bestemmelser
+- ✅ `backend/llm_utils.py` med `CLAUDE_MODEL`, `call_claude_structured()`, prompt caching, effort
+- ✅ POST `/api/analyses/<id>/scope` i app.py
+- ✅ `ScopingOverlay.svelte` — 4-fase overlay (input → laster → forslag → søker)
+- ✅ Redigerbare felter: refined_problem, sub_problems, provisions, FTS-termer, vektorsøk
+- ✅ "Be Claude revidere"-knapp sender oppdatert scope tilbake
+- ✅ Godkjenning persisterer seeds og setter status → `candidates_ready`
+- ✅ Stegindikator øverst: Problemstilling → Scoping → Søk → Kandidater
+- ✅ Claude API: structured outputs, effort=medium, prompt caching (~90% token-rabatt)
+
+### Sprint 12: Utvidet søk og kandidatpersistering (steg 1)
+- ✅ POST `/api/analyses/<id>/traverse` — kjører traversal og persisterer kandidater
+- ✅ `analyses.py: persist_candidates()` — upsert av kandidater i `analysis_candidates`
+- ✅ `traversal.py: _compute_suggested_provisions()` — finner ofte-siterte bestemmelser utenfor seeds
+- ✅ Foreslåtte bestemmelser vises som chips med stiplet ramme i SeedInput.svelte
+- ✅ `backend/vector_seed.py` — semantisk søk via Gemini embedding-001 + Supabase RPC
+- ✅ `backend/post_search.py` med `generate_post_search()` — Claude-drevne ettersøk-forslag
+- ✅ POST `/api/analyses/<id>/post-search` endepunkt
+- ✅ `PostSearchPanel.svelte` — viser FTS-forslag, nye bestemmelser, mønstre med "Legg til"-knapper
+
+### Sprint 13: Screening-delegering og AI-screening (steg 2)
+- ✅ `backend/screening.py` med `screen_cases()`, `rescreen_case()`
+- ✅ SSE-streaming: POST `/api/analyses/<id>/screen` via `sse_response()`-wrapper
+- ✅ Batch API: `screen_cases_batch()`, `process_screening_batch_results()` (50% token-rabatt)
+- ✅ Strukturert output: 5-lag JSON (rettssetning, faktum+vurdering, sitater, nyanser, relevansvurdering)
+- ✅ `ScreeningPanel.svelte` — modus-valg per kategori (Claude / Jeg leser / Velg per sak)
+- ✅ Per-sak toggle (AI|Person) i NodeRow via `screeningState.getAssignment()`
+- ✅ `ScreeningResultCard.svelte` — ekspanderbart resultat med sitater (klikkbare avsnittsnumre)
+- ✅ Gullkandidat-markering (`star: boolean`) — `★ Gullkandidat`-badge i NodeRow
+- ✅ Rettssetninger ekstraheres til `analysis_propositions` med `source='ai_screening'`, `confirmed=false`
+- ⚠️ Fremdrift i venstepanel ("X av Y screenet") — delvis, sjekk ProgressIndicator-integrasjon
+
+### Sprint 14: Ettersøk og tverrgående rettssetninger (steg 2b + 3)
+- ✅ `backend/cross_propositions.py` med `generate_cross_propositions()` — tematisk organiserte rettssetninger
+- ✅ Rettssetninger persisteres i `analysis_propositions` med evolution-type og spenninger
+- ✅ POST `/api/analyses/<id>/cross-propositions` endepunkt
+- ✅ `PropositionRegistry.svelte` — tematisk gruppering, evolution-badges, spenningsvisualisering
+- ✅ `PostSearchPanel.svelte` — viser ettersøk-forslag fra Claude (FTS-termer, bestemmelser, mønstre)
+- ⚠️ Rettssetningsregister som midtpanel-toolbar-tab — komponenter eksisterer, toolbar-integrasjon ikke verifisert
+
+### Sprint 15: EU-screening, syntese og QA (steg 4–6)
+- ✅ `backend/eu_screening.py` — EU-screening med SSE-streaming og Batch API
+- ✅ GET `/api/analyses/<id>/eu-cases` — identifiserer EU-dommer fra `kofa_eu_references`
+- ✅ POST `/api/analyses/<id>/eu-screen` og `/eu-screen-batch` endepunkter
+- ✅ `backend/synthesis.py` med `generate_synthesis()` — genererer strukturert juridisk notat
+- ✅ Syntese-notat med `requires_lawyer_input`-seksjoner og uløste spenninger
+- ✅ POST `/api/analyses/<id>/synthesize` endepunkt
+- ✅ `SynthesisView.svelte` — visning + redigering av notat med `[JURISTENS VURDERING]`-seksjoner
+- ✅ `backend/qa.py` med tre-delt QA: sitatverifisering, logisk konsistens, dekning
+- ✅ Citations API i sitatverifisering (maskinell verifisering av quotes-array fra screening)
+- ✅ Batch API for QA: `submit_qa_batch()` og `process_qa_batch_results()`
+- ✅ POST `/api/analyses/<id>/qa` og `/qa-batch` endepunkter
+- ✅ `QAPanel.svelte` — viser sitatfeil, logikkflagg, dekningsmessige gap med alvorlighetsbadger
+- ✅ Claude API: effort=high for syntese og QA (kompleks analyse)
+
+### Sprint 16: Chat-panel og sparringspartner (steg 7)
+- ✅ `backend/chat.py` med `chat_stream()` — fri samtale med analysekontekst
+- ✅ Kontekstkomprimering: laster kandidater, rettssetninger, syntese-notat, gaps fra DB
+- ✅ POST `/api/analyses/<id>/chat` — SSE-streaming av chat-svar
+- ✅ `ChatDrawer.svelte` — bunnpanel-skuff i midtpanelet (lukket/halvåpen/fullskjerm)
+- ✅ Textarea med auto-resize, streaming-visning, scroll-to-bottom
+- ⚠️ Klikkbare referanser i chat ({ref:kofa:...} → lenker) — parsing implementert, verifiser rendering
+- ❌ Innebygd devil's advocate i alle svar
+- ❌ Periodiske ubedde utfordringer (bekreftelsesbias-motgift)
+- ❌ Deponering — POST `/api/analyses/<id>/deposit` og `analysis_depositions`-tabell ikke implementert
+
+---
+
+## Fase 2 — AI-integrasjon (opprinnelige §19-§20 elementer)
 
 ### Lag 1: Deterministiske verktøy (§19)
-- ❌ Vektor-seed fra problemstilling (auto-generering)
-- ❌ Forslag til relevante bestemmelser (chips med stiplet ramme under seeds)
-- ❌ Vinkelrotasjons-begreper (alternative FTS-terms ved lave treff)
+- ⚠️ Vektor-seed fra problemstilling — vectorQuery-felt i ScopingOverlay, men ikke auto-generert fra problemtekst; krever manuell innfylling
+- ✅ Forslag til relevante bestemmelser (chips med stiplet ramme under seeds) — `_compute_suggested_provisions()` i traversal.py + SeedInput.svelte
+- ⚠️ Vinkelrotasjons-begreper (alternative FTS-terms ved lave treff) — PostSearchPanel gir Claude-forslag, men trigger er manuell (ikke automatisk ved lave treff)
 - ❌ Automatisk avgrensningsforslag med begrunnelse
 
 ### AI-kuratert leseopplevelse (§10, implementert i Sprint 5)
@@ -154,12 +237,12 @@ Oppdatert: 2026-03-10 (37 commits, Sprint 1–7 + graf-forbedringer)
 - ❌ Konfidensintensitet på gulmarkering (sterk/svak gul)
 
 ### Sparringspartner — chatpanel (§20)
-- ❌ Bunnpanel-skuff i midtpanelet (lukket/halvåpen/fullskjerm)
-- ❌ Fast kontekstlag (~2000 tokens arbeidsøkt)
+- ✅ Bunnpanel-skuff i midtpanelet (lukket/halvåpen/fullskjerm) — ChatDrawer.svelte
+- ✅ Fast kontekstlag — chat.py laster analysekontekst (kandidater, rettssetninger, gaps, notat)
 - ❌ Dynamisk kontekstlag via MCP-verktøy
 - ❌ Innebygd devil's advocate i alle svar
 - ❌ Periodiske ubedde utfordringer (bekreftelsesbias-motgift)
-- ❌ Klikkbare referanser i chat (åpner i høyrepanel/graf)
+- ⚠️ Klikkbare referanser i chat (parsing implementert, verifiser rendering)
 
 ### Navigasjon og UX
 - ✅ Lesesti/brødsmulesti i høyrepanel
@@ -170,9 +253,9 @@ Oppdatert: 2026-03-10 (37 commits, Sprint 1–7 + graf-forbedringer)
 
 ## Fase 3 — Analytiske utvidelser
 
-- ❌ Rettssetningsregister (§21) — register over rettslige utsagn på tvers av saker
+- ✅ Rettssetningsregister (§21) — PropositionRegistry.svelte med tematisk gruppering og evolution-badges
 - ❌ Tidslinjevisning (§22) — horisontal tidslinje gruppert per bestemmelse
-- ❌ Eksport som arbeidsnotat (§23) — Markdown/docx med struktur
+- ❌ Eksport som arbeidsnotat (§23) — Markdown/docx med struktur (syntese-notat eksisterer, men eksport mangler)
 - ❌ Sammenligningsmodus (§24) — side-by-side i høyrepanel
 - ❌ Sesjonslogg (§26) — "hvor var jeg?" med AI-foreslått neste steg
 - ❌ Direktivartikkel-overlay i graf (§30)
@@ -183,7 +266,7 @@ Oppdatert: 2026-03-10 (37 commits, Sprint 1–7 + graf-forbedringer)
 
 ## Fase 4 — Portefølje og avansert
 
-- ❌ Porteføljevisning (§25) — alle aktive analyser med status
+- ✅ Porteføljevisning (§25) — Portfolio.svelte med alle aktive analyser og statusindikator
 - ❌ Krysspollinering mellom analyser
 - ❌ Mønstergjenkjenning på tvers av saker (§28)
 - ❌ Datakvalitetsindikatorer (§27) — confidence per kant
@@ -197,14 +280,24 @@ Oppdatert: 2026-03-10 (37 commits, Sprint 1–7 + graf-forbedringer)
 - ✅ Traversal med 3-signal (R/F/V) og A/B/C-kategorisering
 - ✅ Case detail med avgjørelsestekst, referanser
 - ✅ Provision detail med lovtekst, struktur, referansesaker
-- ✅ AI-kuratering (Claude Sonnet 4) med highlights + cross-references
+- ✅ AI-kuratering (Claude Sonnet 4.6) med highlights + cross-references
 - ✅ Kuratering-cache
 - ✅ Supabase-integrasjon
+- ✅ `llm_utils.py`: CLAUDE_MODEL, call_claude_structured(), prompt caching, Batch API
+- ✅ Kandidatpersistering i `analysis_candidates` etter traversal
+- ✅ AI-screening med SSE-streaming og Batch API
+- ✅ EU-screening med SSE-streaming og Batch API
+- ✅ Syntese: `generate_synthesis()` → `analysis_documents`
+- ✅ QA: 3-delt (sitater, logikk, dekning) med Citations API og Batch API
+- ✅ Chat: `chat_stream()` med analysekontekst og SSE
+- ✅ Post-search: Claude-drevne ettersøk-forslag
+- ✅ Cross-propositions: tverrgående rettssetningsregister
 - ⚠️ Vektor-søk signal (V) — trenger verifisering av search_kofa_decision_text RPC
 - ❌ Valens-NLP på kofa_case_references.context
 - ❌ Confidence-scoring på kanter
 - ❌ Forarbeider-embeddings (1.186 seksjoner uten)
 - ❌ Broken edge-håndtering (kofa_case_references uten FK)
+- ❌ Deponering — `POST /api/analyses/<id>/deposit` ikke implementert
 
 ---
 
@@ -213,9 +306,14 @@ Oppdatert: 2026-03-10 (37 commits, Sprint 1–7 + graf-forbedringer)
 | Fase | Totalt | ✅ | ⚠️ | ❌ |
 |------|--------|----|----|------|
 | Fase 1 — MVP | ~58 | ~48 | ~5 | ~5 |
-| Fase 2 — AI | ~16 | 5 | 0 | 11 |
-| Fase 3 | 8 | 0 | 0 | 8 |
-| Fase 4 | 6 | 0 | 0 | 6 |
+| Fase 2 — Sprint 10–12 | ~20 | ~19 | 0 | ~1 |
+| Fase 2 — Sprint 13 | ~8 | ~7 | ~1 | 0 |
+| Fase 2 — Sprint 14 | ~5 | ~4 | ~1 | 0 |
+| Fase 2 — Sprint 15 | ~11 | ~11 | 0 | 0 |
+| Fase 2 — Sprint 16 | ~7 | ~3 | ~1 | ~3 |
+| Fase 2 — §19-§20 | ~12 | ~5 | ~3 | ~4 |
+| Fase 3 | 8 | 1 | 0 | 7 |
+| Fase 4 | 6 | 1 | 0 | 5 |
 
 **Fase 1 er ~90% komplett.** Gjenværende hull:
 1. Nodedetaljer for EU-dommer, forarbeider, bestemmelser (ProvisionDetail, EuCaseDetail)
@@ -224,4 +322,11 @@ Oppdatert: 2026-03-10 (37 commits, Sprint 1–7 + graf-forbedringer)
 4. Lastetilstand for AI-kuratering
 5. Metodefase i arbeidsstripe
 
-**Fase 2 er ~30% komplett** — AI-kuratert leseopplevelse og brødsmulesti fungerer. Lag 1-verktøy og chatpanel mangler.
+**Fase 2 (guidet analyse, Sprint 10–16) er ~90% komplett.** Gjenværende hull:
+1. Deponering (Sprint 16) — backend + frontend ikke implementert
+2. Devil's advocate og ubedde utfordringer i chat
+3. Auto-trigget vinkelrotasjon ved lave treff (i dag: manuell post-search)
+4. Automatisk avgrensningsforslag med begrunnelse
+
+**Rettssetningsregister (§21) er implementert** som en Fase 3-leveranse allerede nå.
+**Portefølje (§25)** er implementert og fungerende.
