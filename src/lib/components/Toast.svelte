@@ -31,7 +31,7 @@
     padding: 8px 14px;
     font-size: 12px;
     color: var(--p-ink2);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    border: 1px solid var(--p-border-m);
     white-space: nowrap;
   }
 

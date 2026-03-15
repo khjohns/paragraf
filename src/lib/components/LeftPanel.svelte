@@ -419,7 +419,7 @@
   .legend-item {
     display: flex;
     align-items: center;
-    gap: 2px;
+    gap: 4px;
   }
   .legend-dot {
     width: 4px;
@@ -447,7 +447,7 @@
     color: var(--p-ink3);
     letter-spacing: 0.06em;
     text-transform: uppercase;
-    margin-bottom: 2px;
+    margin-bottom: 4px;
   }
 
   .progress-row {
@@ -487,7 +487,7 @@
     gap: 4px;
     padding: 4px 8px;
     border-radius: var(--radius-md);
-    margin-bottom: 2px;
+    margin-bottom: 4px;
     border: 1px solid transparent;
     width: 100%;
     box-sizing: border-box;

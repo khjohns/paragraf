@@ -115,12 +115,12 @@
   .eu-list {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 8px;
     max-height: 240px;
     overflow-y: auto;
   }
   .eu-row {
-    padding: 8px 10px;
+    padding: 8px 12px;
     border-radius: var(--radius-md);
     background: var(--p-surface);
     border: 1px solid var(--p-border);
@@ -149,8 +149,8 @@
     font-size: 10px;
     font-weight: 600;
     font-family: var(--font-data);
-    padding: 1px 5px;
-    border-radius: 3px;
+    padding: 2px 6px;
+    border-radius: var(--radius-badge);
     background: var(--p-hover);
     color: var(--p-ink3);
     margin-left: auto;
@@ -175,16 +175,16 @@
     line-height: 1.45;
     padding: 4px 8px;
     background: var(--p-highlight);
-    border-radius: 3px;
+    border-radius: var(--radius-badge);
     border-left: 2px solid var(--p-ai-border);
   }
   .eu-btn {
     all: unset;
     width: 100%;
-    padding: 9px 12px;
+    padding: 8px 12px;
     border-radius: var(--radius-md);
     background: var(--p-eu-accent, #2d6a5d);
-    color: white;
+    color: var(--p-panel);
     font-size: 12px;
     font-weight: 600;
     cursor: pointer;
@@ -203,21 +203,21 @@
     color: var(--p-success);
     font-weight: 500;
     text-align: center;
-    padding: 6px;
+    padding: 8px;
   }
   .batch-indicator {
-    padding: 8px 10px;
+    padding: 8px 12px;
     border-radius: var(--radius-md);
     background: var(--p-highlight);
     border: 1px solid var(--p-ai-border);
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 8px;
   }
   .batch-header {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
     font-size: 11px;
     color: var(--p-eu-accent, #2d6a5d);
     font-weight: 500;
@@ -230,13 +230,13 @@
   .batch-track {
     width: 100%;
     height: 3px;
-    border-radius: 2px;
+    border-radius: var(--radius-sm);
     background: var(--p-input);
     overflow: hidden;
   }
   .batch-fill {
     height: 100%;
-    border-radius: 2px;
+    border-radius: var(--radius-sm);
     background: var(--p-eu-accent, #2d6a5d);
     transition: width 0.3s ease;
   }

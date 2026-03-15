@@ -158,7 +158,7 @@
     border-top: 1px solid var(--p-border);
   }
   .nav-heading {
-    font-size: 0.625rem;
+    font-size: 11px;
     font-weight: 600;
     color: var(--p-ink3);
     letter-spacing: 0.06em;
@@ -230,7 +230,7 @@
     border-top: 1px solid var(--p-border);
   }
   .ref-heading {
-    font-size: 0.625rem;
+    font-size: 11px;
     font-weight: 600;
     color: var(--p-ink3);
     letter-spacing: 0.06em;

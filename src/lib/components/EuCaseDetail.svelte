@@ -124,7 +124,7 @@
     color: var(--p-ink3);
     font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.06em;
   }
   .meta-val {
     color: var(--p-ink2);
@@ -147,7 +147,7 @@
     border-top: 1px solid var(--p-border);
   }
   .ref-heading {
-    font-size: 0.625rem;
+    font-size: 11px;
     font-weight: 600;
     color: var(--p-ink3);
     letter-spacing: 0.06em;

@@ -268,7 +268,7 @@
     all: unset;
     display: inline-flex;
     align-items: center;
-    gap: 2px;
+    gap: 4px;
     padding: 2px 8px;
     border-radius: var(--radius-sm);
     font-size: 0.6875rem;

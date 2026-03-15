@@ -277,12 +277,12 @@
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 8px 16px 8px 19px;
+    padding: 8px 16px 8px 20px;
     border-bottom: 1px solid var(--p-border-m);
     font-size: 10px;
     font-weight: 600;
     color: var(--p-ink4);
-    letter-spacing: 0.04em;
+    letter-spacing: 0.06em;
     background: var(--p-bg);
     flex-shrink: 0;
   }

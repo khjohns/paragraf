@@ -407,7 +407,7 @@
   .legend-item {
     display: flex;
     align-items: center;
-    gap: 3px;
+    gap: 4px;
     font-size: 10px;
     color: var(--p-ink4);
   }
@@ -533,7 +533,7 @@
     color: var(--p-ink3);
     background: var(--p-surface);
     padding: 2px 6px;
-    border-radius: 3px;
+    border-radius: var(--radius-badge);
   }
   .search-clear {
     all: unset;
@@ -569,7 +569,7 @@
   .evolution-item {
     display: flex;
     align-items: center;
-    gap: 3px;
+    gap: 4px;
     font-size: 10px;
     color: var(--p-ink4);
   }

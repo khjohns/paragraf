@@ -417,11 +417,11 @@
   .step-item {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
   }
   .step-circle {
-    width: 22px;
-    height: 22px;
+    width: 24px;
+    height: 24px;
     border-radius: 50%;
     display: flex;
     align-items: center;
@@ -601,14 +601,14 @@
   .ai-attribution {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
     margin-bottom: 20px;
   }
   .ai-badge {
-    font-size: 9px;
+    font-size: 10px;
     font-weight: 700;
     padding: 2px 6px;
-    border-radius: 3px;
+    border-radius: var(--radius-badge);
     background: var(--p-highlight);
     border: 1px solid var(--p-ai-border-subtle);
     color: var(--p-ai-text);
@@ -655,7 +655,7 @@
     font-size: 13px;
     line-height: 1.55;
     color: var(--p-ink);
-    padding: 6px 0;
+    padding: 8px 0;
     border-bottom: 1px dashed var(--p-border);
   }
   .field-value.clickable {
@@ -714,7 +714,7 @@
     font-size: 10px;
     font-weight: 500;
     text-transform: uppercase;
-    letter-spacing: 0.03em;
+    letter-spacing: 0.06em;
   }
   .context-val {
     margin-top: 2px;
@@ -741,7 +741,7 @@
   .verify-badge {
     width: 16px;
     height: 16px;
-    border-radius: 3px;
+    border-radius: var(--radius-badge);
     flex-shrink: 0;
     display: flex;
     align-items: center;
@@ -755,7 +755,7 @@
   }
   .prov-ref {
     font-family: var(--font-data);
-    font-size: 12.5px;
+    font-size: 13px;
     font-weight: 700;
     color: var(--p-provision-accent);
   }
@@ -764,10 +764,10 @@
     color: var(--p-ink2);
   }
   .prov-primary-badge {
-    font-size: 9px;
+    font-size: 10px;
     font-weight: 600;
     padding: 2px 6px;
-    border-radius: 3px;
+    border-radius: var(--radius-badge);
     background: var(--p-provision-bg);
     color: var(--p-provision-accent);
   }
@@ -824,12 +824,12 @@
   .strategy-header {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
     margin-bottom: 4px;
   }
   .strategy-dot {
-    width: 5px;
-    height: 5px;
+    width: 4px;
+    height: 4px;
     border-radius: 50%;
     background: var(--p-ink4);
   }
@@ -876,7 +876,7 @@
     border-radius: var(--radius-md);
     background: var(--p-ai-bg);
     border-left: 3px solid var(--p-ai-border-subtle);
-    font-size: 12.5px;
+    font-size: 13px;
     line-height: 1.6;
     color: var(--p-ink2);
   }

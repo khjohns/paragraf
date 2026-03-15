@@ -160,7 +160,7 @@
   .qa-panel {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 8px;
   }
   .qa-desc {
     font-size: 12px;
@@ -177,7 +177,7 @@
   .qa-btn {
     all: unset;
     width: 100%;
-    padding: 9px 12px;
+    padding: 8px 12px;
     border-radius: var(--radius-md);
     background: var(--p-ink);
     color: var(--p-panel);
@@ -189,7 +189,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 6px;
+    gap: 8px;
   }
   .qa-btn:hover {
     opacity: 0.85;
@@ -202,11 +202,11 @@
   .qa-summary {
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 8px 10px;
+    gap: 8px;
+    padding: 8px 12px;
     border-radius: var(--radius-md);
     background: var(--p-warn-bg);
-    border: 1px solid rgba(166, 123, 46, 0.12);
+    border: 1px solid var(--p-ai-border-subtle);
     font-size: 12px;
     color: var(--p-warn);
     font-weight: 500;
@@ -227,8 +227,8 @@
     cursor: pointer;
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 7px 10px;
+    gap: 8px;
+    padding: 8px 12px;
     border-radius: var(--radius-md);
     background: var(--p-surface);
     border: 1px solid var(--p-border);
@@ -245,12 +245,12 @@
     color: var(--p-ink);
   }
   .section-count {
-    font-size: 11px;
+    font-size: 10px;
     font-family: var(--font-data);
     font-weight: 600;
     color: var(--p-success);
-    padding: 1px 6px;
-    border-radius: 8px;
+    padding: 2px 6px;
+    border-radius: var(--radius-badge);
     background: var(--p-success-bg);
   }
   .section-count.has-issues {
@@ -269,10 +269,10 @@
   .qa-section-content {
     display: flex;
     flex-direction: column;
-    gap: 6px;
-    padding: 6px 0 6px 8px;
+    gap: 8px;
+    padding: 8px 0 8px 8px;
     border-left: 2px solid var(--p-border);
-    margin-left: 6px;
+    margin-left: 8px;
   }
   .section-summary {
     font-size: 11px;
@@ -291,7 +291,7 @@
   }
 
   .flag-item {
-    padding: 8px 10px;
+    padding: 8px 12px;
     border-radius: var(--radius-md);
     background: var(--p-surface);
     border: 1px solid var(--p-border);
@@ -303,7 +303,7 @@
   .flag-header {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
   }
   .flag-case {
     font-size: 11px;
@@ -323,8 +323,8 @@
   .flag-severity {
     font-size: 10px;
     font-weight: 600;
-    padding: 1px 6px;
-    border-radius: 3px;
+    padding: 2px 6px;
+    border-radius: var(--radius-badge);
   }
   .flag-location {
     font-size: 10px;
@@ -358,7 +358,7 @@
     all: unset;
     cursor: pointer;
     width: 100%;
-    padding: 6px 12px;
+    padding: 8px 12px;
     border-radius: var(--radius-md);
     border: 1px dashed var(--p-border-m);
     font-size: 11px;
@@ -382,7 +382,7 @@
     height: 10px;
     border-radius: 50%;
     border: 1.5px solid rgba(255, 255, 255, 0.3);
-    border-top-color: white;
+    border-top-color: var(--p-panel);
     animation: spin 0.8s linear infinite;
   }
 </style>

@@ -89,7 +89,7 @@
     flex-wrap: wrap;
   }
   .ai-badge {
-    font-size: 9px;
+    font-size: 10px;
     font-weight: 700;
     padding: 2px 6px;
     border-radius: 3px;

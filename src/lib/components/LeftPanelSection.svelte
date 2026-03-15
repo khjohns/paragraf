@@ -59,7 +59,7 @@
     all: unset;
     cursor: pointer;
     width: 100%;
-    padding: 10px 16px;
+    padding: 12px 16px;
     display: flex;
     align-items: center;
     gap: 8px;
@@ -112,6 +112,6 @@
     transform: rotate(0);
   }
   .section-body {
-    padding: 0 16px 14px;
+    padding: 0 16px 12px;
   }
 </style>

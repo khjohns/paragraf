@@ -45,7 +45,7 @@
     font-size: 11px;
     font-family: var(--font-ui);
     color: var(--p-ink);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    border: 1px solid var(--p-border-m);
     max-width: 260px;
     transform: translate(-50%, -100%);
     margin-top: -8px;

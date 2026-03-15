@@ -138,12 +138,12 @@
   }
 
   .panel-label {
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 600;
     color: var(--p-ink3);
     letter-spacing: 0.06em;
     text-transform: uppercase;
-    margin-bottom: 2px;
+    margin-bottom: 4px;
   }
   .panel-desc {
     font-size: 12px;
@@ -177,18 +177,18 @@
   .cat-progress {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
   }
   .progress-track {
     width: 48px;
     height: 3px;
-    border-radius: 2px;
+    border-radius: var(--radius-sm);
     background: var(--p-input);
     overflow: hidden;
   }
   .progress-fill {
     height: 100%;
-    border-radius: 2px;
+    border-radius: var(--radius-sm);
     background: var(--p-ink3);
     transition: width 0.3s ease;
   }

@@ -27,6 +27,12 @@ No shadows. The tool is technical and precise — shadows would soften it. Eleva
 
 Base unit: **4px**. Scale: 4 / 8 / 12 / 16 / 20 / 24 / 32.
 
+## Border Radius
+
+Tokens: `--radius-sm: 2px`, `--radius-badge: 3px`, `--radius-md: 4px`, `--radius-lg: 6px`. Sharper than defaults — matches precise, technical feel.
+
+Badge pattern uses `var(--radius-badge)` exclusively. Pill shapes (cat-pill, iter-badge) may use larger values (8-12px) as exceptions.
+
 ## Typography
 
 - **UI:** Inter (`--font-ui`) — clean, neutral, excellent at small sizes (11-14px)
@@ -118,7 +124,7 @@ Background in node-type color (provision-bg, kofa-bg, etc). Contains: type label
 Reference: `legal-workbench.jsx` DetailPanel, `paragraf-timeline-concept.jsx` CaseDetail.
 
 ### Badge Pattern
-Consistent across the system: `padding: 2px 6px; border-radius: 3px; font-size: 10px; font-weight: 600`. Background + text color from semantic tokens.
+Consistent across the system: `padding: 2px 6px; border-radius: var(--radius-badge); font-size: 10px; font-weight: 600`. Background + text color from semantic tokens.
 
 ### Outcome Badges
 - Brudd: warn-bg + warn color
