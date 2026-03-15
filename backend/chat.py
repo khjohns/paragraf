@@ -21,6 +21,34 @@ class ChatError(Exception):
     """Raised when chat fails."""
 
 
+def _parse_screening(raw) -> dict | None:
+    """Parse ai_screening field which may be a JSON string or dict."""
+    if not raw:
+        return None
+    if isinstance(raw, str):
+        try:
+            raw = json.loads(raw)
+        except (json.JSONDecodeError, TypeError):
+            return None
+    return raw if isinstance(raw, dict) else None
+
+
+def _format_candidate_line(c: dict) -> str:
+    """Format a single candidate as a compact context line."""
+    line = f"  {c['sak_nr']} [{c['category']}]"
+    if c.get("is_delimitation"):
+        line += " [AVGRENSET]"
+    screening = _parse_screening(c.get("ai_screening"))
+    if screening:
+        verdict = screening.get("verdict", "")
+        one_liner = screening.get("one_liner", "")
+        if verdict or one_liner:
+            line += f" — {verdict}: {one_liner}"
+    if c.get("user_notes"):
+        line += f" | Notat: {c['user_notes']}"
+    return line
+
+
 def _load_chat_context(analysis_id: str) -> str:
     """Build a context summary for the chat system prompt."""
     ctx = load_analysis_context(analysis_id, extra_columns=["gaps"])
@@ -68,26 +96,7 @@ def _load_chat_context(analysis_id: str) -> str:
 
     # Candidate summaries (capsule format)
     if candidates:
-        case_lines = []
-        for c in candidates:
-            line = f"  {c['sak_nr']} [{c['category']}]"
-            if c.get("is_delimitation"):
-                line += " [AVGRENSET]"
-            screening = c.get("ai_screening")
-            if screening:
-                if isinstance(screening, str):
-                    try:
-                        screening = json.loads(screening)
-                    except (json.JSONDecodeError, TypeError):
-                        screening = None
-                if screening:
-                    verdict = screening.get("verdict", "")
-                    one_liner = screening.get("one_liner", "")
-                    if verdict or one_liner:
-                        line += f" — {verdict}: {one_liner}"
-            if c.get("user_notes"):
-                line += f" | Notat: {c['user_notes']}"
-            case_lines.append(line)
+        case_lines = [_format_candidate_line(c) for c in candidates]
         parts.append(f"<candidates>\n" + "\n".join(case_lines) + "\n</candidates>")
 
     # Propositions
