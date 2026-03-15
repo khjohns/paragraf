@@ -112,22 +112,35 @@ Funn dokumenteres per view. Fiks gjøres umiddelbart etter hvert view — ikke s
 
 ---
 
-### 4. Detaljpanel (høyrepanel)
+### 4. Detaljpanel (høyrepanel) ✓
 
 **Komponenter:** `NodeDetail.svelte`, `NodeDetailOverview.svelte`, `ProvisionDetail.svelte`, `EuCaseDetail.svelte`, `ForarbeidDetail.svelte`, `CaseReader.svelte`
 **Mockup:** `legal-workbench.jsx` (DetailPanel), `paragraf-timeline-concept.jsx` (CaseDetail)
 **Sprint:** 10 (eksisterende, men videreutviklet)
 
 **Sjekkliste:**
-- [ ] Header i node-type-farge (provision-bg, kofa-bg, eu-bg, court-bg, prep-bg)
-- [ ] Type-label, node-identifikator (stor mono), metadata-badges, lukk-knapp
-- [ ] Lesemodus med AI-kuratering: gulmarkering, kommentarer, kryssreferanser
-- [ ] AI-tillitsgrense: database-tekst umarkert, AI-tekst med gullbrun venstekant
-- [ ] Klikkbare avsnittsnumre
-- [ ] Kollaperbare seksjoner
-- [ ] Screening-resultat integrert (faktum, vurdering, rettssetninger, sitater, nyanser)
+- [x] Header i node-type-farge (provision-bg, kofa-bg, eu-bg, court-bg, prep-bg)
+- [x] Type-label, node-identifikator (stor mono), metadata-badges, lukk-knapp
+- [x] Lesemodus med AI-kuratering: gulmarkering, kommentarer, kryssreferanser
+- [x] AI-tillitsgrense: database-tekst umarkert, AI-tekst med gullbrun venstekant
+- [x] Klikkbare avsnittsnumre
+- [x] Kollaperbare seksjoner
+- [x] Screening-resultat integrert (faktum, vurdering, rettssetninger, sitater, nyanser)
 
 **Audit-fokus:** Detail panel header bruker riktige node-type-farger fra `system.md`. Badge-mønster konsistent.
+
+**Audit-funn (fikset):**
+- NodeDetail: header padding 14px → 12px, off-grid margins (6px, 5px, 3px) → 4px
+- NodeDetail: outcome-badge padding 7px → 6px, radius → `var(--radius-md)`
+- NodeDetail: tab-bar radius 5px → `var(--radius-md)`, margin-top 10px → 8px
+- NodeDetailOverview: section-label letter-spacing → 0.06em, margin-bottom 6px → 8px
+- NodeDetailOverview: signal-row gap 7px → 8px, padding 6px → 8px, bg → `var(--p-hover)`
+- NodeDetailOverview: relation-row gap 5px → 4px, padding 6px → 8px, radius → token
+- NodeDetailOverview: notes-field padding 7px 10px → 8px 12px, radius → token, focus → `--p-border-s`
+- NodeDetailOverview: action-btn padding 7px → 8px, radius → token, gap 6px → 8px
+- NodeDetailOverview: AI summary border `--p-ai-border` → `--p-ai-border-subtle`, radius → token
+- NodeDetailOverview: AI text color `--p-ai-border` → `--p-ai-text`
+- NodeDetailOverview: hardkodede rgba border-colors → tokens
 
 ---
 
