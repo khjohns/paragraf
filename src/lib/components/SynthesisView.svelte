@@ -368,11 +368,15 @@
     margin-bottom: 16px;
   }
 
-  /* Note content */
+  /* Note content — AI-generated */
   .note-content {
     font-size: 14px;
     line-height: 1.7;
     color: var(--p-ink);
+    border-left: 3px solid var(--p-ai-border-subtle);
+    background: var(--p-ai-bg);
+    padding: 16px 20px;
+    border-radius: var(--radius-md);
   }
   .note-content h1 {
     font-size: 20px;
@@ -426,11 +430,13 @@
     font-style: italic;
   }
 
-  /* Tensions section */
+  /* Tensions section — AI-generated */
   .tensions-section {
     margin-top: 24px;
-    padding-top: 16px;
-    border-top: 1px solid var(--p-border);
+    padding: 16px 20px;
+    border-left: 3px solid var(--p-ai-border-subtle);
+    background: var(--p-ai-bg);
+    border-radius: var(--radius-md);
   }
   .tensions-label {
     font-size: 11px;

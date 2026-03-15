@@ -279,7 +279,7 @@
     color: var(--p-ink3);
     line-height: 1.45;
     padding: 4px 8px;
-    background: var(--p-hover);
+    background: var(--p-ai-bg);
     border-radius: var(--radius-md);
     margin-bottom: 2px;
   }
@@ -293,9 +293,9 @@
   .flag-item {
     padding: 8px 12px;
     border-radius: var(--radius-md);
-    background: var(--p-surface);
-    border: 1px solid var(--p-border);
-    border-left: 3px solid var(--p-warn);
+    background: var(--p-ai-bg);
+    border: 1px solid var(--p-ai-border-subtle);
+    border-left: 3px solid var(--p-ai-border);
     display: flex;
     flex-direction: column;
     gap: 4px;

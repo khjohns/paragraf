@@ -420,10 +420,14 @@
     letter-spacing: -0.01em;
   }
 
-  /* Assistant message */
+  /* Assistant message — AI-generated */
   .msg-assistant {
     margin-bottom: 20px;
     max-width: 90%;
+    border-left: 3px solid var(--p-ai-border-subtle);
+    background: var(--p-ai-bg);
+    padding: 12px 16px;
+    border-radius: var(--radius-md);
   }
   .msg-text {
     margin: 0 0 8px;
