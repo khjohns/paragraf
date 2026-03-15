@@ -6,6 +6,7 @@
   import NodeList from '$lib/components/NodeList.svelte';
   import GraphView from '$lib/components/GraphView.svelte';
   import PropositionRegistry from '$lib/components/PropositionRegistry.svelte';
+  import SynthesisView from '$lib/components/SynthesisView.svelte';
   import NodeDetail from '$lib/components/NodeDetail.svelte';
   import ScopingOverlay from '$lib/components/ScopingOverlay.svelte';
   import KeyboardShortcuts from '$lib/components/KeyboardShortcuts.svelte';
@@ -82,6 +83,8 @@
         <GraphView />
       {:else if uiState.viewMode === 'propositions'}
         <PropositionRegistry />
+      {:else if uiState.viewMode === 'synthesis'}
+        <SynthesisView />
       {:else}
         <NodeList />
       {/if}
