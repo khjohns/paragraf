@@ -1,7 +1,8 @@
 import type { GraphNode, GraphEdge, GapPair } from '$lib/types/graph';
 import type { Analysis, AnalysisStatus, Seeds, IterationEntry, AnalysisDbResponse, AnalysisCandidate, ScreeningResult, ScreeningAssignment, ScreeningMode, Proposition, PostSearchSuggestion, EuScreeningResult, SynthesisResult, QAReport } from '$lib/types/analysis';
 import type { SuggestedProvision } from '$lib/types/api';
-import { updateAnalysis } from '$lib/api/analyses';
+import { updateAnalysis, fetchDocuments } from '$lib/api/analyses';
+import type { AnalysisDocuments } from '$lib/api/analyses';
 import { toastState } from './toast.svelte';
 
 const STORAGE_KEY = 'paragraf-analysis';
@@ -378,8 +379,33 @@ class AnalysisState {
     this.qaReport = null;
     this.qaLoading = false;
 
+    // Rehydrate synthesis/QA documents from DB if analysis is in a post-synthesis phase
+    const status = data.status;
+    if (status === 'synthesis' || status === 'qa' || status === 'complete') {
+      this.loadDocuments(data.id);
+    }
+
     // Also save to localStorage as cache
     this.save();
+  }
+
+  /** Load synthesis note and QA report from the DB */
+  private async loadDocuments(analysisId: string) {
+    try {
+      const docs: AnalysisDocuments = await fetchDocuments(analysisId);
+      if (docs.note) {
+        this.synthesisMarkdown = docs.note.content;
+      }
+      if (docs.qa_report) {
+        try {
+          this.qaReport = JSON.parse(docs.qa_report.content);
+        } catch {
+          // Corrupt QA report — ignore
+        }
+      }
+    } catch {
+      // Document fetch failed — synthesis/QA will show empty state
+    }
   }
 
   /** Persist current state to DB (debounced) */

@@ -40,7 +40,7 @@
     <div class="qa-desc">
       Kvalitetssikring verifiserer sitater, sjekker logisk konsistens og dekningsgrad.
     </div>
-    <button class="qa-btn" onclick={startQA} disabled={analysisState.qaLoading || !analysisState.synthesisMarkdown}>
+    <button class="qa-btn" onclick={startQA} disabled={analysisState.qaLoading || (!analysisState.synthesisMarkdown && analysisState.analysis.status !== 'synthesis')}>
       {#if analysisState.qaLoading}
         <span class="spinner"></span>
         Kjører QA…
@@ -48,7 +48,7 @@
         Kjør kvalitetssikring
       {/if}
     </button>
-    {#if !analysisState.synthesisMarkdown}
+    {#if !analysisState.synthesisMarkdown && analysisState.analysis.status !== 'synthesis'}
       <div class="qa-hint">Generer notat først</div>
     {/if}
   {:else}

@@ -226,3 +226,22 @@ export function runQA(analysisId: string): Promise<QAReport> {
     method: 'POST',
   });
 }
+
+// --- Documents ---
+
+export interface AnalysisDocuments {
+  note?: { content: string; version: number };
+  qa_report?: { content: string; version: number };
+}
+
+export function fetchDocuments(analysisId: string): Promise<AnalysisDocuments> {
+  return apiFetch<AnalysisDocuments>(`/api/analyses/${analysisId}/documents`);
+}
+
+// --- Complete ---
+
+export function completeAnalysis(analysisId: string): Promise<{ ok: boolean }> {
+  return apiFetch<{ ok: boolean }>(`/api/analyses/${analysisId}/complete`, {
+    method: 'POST',
+  });
+}

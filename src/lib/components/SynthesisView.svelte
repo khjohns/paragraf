@@ -1,6 +1,7 @@
 <script lang="ts">
   import { analysisState } from '$lib/stores/analysis.svelte';
-  import { synthesize, updateSynthesisNote } from '$lib/api/analyses';
+  import { uiState } from '$lib/stores/ui.svelte';
+  import { synthesize, updateSynthesisNote, runQA, completeAnalysis } from '$lib/api/analyses';
   import { toastState } from '$lib/stores/toast.svelte';
 
   let editing = $state(false);
@@ -54,6 +55,37 @@
 
   function cancelEditing() {
     editing = false;
+  }
+
+  let qaReport = $derived(analysisState.qaReport);
+  let showQABar = $derived(
+    hasNote && !editing &&
+    (analysisState.analysis.status === 'synthesis' || analysisState.analysis.status === 'qa' || analysisState.analysis.status === 'complete')
+  );
+
+  async function startQA() {
+    analysisState.setQaLoading(true);
+    try {
+      const result = await runQA(analysisState.analysis.id);
+      analysisState.setQaReport(result);
+      analysisState.setStatus('qa');
+      toastState.show(`QA fullført — ${result.total_flags} flagg`, result.total_flags > 0 ? 'info' : 'success');
+    } catch (e) {
+      toastState.show('QA feilet — prøv igjen', 'error');
+      console.error('QA failed:', e);
+    } finally {
+      analysisState.setQaLoading(false);
+    }
+  }
+
+  async function markComplete() {
+    try {
+      await completeAnalysis(analysisState.analysis.id);
+      analysisState.setStatus('complete');
+      toastState.show('Analysen er ferdigstilt', 'success');
+    } catch (e) {
+      toastState.show('Kunne ikke ferdigstille', 'error');
+    }
   }
 </script>
 
@@ -174,6 +206,44 @@
               <span class="tension-cases">{tension.cases.join(', ')}</span>
             </div>
           {/each}
+        </div>
+      {/if}
+
+      {#if showQABar}
+        <div class="workflow-bar">
+          {#if !qaReport}
+            <div class="workflow-step">
+              <div class="workflow-label">Neste steg: Kvalitetssikring</div>
+              <div class="workflow-desc">Verifiser sitater, sjekk logikk og dekning mot kildene.</div>
+              <button class="workflow-btn" onclick={startQA} disabled={analysisState.qaLoading}>
+                {#if analysisState.qaLoading}
+                  <span class="spinner dark"></span>
+                  Kjører QA…
+                {:else}
+                  Kjør kvalitetssikring
+                {/if}
+              </button>
+            </div>
+          {:else}
+            <div class="workflow-step">
+              <div class="qa-inline-summary" class:clean={qaReport.total_flags === 0}>
+                <span class="qa-inline-count">{qaReport.total_flags}</span>
+                <span>{qaReport.total_flags === 0 ? 'Ingen problemer funnet' : qaReport.total_flags === 1 ? 'problem funnet' : 'problemer funnet'}</span>
+              </div>
+              <div class="workflow-actions">
+                <button class="workflow-btn secondary" onclick={startQA} disabled={analysisState.qaLoading}>
+                  {analysisState.qaLoading ? 'Kjører…' : 'Kjør QA på nytt'}
+                </button>
+                {#if analysisState.analysis.status !== 'complete'}
+                  <button class="workflow-btn" onclick={markComplete}>
+                    Ferdigstill analyse
+                  </button>
+                {:else}
+                  <div class="complete-badge">Ferdigstilt</div>
+                {/if}
+              </div>
+            </div>
+          {/if}
         </div>
       {/if}
     </div>
@@ -430,5 +500,95 @@
     border-color: var(--p-border-s);
   }
 
+  /* Workflow bar */
+  .workflow-bar {
+    margin-top: 32px;
+    padding-top: 20px;
+    border-top: 1px solid var(--p-border);
+  }
+  .workflow-step {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .workflow-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--p-ink);
+  }
+  .workflow-desc {
+    font-size: 12px;
+    color: var(--p-ink3);
+    line-height: 1.45;
+  }
+  .workflow-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  .workflow-btn {
+    all: unset;
+    padding: 10px 20px;
+    border-radius: 6px;
+    background: var(--p-ink);
+    color: var(--p-panel);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .workflow-btn:hover { opacity: 0.85; }
+  .workflow-btn:disabled { opacity: 0.5; cursor: default; }
+  .workflow-btn.secondary {
+    background: transparent;
+    color: var(--p-ink3);
+    border: 1px solid var(--p-border);
+    padding: 9px 16px;
+    font-size: 12px;
+  }
+  .workflow-btn.secondary:hover {
+    background: var(--p-hover);
+    color: var(--p-ink);
+  }
+
+  .qa-inline-summary {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 14px;
+    border-radius: 6px;
+    background: var(--p-warn-bg);
+    border: 1px solid rgba(166, 123, 46, 0.12);
+    font-size: 13px;
+    color: var(--p-warn);
+    font-weight: 500;
+  }
+  .qa-inline-summary.clean {
+    background: var(--p-success-bg);
+    border-color: rgba(61, 122, 74, 0.1);
+    color: var(--p-success);
+  }
+  .qa-inline-count {
+    font-size: 16px;
+    font-weight: 700;
+    font-family: var(--font-data);
+  }
+
+  .complete-badge {
+    padding: 10px 20px;
+    border-radius: 6px;
+    background: var(--p-success-bg);
+    border: 1px solid rgba(61, 122, 74, 0.1);
+    color: var(--p-success);
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  .spinner.dark {
+    border-color: rgba(255,255,255,0.3);
+    border-top-color: white;
+  }
 
 </style>

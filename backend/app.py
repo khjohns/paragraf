@@ -9,7 +9,7 @@ from provisions import get_provision_detail
 from curation import generate_curation
 from eu_cases import get_eu_case_detail
 from forarbeider import get_forarbeid_detail, get_forarbeid_section
-from analyses import list_analyses, get_analysis, get_analysis_with_seeds, create_analysis, update_analysis, upsert_seeds, update_candidate, persist_candidates, parse_seed_rows
+from analyses import list_analyses, get_analysis, get_analysis_with_seeds, create_analysis, update_analysis, upsert_seeds, update_candidate, persist_candidates, parse_seed_rows, get_analysis_documents
 from scoping import generate_scope, ScopeError
 from screening import screen_cases, rescreen_case, ScreeningError
 from post_search import generate_post_search, PostSearchError
@@ -325,8 +325,8 @@ def eu_screen_route(analysis_id):
 def synthesize_route(analysis_id):
     """Generate a legal analysis note from screening results."""
     try:
-        update_analysis(analysis_id, {"status": "synthesis"})
         result = generate_synthesis(analysis_id)
+        update_analysis(analysis_id, {"status": "synthesis"})
         return jsonify(result)
     except SynthesisError as e:
         return jsonify({"error": str(e)}), 500
@@ -345,15 +345,32 @@ def update_synthesis_route(analysis_id):
         return jsonify({"error": str(e)}), 500
 
 
+@app.route("/api/analyses/<analysis_id>/documents", methods=["GET"])
+def get_documents_route(analysis_id):
+    """Get synthesis note and QA report for an analysis."""
+    try:
+        docs = get_analysis_documents(analysis_id)
+        return jsonify(docs)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route("/api/analyses/<analysis_id>/qa", methods=["POST"])
 def qa_route(analysis_id):
     """Run quality assurance on the synthesis note."""
     try:
-        update_analysis(analysis_id, {"status": "qa"})
         result = run_qa(analysis_id)
+        update_analysis(analysis_id, {"status": "qa"})
         return jsonify(result)
     except QAError as e:
         return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/analyses/<analysis_id>/complete", methods=["POST"])
+def complete_route(analysis_id):
+    """Mark analysis as complete."""
+    update_analysis(analysis_id, {"status": "complete"})
+    return jsonify({"ok": True})
 
 
 # SPA fallback — serve static frontend in production
