@@ -2,10 +2,11 @@
   import { uiState } from '$lib/stores/ui.svelte';
   import type { ListSort } from '$lib/stores/ui.svelte';
   import { analysisState } from '$lib/stores/analysis.svelte';
+  import { pipelineState } from '$lib/stores/pipeline.svelte';
   import { NODE_TYPE_ACCENT, nodeMatchesSearch } from '$lib/types/graph';
   import { EVOLUTION_CONFIG } from '$lib/types/analysis';
 
-  let tensionCount = $derived(analysisState.propositions.filter((p) => p.tension).length);
+  let tensionCount = $derived(pipelineState.propositions.filter((p) => p.tension).length);
 
   let graphMatchCount = $derived.by(() => {
     const q = uiState.graphSearch.toLowerCase().trim();
@@ -84,12 +85,12 @@
 
     {#if uiState.viewMode === 'synthesis'}
       <span class="toolbar-sep"></span>
-      {#if analysisState.synthesisResult}
-        <span class="prop-count">{analysisState.synthesisResult.sections.length} seksjoner</span>
-        {#if analysisState.qaReport}
+      {#if pipelineState.synthesisResult}
+        <span class="prop-count">{pipelineState.synthesisResult.sections.length} seksjoner</span>
+        {#if pipelineState.qaReport}
           <span class="toolbar-sep-dot">·</span>
-          <span class="qa-flag-count" class:has-flags={analysisState.qaReport.total_flags > 0}>
-            {analysisState.qaReport.total_flags} QA-flagg
+          <span class="qa-flag-count" class:has-flags={pipelineState.qaReport.total_flags > 0}>
+            {pipelineState.qaReport.total_flags} QA-flagg
           </span>
         {/if}
       {:else}
@@ -97,7 +98,7 @@
       {/if}
     {:else if uiState.viewMode === 'propositions'}
       <span class="toolbar-sep"></span>
-      <span class="prop-count">{analysisState.propositions.length} rettssetninger</span>
+      <span class="prop-count">{pipelineState.propositions.length} rettssetninger</span>
       {#if tensionCount > 0}
         <span class="toolbar-sep-dot">·</span>
         <span class="prop-tension-count"

@@ -1,10 +1,12 @@
 <script lang="ts">
   import { analysisState } from '$lib/stores/analysis.svelte';
+  import { screeningState } from '$lib/stores/screening.svelte';
+  import { pipelineState } from '$lib/stores/pipeline.svelte';
   import { QA_SEVERITY_CONFIG, CITATION_STATUS_CONFIG } from '$lib/types/analysis';
 
   let expanded = $state<string | null>(null);
 
-  let report = $derived(analysisState.qaReport);
+  let report = $derived(pipelineState.qaReport);
   let citationIssues = $derived(
     report?.citation_verification.verified_quotes.filter((q) => q.status !== 'verified') ?? []
   );
@@ -25,18 +27,18 @@
     </div>
     <button
       class="qa-btn"
-      onclick={() => analysisState.startQA()}
-      disabled={analysisState.qaLoading ||
-        (!analysisState.synthesisMarkdown && !analysisState.isPostSynthesisPhase)}
+      onclick={() => screeningState.startQaBatch()}
+      disabled={pipelineState.qaLoading ||
+        (!pipelineState.synthesisMarkdown && !analysisState.isPostSynthesisPhase)}
     >
-      {#if analysisState.qaLoading}
+      {#if pipelineState.qaLoading}
         <span class="spinner"></span>
         Kjører QA…
       {:else}
         Kjør kvalitetssikring
       {/if}
     </button>
-    {#if !analysisState.synthesisMarkdown && !analysisState.isPostSynthesisPhase}
+    {#if !pipelineState.synthesisMarkdown && !analysisState.isPostSynthesisPhase}
       <div class="qa-hint">Generer notat først</div>
     {/if}
   {:else}
@@ -146,10 +148,10 @@
     <!-- Re-run -->
     <button
       class="qa-rerun"
-      onclick={() => analysisState.startQA()}
-      disabled={analysisState.qaLoading}
+      onclick={() => screeningState.startQaBatch()}
+      disabled={pipelineState.qaLoading}
     >
-      {analysisState.qaLoading ? 'Kjører…' : 'Kjør QA på nytt'}
+      {pipelineState.qaLoading ? 'Kjører…' : 'Kjør QA på nytt'}
     </button>
   {/if}
 </div>

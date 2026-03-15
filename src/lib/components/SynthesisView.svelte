@@ -1,5 +1,7 @@
 <script lang="ts">
   import { analysisState } from '$lib/stores/analysis.svelte';
+  import { screeningState } from '$lib/stores/screening.svelte';
+  import { pipelineState } from '$lib/stores/pipeline.svelte';
   import { synthesize, updateSynthesisNote } from '$lib/api/analyses';
   import { toastState } from '$lib/stores/toast.svelte';
 
@@ -13,29 +15,29 @@
     return escaped.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
   }
 
-  let hasNote = $derived(!!analysisState.synthesisResult || !!analysisState.synthesisMarkdown);
+  let hasNote = $derived(!!pipelineState.synthesisResult || !!pipelineState.synthesisMarkdown);
   let lawyerSections = $derived(
-    analysisState.synthesisResult?.sections.filter((s) => s.requires_lawyer_input) ?? []
+    pipelineState.synthesisResult?.sections.filter((s) => s.requires_lawyer_input) ?? []
   );
   let showQABar = $derived(hasNote && !editing && analysisState.isPostSynthesisPhase);
 
   async function generateNote() {
-    analysisState.setSynthesisLoading(true);
+    pipelineState.setSynthesisLoading(true);
     try {
       const result = await synthesize(analysisState.analysis.id);
-      analysisState.setSynthesisResult(result);
+      pipelineState.setSynthesisResult(result);
       analysisState.setStatus('synthesis');
       toastState.show('Notatutkast generert', 'success');
     } catch (e) {
       toastState.show('Syntese feilet — prøv igjen', 'error');
       console.error('Synthesis failed:', e);
     } finally {
-      analysisState.setSynthesisLoading(false);
+      pipelineState.setSynthesisLoading(false);
     }
   }
 
   function startEditing() {
-    editContent = analysisState.synthesisMarkdown;
+    editContent = pipelineState.synthesisMarkdown;
     editing = true;
   }
 
@@ -43,7 +45,7 @@
     saving = true;
     try {
       await updateSynthesisNote(analysisState.analysis.id, editContent);
-      analysisState.setSynthesisMarkdown(editContent);
+      pipelineState.setSynthesisMarkdown(editContent);
       editing = false;
       toastState.show('Notat lagret', 'success');
     } catch (e) {
@@ -83,8 +85,8 @@
         Generer et notatutkast basert på screeningresultater og rettssetningsregisteret. Claude
         organiserer materialet systematisk — du fyller inn vurderinger.
       </div>
-      <button class="generate-btn" onclick={generateNote} disabled={analysisState.synthesisLoading}>
-        {#if analysisState.synthesisLoading}
+      <button class="generate-btn" onclick={generateNote} disabled={pipelineState.synthesisLoading}>
+        {#if pipelineState.synthesisLoading}
           <span class="spinner"></span>
           Genererer notat…
         {:else}
@@ -126,7 +128,7 @@
         <button
           class="note-action"
           onclick={generateNote}
-          disabled={analysisState.synthesisLoading}
+          disabled={pipelineState.synthesisLoading}
         >
           <svg
             width="14"
@@ -141,7 +143,7 @@
             <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />
             <path d="M16 16h5v5" />
           </svg>
-          {analysisState.synthesisLoading ? 'Genererer…' : 'Re-generer'}
+          {pipelineState.synthesisLoading ? 'Genererer…' : 'Re-generer'}
         </button>
       </div>
 
@@ -165,7 +167,7 @@
       {/if}
 
       <div class="note-content">
-        {#each analysisState.synthesisMarkdown.split('\n') as line}
+        {#each pipelineState.synthesisMarkdown.split('\n') as line}
           {#if line.startsWith('# ')}
             <h1>{line.slice(2)}</h1>
           {:else if line.startsWith('## ')}
@@ -188,10 +190,10 @@
         {/each}
       </div>
 
-      {#if analysisState.synthesisResult?.unresolved_tensions?.length}
+      {#if pipelineState.synthesisResult?.unresolved_tensions?.length}
         <div class="tensions-section">
           <div class="tensions-label">Uløste spenninger</div>
-          {#each analysisState.synthesisResult.unresolved_tensions as tension}
+          {#each pipelineState.synthesisResult.unresolved_tensions as tension}
             <div class="tension-item">
               <span class="tension-desc">{tension.description}</span>
               <span class="tension-cases">{tension.cases.join(', ')}</span>
@@ -202,7 +204,7 @@
 
       {#if showQABar}
         <div class="workflow-bar">
-          {#if !analysisState.qaReport}
+          {#if !pipelineState.qaReport}
             <div class="workflow-step">
               <div class="workflow-label">Neste steg: Kvalitetssikring</div>
               <div class="workflow-desc">
@@ -210,10 +212,10 @@
               </div>
               <button
                 class="workflow-btn"
-                onclick={() => analysisState.startQA()}
-                disabled={analysisState.qaLoading}
+                onclick={() => screeningState.startQaBatch()}
+                disabled={pipelineState.qaLoading}
               >
-                {#if analysisState.qaLoading}
+                {#if pipelineState.qaLoading}
                   <span class="spinner"></span>
                   Kjører QA…
                 {:else}
@@ -223,12 +225,12 @@
             </div>
           {:else}
             <div class="workflow-step">
-              <div class="qa-inline-summary" class:clean={analysisState.qaReport.total_flags === 0}>
-                <span class="qa-inline-count">{analysisState.qaReport.total_flags}</span>
+              <div class="qa-inline-summary" class:clean={pipelineState.qaReport.total_flags === 0}>
+                <span class="qa-inline-count">{pipelineState.qaReport.total_flags}</span>
                 <span
-                  >{analysisState.qaReport.total_flags === 0
+                  >{pipelineState.qaReport.total_flags === 0
                     ? 'Ingen problemer funnet'
-                    : analysisState.qaReport.total_flags === 1
+                    : pipelineState.qaReport.total_flags === 1
                       ? 'problem funnet'
                       : 'problemer funnet'}</span
                 >
@@ -236,10 +238,10 @@
               <div class="workflow-actions">
                 <button
                   class="workflow-btn secondary"
-                  onclick={() => analysisState.startQA()}
-                  disabled={analysisState.qaLoading}
+                  onclick={() => screeningState.startQaBatch()}
+                  disabled={pipelineState.qaLoading}
                 >
-                  {analysisState.qaLoading ? 'Kjører…' : 'Kjør QA på nytt'}
+                  {pipelineState.qaLoading ? 'Kjører…' : 'Kjør QA på nytt'}
                 </button>
                 {#if analysisState.analysis.status !== 'complete'}
                   <button class="workflow-btn" onclick={() => analysisState.markComplete()}>
