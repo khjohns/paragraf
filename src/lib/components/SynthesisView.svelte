@@ -296,7 +296,7 @@
     all: unset;
     margin-top: 8px;
     padding: 10px 24px;
-    border-radius: 6px;
+    border-radius: var(--radius-lg);
     background: var(--p-ink);
     color: var(--p-panel);
     font-size: 13px;
@@ -338,7 +338,7 @@
     align-items: center;
     gap: 4px;
     padding: 5px 10px;
-    border-radius: 4px;
+    border-radius: var(--radius-md);
     font-size: 12px;
     font-weight: 500;
     color: var(--p-ink3);
@@ -359,7 +359,7 @@
     align-items: center;
     gap: 8px;
     padding: 8px 12px;
-    border-radius: 5px;
+    border-radius: var(--radius-md);
     background: var(--p-warn-bg);
     border: 1px solid rgba(166, 123, 46, 0.12);
     font-size: 12px;
@@ -417,7 +417,7 @@
   .lawyer-block {
     margin: 12px 0;
     padding: 12px 16px;
-    border-radius: 6px;
+    border-radius: var(--radius-lg);
     background: var(--p-warn-bg);
     border-left: 3px solid var(--p-warn);
     font-size: 13px;
@@ -436,13 +436,13 @@
     font-size: 10px;
     font-weight: 600;
     color: var(--p-tension, #a63d3d);
-    letter-spacing: 0.05em;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
     margin-bottom: 8px;
   }
   .tension-item {
     padding: 8px 10px;
-    border-radius: 5px;
+    border-radius: var(--radius-md);
     background: var(--p-tension-bg, rgba(166, 61, 61, 0.04));
     border: 1px solid var(--p-tension-border, rgba(166, 61, 61, 0.1));
     margin-bottom: 6px;
@@ -486,7 +486,7 @@
     all: unset;
     cursor: pointer;
     padding: 5px 12px;
-    border-radius: 4px;
+    border-radius: var(--radius-md);
     font-size: 12px;
     font-weight: 500;
   }
@@ -512,7 +512,7 @@
     flex: 1;
     min-height: 500px;
     padding: 16px;
-    border-radius: 6px;
+    border-radius: var(--radius-lg);
     background: var(--p-surface);
     border: 1px solid var(--p-border);
     font-size: 13px;
@@ -555,7 +555,7 @@
   .workflow-btn {
     all: unset;
     padding: 10px 20px;
-    border-radius: 6px;
+    border-radius: var(--radius-lg);
     background: var(--p-ink);
     color: var(--p-panel);
     font-size: 13px;
@@ -589,7 +589,7 @@
     align-items: center;
     gap: 6px;
     padding: 10px 14px;
-    border-radius: 6px;
+    border-radius: var(--radius-lg);
     background: var(--p-warn-bg);
     border: 1px solid rgba(166, 123, 46, 0.12);
     font-size: 13px;
@@ -609,7 +609,7 @@
 
   .complete-badge {
     padding: 10px 20px;
-    border-radius: 6px;
+    border-radius: var(--radius-lg);
     background: var(--p-success-bg);
     border: 1px solid rgba(61, 122, 74, 0.1);
     color: var(--p-success);

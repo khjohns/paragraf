@@ -345,7 +345,7 @@
     padding: 1px 5px;
     border-radius: 3px;
     background: var(--p-highlight, #fbf5e8);
-    border: 1px solid var(--p-ai-border, rgba(139, 105, 20, 0.2));
+    border: 1px solid var(--p-ai-border-subtle);
     color: var(--p-kofa-accent);
   }
   .header-right {
@@ -357,7 +357,7 @@
   .header-btn {
     width: 24px;
     height: 24px;
-    border-radius: 4px;
+    border-radius: var(--radius-md);
     border: 1px solid var(--p-border);
     background: transparent;
     cursor: pointer;
@@ -437,14 +437,14 @@
   .challenge-block {
     margin: 12px 0 10px;
     padding: 12px 14px;
-    border-radius: 6px;
+    border-radius: var(--radius-lg);
     border-left: 3px solid rgba(122, 92, 46, 0.18);
     background: rgba(122, 92, 46, 0.04);
   }
   .challenge-label {
     font-size: 10px;
     font-weight: 700;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.06em;
     color: #7a5c2e;
     text-transform: uppercase;
     margin-bottom: 8px;

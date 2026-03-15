@@ -163,9 +163,9 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 6px;
-    padding: 7px 12px;
-    border-radius: 5px;
+    gap: 8px;
+    padding: 8px 12px;
+    border-radius: var(--radius-md);
     background: var(--p-ink);
     color: var(--p-panel);
     font-size: 12px;
@@ -182,7 +182,7 @@
     width: 12px;
     height: 12px;
     border: 2px solid rgba(255, 255, 255, 0.3);
-    border-top-color: white;
+    border-top-color: var(--p-panel);
     border-radius: 50%;
     animation: spin 0.6s linear infinite;
   }
@@ -191,13 +191,13 @@
   .ps-results {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 8px;
   }
   .ps-reasoning {
-    padding: 8px 10px;
-    border-radius: 5px;
+    padding: 8px 12px;
+    border-radius: var(--radius-md);
     background: var(--p-ai-bg);
-    border-left: 3px solid rgba(166, 139, 91, 0.2);
+    border-left: 3px solid var(--p-ai-border-subtle);
   }
   .ps-ai-label {
     display: flex;
@@ -224,7 +224,7 @@
     font-size: 10px;
     font-weight: 600;
     color: var(--p-ink3);
-    letter-spacing: 0.05em;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
   }
   .ps-chip {
@@ -233,8 +233,8 @@
     display: flex;
     align-items: center;
     gap: 4px;
-    padding: 5px 8px;
-    border-radius: 4px;
+    padding: 4px 8px;
+    border-radius: var(--radius-md);
     border: 1px dashed var(--p-border-m);
     font-size: 12px;
     color: var(--p-ink2);
@@ -255,7 +255,7 @@
     line-height: 1.45;
     color: var(--p-ink2);
     padding: 4px 8px;
-    border-radius: 4px;
+    border-radius: var(--radius-md);
     background: var(--p-hover);
   }
 

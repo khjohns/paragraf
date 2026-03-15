@@ -194,81 +194,87 @@ Funn dokumenteres per view. Fiks gjøres umiddelbart etter hvert view — ikke s
 
 ---
 
-### 7. Ettersøk
+### 7. Ettersøk ✓
 
 **Komponenter:** `PostSearchPanel.svelte`
 **Sprint:** 14
 
 **Sjekkliste:**
-- [ ] AI-markert panel i venstepanel med ettersøk-forslag
-- [ ] Nye FTS-termer, vektorsøk, bestemmelser — redigerbare før godkjenning
-- [ ] Claudes begrunnelse synlig (kollaperbar)
-- [ ] Iterasjonshistorikk: nye kandidater merket `iteration: 2+`
-- [ ] Godkjenn-knapp trigger nytt søk
+- [x] AI-markert panel i venstepanel med ettersøk-forslag
+- [x] Nye FTS-termer, vektorsøk, bestemmelser — redigerbare før godkjenning
+- [x] Claudes begrunnelse synlig (kollaperbar)
+- [x] Iterasjonshistorikk: nye kandidater merket `iteration: 2+`
+- [x] Godkjenn-knapp trigger nytt søk
 
-**Audit-fokus:** AI-tillitsgrense på forslagene. Panelet bruker panel/surface-bakgrunn, ikke annen farge.
+**Audit-funn (fikset):**
+- Button padding 7px → 8px, radius → token, gap 6px → 8px
+- Reasoning border hardkodet rgba → `var(--p-ai-border-subtle)`, padding 10px → 12px, radius → token
+- Section-label letter-spacing → 0.06em, chip padding 5px → 4px, chip radius → token
+- Spinner `white` → `var(--p-panel)`, results gap 10px → 8px
 
 ---
 
-### 8. Rettssetningsregister
+### 8. Rettssetningsregister ✓
 
 **Komponenter:** `PropositionRegistry.svelte`
 **Mockup:** `paragraf-registry-concept.jsx`
 **Sprint:** 14
 
 **Sjekkliste:**
-- [ ] Midtpanel-visning med egen toolbar-tab «Rettssetninger»
-- [ ] Tematisk gruppering (ThemeGroup)
-- [ ] PropositionCard med tidslinje-instanser
-- [ ] Evolution-badges: Etablert / Bekreftet / Presisert / Konsoliderende
-- [ ] TensionConnector for spenninger mellom rettssetninger
-- [ ] AI-forslag-markering (ubekreftede rettssetninger)
-- [ ] Evolution-legende i toolbar
-- [ ] Klikk på rettssetning navigerer til kilde-sak/avsnitt
+- [x] Midtpanel-visning med egen toolbar-tab «Rettssetninger»
+- [x] Tematisk gruppering (ThemeGroup)
+- [x] PropositionCard med tidslinje-instanser
+- [x] Evolution-badges: Etablert / Bekreftet / Presisert / Konsoliderende
+- [x] TensionConnector for spenninger mellom rettssetninger
+- [x] AI-forslag-markering (ubekreftede rettssetninger)
+- [x] Evolution-legende i toolbar
+- [x] Klikk på rettssetning navigerer til kilde-sak/avsnitt
 
-**Audit-fokus:** Evolution-badges følger badge-mønsteret. Spennings-konnektorer bruker semantisk `gap`/`danger`-farge.
-
-**Mockup-kritikk:** Registeret er informasjonstett — vurder om hierarkiet er tydelig nok ved mange rettssetninger. Er tematisk gruppering visuelt distinkt fra individuelle kort?
+**Audit-funn (fikset):**
+- letter-spacing → 0.06em, border-radius 5px → `var(--radius-md)`
+- Hardkodet `rgba(166, 139, 91, 0.2)` → `var(--p-ai-border-subtle)`
 
 ---
 
-### 9. Syntese + QA
+### 9. Syntese + QA ✓
 
 **Komponenter:** `SynthesisView.svelte`, `QAPanel.svelte`
 **Sprint:** 15
 
 **Sjekkliste:**
-- [ ] «Generer notat»-knapp — tydelig plassering og primær styling
-- [ ] Notatvisning: markdown-rendering med tydelige seksjoner
-- [ ] `[JURISTENS VURDERING]`-seksjoner visuelt differensiert (annen bakgrunn/border)
-- [ ] AI-tillitsgrense: hele notatet er AI-generert — hvordan kommuniseres dette?
-- [ ] QA-rapport: flagg-liste med kategorier (sitatfeil, logisk sprang, dekningshull)
-- [ ] Hvert flagg klikkbart — navigerer til relevant seksjon i notatet
-- [ ] Loading state under syntese (~25-35K tokens = merkbar ventetid)
+- [x] «Generer notat»-knapp — tydelig plassering og primær styling
+- [x] Notatvisning: markdown-rendering med tydelige seksjoner
+- [x] `[JURISTENS VURDERING]`-seksjoner visuelt differensiert (annen bakgrunn/border)
+- [x] AI-tillitsgrense: hele notatet er AI-generert — hvordan kommuniseres dette?
+- [x] QA-rapport: flagg-liste med kategorier (sitatfeil, logisk sprang, dekningshull)
+- [x] Hvert flagg klikkbart — navigerer til relevant seksjon i notatet
+- [x] Loading state under syntese (~25-35K tokens = merkbar ventetid)
 
-**Audit-fokus:** Markdown-rendering respekterer typografi-hierarkiet. QA-flagg bruker semantiske farger (warn, danger).
+**Audit-funn (fikset):**
+- SynthesisView: letter-spacing → 0.06em, 2x border-radius 5px → token
+- QAPanel: 3x border-radius 5px → `var(--radius-md)`
 
 ---
 
-### 10. Chat-panel
+### 10. Chat-panel ✓
 
 **Komponenter:** `ChatDrawer.svelte`
 **Mockup:** `paragraf-chat-concept.jsx`
 **Sprint:** 16
 
 **Sjekkliste:**
-- [ ] Bunnpanel-skuff i midtpanelet: lukket / halv / full
-- [ ] Referanseparsing: `{ref:kofa:2024/2019:§42}` → klikkbar lenke
-- [ ] AI-tillitsgrense: Claudes svar har gullbrun markering
-- [ ] Proaktive forslag visuelt differensiert fra brukerens spørsmål
-- [ ] «Mulige motargumenter»-blokk med egen styling
-- [ ] Input-felt med send-knapp
-- [ ] Meldingshistorikk med tydelig bruker/Claude-differensiering
-- [ ] Skuff-resize: drag-håndtak, snapping til lukket/halv/full
+- [x] Bunnpanel-skuff i midtpanelet: lukket / halv / full
+- [x] Referanseparsing: `{ref:kofa:2024/2019:§42}` → klikkbar lenke
+- [x] AI-tillitsgrense: Claudes svar har gullbrun markering
+- [x] Proaktive forslag visuelt differensiert fra brukerens spørsmål
+- [x] «Mulige motargumenter»-blokk med egen styling
+- [x] Input-felt med send-knapp
+- [x] Meldingshistorikk med tydelig bruker/Claude-differensiering
+- [x] Skuff-resize: drag-håndtak, snapping til lukket/halv/full
 
-**Audit-fokus:** Skuffen overlapper ikke workspace-innhold uventet. Chat-meldinger bruker riktig typografi.
-
-**Mockup-kritikk:** Bunnpanel-skuff vs. sidepanel — er bunnplassering optimal for et verktøy med allerede tre paneler? Vurder om høyden er tilstrekkelig i halv-modus.
+**Audit-funn (fikset):**
+- letter-spacing → 0.06em
+- AI border hardkodet fallback → `var(--p-ai-border-subtle)`
 
 ---
 

@@ -118,7 +118,7 @@
   .step-circle.active {
     border-color: var(--p-kofa-accent);
     color: var(--p-kofa-accent);
-    background: rgba(139, 105, 20, 0.06);
+    background: var(--p-ai-bg);
   }
 
   .step-num {

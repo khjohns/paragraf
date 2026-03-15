@@ -155,7 +155,7 @@
     cursor: pointer;
     color: var(--p-ink4);
     padding: 4px;
-    border-radius: 4px;
+    border-radius: var(--radius-md);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -186,7 +186,7 @@
     margin-top: 12px;
     width: 100%;
     padding: 8px 12px;
-    border-radius: 4px;
+    border-radius: var(--radius-md);
     background: var(--p-ink);
     color: var(--p-panel);
     border: none;
@@ -215,7 +215,7 @@
     font-size: 10px;
     font-weight: 600;
     color: var(--p-ink4);
-    letter-spacing: 0.05em;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
     margin-bottom: 6px;
   }
@@ -295,7 +295,7 @@
 
   .ai-suggestion {
     padding: 8px 12px;
-    border-radius: 4px;
+    border-radius: var(--radius-md);
     background: var(--p-highlight);
     border-left: 3px solid var(--p-ai-border-subtle);
     display: flex;

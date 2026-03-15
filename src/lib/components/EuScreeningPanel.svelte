@@ -121,7 +121,7 @@
   }
   .eu-row {
     padding: 8px 10px;
-    border-radius: 5px;
+    border-radius: var(--radius-md);
     background: var(--p-surface);
     border: 1px solid var(--p-border);
   }
@@ -182,7 +182,7 @@
     all: unset;
     width: 100%;
     padding: 9px 12px;
-    border-radius: 5px;
+    border-radius: var(--radius-md);
     background: var(--p-eu-accent, #2d6a5d);
     color: white;
     font-size: 12px;
@@ -207,7 +207,7 @@
   }
   .batch-indicator {
     padding: 8px 10px;
-    border-radius: 5px;
+    border-radius: var(--radius-md);
     background: var(--p-highlight);
     border: 1px solid var(--p-ai-border);
     display: flex;

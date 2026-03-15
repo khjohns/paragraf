@@ -150,7 +150,7 @@
     font-size: 0.625rem;
     font-weight: 600;
     color: var(--p-ink3);
-    letter-spacing: 0.05em;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
     margin-bottom: var(--spacing-1);
   }
