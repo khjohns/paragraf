@@ -1,5 +1,5 @@
 import type { GraphNode, GraphEdge, GapPair } from '$lib/types/graph';
-import type { Analysis, AnalysisStatus, Seeds, IterationEntry, AnalysisDbResponse, AnalysisCandidate, ScreeningResult, ScreeningAssignment, ScreeningMode, Proposition, PostSearchSuggestion } from '$lib/types/analysis';
+import type { Analysis, AnalysisStatus, Seeds, IterationEntry, AnalysisDbResponse, AnalysisCandidate, ScreeningResult, ScreeningAssignment, ScreeningMode, Proposition, PostSearchSuggestion, EuScreeningResult, SynthesisResult, QAReport } from '$lib/types/analysis';
 import type { SuggestedProvision } from '$lib/types/api';
 import { updateAnalysis } from '$lib/api/analyses';
 import { toastState } from './toast.svelte';
@@ -33,6 +33,22 @@ class AnalysisState {
   crossPropositionsLoading = $state(false);
   /** Whether post-search is loading */
   postSearchLoading = $state(false);
+  /** EU screening results per eu_case_id */
+  euScreeningResults = $state<Record<string, EuScreeningResult>>({});
+  /** Whether EU screening is loading */
+  euScreeningLoading = $state(false);
+  /** Currently streaming EU case ID */
+  streamingEuCaseId = $state<string | null>(null);
+  /** Synthesis result */
+  synthesisResult = $state<SynthesisResult | null>(null);
+  /** Synthesis markdown (editable) */
+  synthesisMarkdown = $state<string>('');
+  /** Whether synthesis is loading */
+  synthesisLoading = $state(false);
+  /** QA report */
+  qaReport = $state<QAReport | null>(null);
+  /** Whether QA is loading */
+  qaLoading = $state(false);
   analysis = $state<Analysis>({
     id: crypto.randomUUID(),
     problemStatement: '',
@@ -257,6 +273,53 @@ class AnalysisState {
   /** Set post-search loading state */
   setPostSearchLoading(loading: boolean) {
     this.postSearchLoading = loading;
+  }
+
+  // --- EU Screening ---
+
+  /** Add an EU screening result (from SSE stream) */
+  addEuScreeningResult(result: EuScreeningResult) {
+    this.euScreeningResults[result.eu_case_id] = result;
+  }
+
+  /** Set EU screening loading state */
+  setEuScreeningLoading(loading: boolean) {
+    this.euScreeningLoading = loading;
+  }
+
+  /** Set currently streaming EU case */
+  setStreamingEuCaseId(id: string | null) {
+    this.streamingEuCaseId = id;
+  }
+
+  // --- Synthesis ---
+
+  /** Set synthesis result */
+  setSynthesisResult(result: SynthesisResult | null) {
+    this.synthesisResult = result;
+    if (result) this.synthesisMarkdown = result.markdown;
+  }
+
+  /** Update synthesis markdown (user edits) */
+  setSynthesisMarkdown(markdown: string) {
+    this.synthesisMarkdown = markdown;
+  }
+
+  /** Set synthesis loading state */
+  setSynthesisLoading(loading: boolean) {
+    this.synthesisLoading = loading;
+  }
+
+  // --- QA ---
+
+  /** Set QA report */
+  setQaReport(report: QAReport | null) {
+    this.qaReport = report;
+  }
+
+  /** Set QA loading state */
+  setQaLoading(loading: boolean) {
+    this.qaLoading = loading;
   }
 
   // --- DB Persistence ---
