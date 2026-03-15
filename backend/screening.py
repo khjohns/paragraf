@@ -3,15 +3,11 @@
 Sends case decision text + analysis context to Claude for structured screening.
 Returns proposition, factum, assessment, quotes, nuances, and relevance per case.
 """
-import json
 import logging
-import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-import anthropic
-
 from db import get_client
-from llm_utils import CLAUDE_MODEL
+from llm_utils import call_claude_structured, load_analysis_context
 
 logger = logging.getLogger(__name__)
 
@@ -203,10 +199,6 @@ def screen_single_case(
     Uses structured outputs for guaranteed valid JSON, high effort for
     complex analysis, and prompt caching on the system prompt.
     """
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
-    if not api_key:
-        raise ScreeningError("ANTHROPIC_API_KEY ikke konfigurert")
-
     # Fetch case text
     case_text = _fetch_case_text(sak_nr, sections or ["vurdering"])
     if not case_text:
@@ -214,37 +206,15 @@ def screen_single_case(
 
     user_message = _build_user_message(sak_nr, case_text, problem, sub_problems, provisions)
 
-    client = anthropic.Anthropic(api_key=api_key, timeout=120.0)
-    response = client.messages.create(
-        model=CLAUDE_MODEL,
+    result = call_claude_structured(
+        system_prompt=SCREENING_SYSTEM_PROMPT,
+        user_message=user_message,
+        schema=SCREENING_SCHEMA,
         max_tokens=4000,
-        output_config={
-            "format": {
-                "type": "json_schema",
-                "schema": SCREENING_SCHEMA,
-            },
-            "effort": "high",
-        },
-        system=[
-            {
-                "type": "text",
-                "text": SCREENING_SYSTEM_PROMPT,
-                "cache_control": {"type": "ephemeral"},
-            }
-        ],
-        messages=[{"role": "user", "content": user_message}],
+        effort="high",
+        log_label=f"Screening {sak_nr}",
     )
 
-    text = response.content[0].text
-    logger.info(
-        "Screening %s: %d input tokens (%d cached), %d output tokens",
-        sak_nr,
-        response.usage.input_tokens,
-        getattr(response.usage, "cache_read_input_tokens", 0),
-        response.usage.output_tokens,
-    )
-
-    result = json.loads(text)
     result["sak_nr"] = sak_nr
     return result
 
@@ -255,31 +225,8 @@ def _load_screening_context(analysis_id: str) -> tuple[str, list[str], list[str]
     Returns (problem, sub_problems, provisions).
     Raises ScreeningError if analysis not found.
     """
-    client = get_client()
-    analysis = (
-        client.table("analyses")
-        .select("problem, refined_problem, sub_problems")
-        .eq("id", analysis_id)
-        .single()
-        .execute()
-        .data
-    )
-    if not analysis:
-        raise ScreeningError("Analyse ikke funnet")
-
-    problem = analysis.get("refined_problem") or analysis.get("problem", "")
-    sub_problems = analysis.get("sub_problems") or []
-
-    seeds = (
-        client.table("analysis_seeds")
-        .select("value")
-        .eq("analysis_id", analysis_id)
-        .eq("seed_type", "provision")
-        .execute()
-        .data
-    )
-    provisions = [s["value"] for s in (seeds or [])]
-    return problem, sub_problems, provisions
+    ctx = load_analysis_context(analysis_id)
+    return ctx["problem"], ctx["sub_problems"], ctx["provisions"]
 
 
 def screen_cases(
