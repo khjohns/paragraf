@@ -25,9 +25,7 @@
   let sakNr = $derived(node.label);
   let screeningResult = $derived(isCase ? analysisState.screeningResults[sakNr] : undefined);
   let isStreaming = $derived(analysisState.streamingSakNr === sakNr);
-  let assignment = $derived(
-    isCase ? analysisState.getAssignment(sakNr, node.category) : undefined
-  );
+  let assignment = $derived(isCase ? analysisState.getAssignment(sakNr, node.category) : undefined);
   let showScreening = $derived(analysisState.isScreeningPhase);
   let expanded = $state(false);
 
@@ -76,10 +74,7 @@
   }
 </script>
 
-<div
-  class="node-row-wrapper"
-  class:streaming={isStreaming}
->
+<div class="node-row-wrapper" class:streaming={isStreaming}>
   <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
   <div
     bind:this={rowEl}
@@ -113,7 +108,12 @@
           >
             <svg width="10" height="10" viewBox="0 0 10 10">
               <circle cx="5" cy="3.5" r="2" stroke="currentColor" stroke-width="1.2" fill="none" />
-              <path d="M1 9.5C1 7 3 5.5 5 5.5S9 7 9 9.5" stroke="currentColor" stroke-width="1.2" fill="none" />
+              <path
+                d="M1 9.5C1 7 3 5.5 5 5.5S9 7 9 9.5"
+                stroke="currentColor"
+                stroke-width="1.2"
+                fill="none"
+              />
             </svg>
           </button>
         </div>
@@ -147,7 +147,13 @@
         <span class="status-icon">
           {#if screeningResult}
             <svg width="12" height="12" viewBox="0 0 12 12">
-              <path d="M3 6L5 8L9 4" stroke="var(--p-success)" stroke-width="1.5" fill="none" stroke-linecap="round" />
+              <path
+                d="M3 6L5 8L9 4"
+                stroke="var(--p-success)"
+                stroke-width="1.5"
+                fill="none"
+                stroke-linecap="round"
+              />
             </svg>
           {:else if isStreaming}
             <span class="row-spinner"></span>
@@ -186,7 +192,13 @@
           {#if screeningStatus === 'user_read' || screeningStatus === 'both'}
             <span class="screening-read">
               <svg width="10" height="10" viewBox="0 0 10 10">
-                <path d="M2 5L4.5 7.5L8 3" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" />
+                <path
+                  d="M2 5L4.5 7.5L8 3"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                  fill="none"
+                  stroke-linecap="round"
+                />
               </svg>
             </span>
           {/if}
@@ -345,9 +357,9 @@
     font-weight: 600;
     padding: 1px 5px;
     border-radius: 3px;
-    background: var(--p-highlight, #FBF5E8);
+    background: var(--p-highlight, #fbf5e8);
     border: 1px solid var(--p-ai-border);
-    color: var(--p-kofa, #8B6914);
+    color: var(--p-kofa, #8b6914);
     flex-shrink: 0;
   }
   .screening-read {
@@ -473,7 +485,6 @@
     border-top-color: var(--p-kofa);
     animation: spin 0.8s linear infinite;
   }
-
 
   /* Star marker */
   .star-marker {

@@ -2,7 +2,12 @@
   import { analysisState } from '$lib/stores/analysis.svelte';
   import { crossPropositions } from '$lib/api/analyses';
   import { toastState } from '$lib/stores/toast.svelte';
-  import { EVOLUTION_CONFIG, type Proposition, type PropositionInstance, type EvolutionType } from '$lib/types/analysis';
+  import {
+    EVOLUTION_CONFIG,
+    type Proposition,
+    type PropositionInstance,
+    type EvolutionType,
+  } from '$lib/types/analysis';
 
   type OrderedEntry = { prop: Proposition; tensionAfter?: { withId: string; note: string } };
 
@@ -62,10 +67,7 @@
     try {
       const result = await crossPropositions(id);
       analysisState.setPropositions(result.propositions);
-      toastState.show(
-        `${result.propositions.length} rettssetninger identifisert`,
-        'success',
-      );
+      toastState.show(`${result.propositions.length} rettssetninger identifisert`, 'success');
     } catch {
       toastState.show('Tverrgående analyse feilet', 'error');
     } finally {
@@ -78,15 +80,22 @@
   {#if !hasPropositions}
     <div class="empty-state">
       <div class="empty-icon">
-        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <svg
+          width="32"
+          height="32"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.5"
+        >
           <path d="M9 12h6M12 9v6" stroke-linecap="round" />
           <rect x="3" y="3" width="18" height="18" rx="3" />
         </svg>
       </div>
       <div class="empty-title">Rettssetningsregister</div>
       <div class="empty-desc">
-        Kjør tverrgående analyse av screenede saker for å identifisere
-        rettssetninger, spore utvikling og avdekke spenninger.
+        Kjør tverrgående analyse av screenede saker for å identifisere rettssetninger, spore
+        utvikling og avdekke spenninger.
       </div>
       <button
         class="generate-btn"
@@ -97,8 +106,19 @@
           <span class="spinner"></span>
           Analyserer…
         {:else}
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z" />
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path
+              d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"
+            />
           </svg>
           Analyser rettssetninger
         {/if}
@@ -296,7 +316,6 @@
     border-radius: 50%;
     animation: spin 0.6s linear infinite;
   }
-
 
   /* Registry content */
   .registry-content {

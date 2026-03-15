@@ -63,7 +63,7 @@
         toastState.show(`Chat-feil: ${error}`, 'error');
         streaming = false;
         streamingText = '';
-      },
+      }
     );
   }
 
@@ -129,7 +129,10 @@
     for (const p of paragraphs) {
       const trimmed = p.trim();
       if (!trimmed) continue;
-      if (trimmed.startsWith('**Mulig motargument:**') || trimmed.startsWith('**Mulige motargumenter:**')) {
+      if (
+        trimmed.startsWith('**Mulig motargument:**') ||
+        trimmed.startsWith('**Mulige motargumenter:**')
+      ) {
         blocks.push({ type: 'challenge', content: trimmed });
       } else {
         blocks.push({ type: 'text', content: trimmed });
@@ -144,7 +147,9 @@
     {#if block.type === 'challenge'}
       <div class="challenge-block">
         <div class="challenge-label">Mulige motargumenter</div>
-        <p class="challenge-text">{@html parseRefs(block.content.replace(/^\*\*Mulige? motargumenter?:\*\*\s*/, ''))}</p>
+        <p class="challenge-text">
+          {@html parseRefs(block.content.replace(/^\*\*Mulige? motargumenter?:\*\*\s*/, ''))}
+        </p>
       </div>
     {:else}
       <p class="msg-text">{@html parseRefs(block.content)}</p>
@@ -162,10 +167,7 @@
     <span class="ai-dot"></span>
   </div>
 {:else}
-  <div
-    class="drawer-open"
-    style:height={drawerState === 'half' ? '45%' : '100%'}
-  >
+  <div class="drawer-open" style:height={drawerState === 'half' ? '45%' : '100%'}>
     <!-- Header -->
     <div class="drawer-header">
       <div class="drawer-drag-handle"></div>
@@ -174,7 +176,11 @@
         <span class="ai-badge">AI</span>
       </div>
       <div class="header-right">
-        <button class="header-btn" onclick={toggleSize} title={drawerState === 'half' ? 'Utvid' : 'Halv'}>
+        <button
+          class="header-btn"
+          onclick={toggleSize}
+          title={drawerState === 'half' ? 'Utvid' : 'Halv'}
+        >
           <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
             {#if drawerState === 'half'}
               <line x1="2" y1="2" x2="10" y2="2" stroke="currentColor" stroke-width="1.2" />
@@ -197,7 +203,8 @@
         <div class="empty-chat">
           <div class="empty-chat-title">Still et spørsmål om rettskildebildet</div>
           <div class="empty-chat-desc">
-            Diskuter spenninger, test argumenter, eller be om hjelp til å forstå sammenhenger mellom sakene.
+            Diskuter spenninger, test argumenter, eller be om hjelp til å forstå sammenhenger mellom
+            sakene.
           </div>
         </div>
       {/if}
@@ -289,7 +296,7 @@
 
   /* Open state */
   .drawer-open {
-    border-top: 1px solid var(--p-border-m, rgba(26,24,20,0.13));
+    border-top: 1px solid var(--p-border-m, rgba(26, 24, 20, 0.13));
     background: var(--p-panel);
     display: flex;
     flex-direction: column;
@@ -311,7 +318,7 @@
     width: 32px;
     height: 3px;
     border-radius: 2px;
-    background: var(--p-border-s, rgba(26,24,20,0.22));
+    background: var(--p-border-s, rgba(26, 24, 20, 0.22));
     position: absolute;
     left: 50%;
     transform: translateX(-50%);
@@ -333,8 +340,8 @@
     font-weight: 700;
     padding: 1px 5px;
     border-radius: 3px;
-    background: var(--p-highlight, #FBF5E8);
-    border: 1px solid var(--p-ai-border, rgba(139,105,20,0.2));
+    background: var(--p-highlight, #fbf5e8);
+    border: 1px solid var(--p-ai-border, rgba(139, 105, 20, 0.2));
     color: var(--p-kofa-accent);
   }
   .header-right {
@@ -434,7 +441,7 @@
     font-size: 10px;
     font-weight: 700;
     letter-spacing: 0.05em;
-    color: #7A5C2E;
+    color: #7a5c2e;
     text-transform: uppercase;
     margin-bottom: 8px;
   }
@@ -489,13 +496,15 @@
     margin-left: 2px;
   }
   @keyframes blink {
-    50% { opacity: 0; }
+    50% {
+      opacity: 0;
+    }
   }
   .streaming-spinner {
     width: 8px;
     height: 8px;
     border-radius: 50%;
-    border: 1.5px solid var(--p-border-m, rgba(26,24,20,0.13));
+    border: 1.5px solid var(--p-border-m, rgba(26, 24, 20, 0.13));
     border-top-color: var(--p-kofa-accent);
     animation: spin 0.8s linear infinite;
     display: inline-block;
@@ -515,11 +524,11 @@
     padding: 8px 12px;
     border-radius: 10px;
     background: var(--p-input);
-    border: 1px solid var(--p-border-m, rgba(26,24,20,0.13));
+    border: 1px solid var(--p-border-m, rgba(26, 24, 20, 0.13));
     transition: border-color 0.15s ease;
   }
   .chat-input-row:focus-within {
-    border-color: var(--p-border-s, rgba(26,24,20,0.22));
+    border-color: var(--p-border-s, rgba(26, 24, 20, 0.22));
   }
   .chat-input-row textarea {
     flex: 1;

@@ -100,7 +100,9 @@
       <span class="prop-count">{analysisState.propositions.length} rettssetninger</span>
       {#if tensionCount > 0}
         <span class="toolbar-sep-dot">·</span>
-        <span class="prop-tension-count">{tensionCount} {tensionCount === 1 ? 'spenning' : 'spenninger'}</span>
+        <span class="prop-tension-count"
+          >{tensionCount} {tensionCount === 1 ? 'spenning' : 'spenninger'}</span
+        >
       {/if}
     {:else if uiState.viewMode === 'list'}
       <span class="toolbar-sep"></span>

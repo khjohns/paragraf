@@ -51,16 +51,14 @@
         analysisState.setStreamingEuCaseId(null);
         analysisState.setEuScreeningLoading(false);
         console.error('EU screening error:', error);
-      },
+      }
     );
   }
 </script>
 
 <div class="eu-panel">
   {#if !identified}
-    <div class="eu-desc">
-      Identifiser EU-dommer referert fra screenede KOFA-saker.
-    </div>
+    <div class="eu-desc">Identifiser EU-dommer referert fra screenede KOFA-saker.</div>
     <button class="eu-btn" onclick={identifyEuCases} disabled={loading}>
       {loading ? 'Identifiserer…' : 'Finn EU-dommer'}
     </button>
@@ -77,7 +75,11 @@
             <span class="eu-id">{ec.eu_case_id}</span>
             <span class="eu-refs">{ec.ref_count} ref</span>
             {#if result}
-              <span class="eu-relevance" class:rel-a={result.relevance === 'A'} class:rel-b={result.relevance === 'B'}>
+              <span
+                class="eu-relevance"
+                class:rel-a={result.relevance === 'A'}
+                class:rel-b={result.relevance === 'B'}
+              >
                 {result.relevance}
               </span>
             {/if}
@@ -139,7 +141,7 @@
     border: 1px solid var(--p-border);
   }
   .eu-row.screened {
-    border-left: 3px solid var(--p-eu-accent, #2D6A5D);
+    border-left: 3px solid var(--p-eu-accent, #2d6a5d);
   }
   .eu-row-header {
     display: flex;
@@ -151,7 +153,7 @@
     font-size: 12px;
     font-family: var(--font-data);
     font-weight: 600;
-    color: var(--p-eu-accent, #2D6A5D);
+    color: var(--p-eu-accent, #2d6a5d);
   }
   .eu-refs {
     font-size: 10px;
@@ -196,7 +198,7 @@
     width: 100%;
     padding: 9px 12px;
     border-radius: 5px;
-    background: var(--p-eu-accent, #2D6A5D);
+    background: var(--p-eu-accent, #2d6a5d);
     color: white;
     font-size: 12px;
     font-weight: 600;
@@ -204,8 +206,13 @@
     text-align: center;
     box-sizing: border-box;
   }
-  .eu-btn:hover { opacity: 0.85; }
-  .eu-btn:disabled { opacity: 0.4; cursor: default; }
+  .eu-btn:hover {
+    opacity: 0.85;
+  }
+  .eu-btn:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
   .eu-done {
     font-size: 11px;
     color: var(--p-success);
@@ -222,16 +229,15 @@
     align-items: center;
     gap: 6px;
     font-size: 11px;
-    color: var(--p-eu-accent, #2D6A5D);
+    color: var(--p-eu-accent, #2d6a5d);
   }
   .streaming-spinner {
     width: 8px;
     height: 8px;
     border-radius: 50%;
     border: 1.5px solid var(--p-ai-border);
-    border-top-color: var(--p-eu-accent, #2D6A5D);
+    border-top-color: var(--p-eu-accent, #2d6a5d);
     animation: spin 0.8s linear infinite;
     flex-shrink: 0;
   }
-
 </style>

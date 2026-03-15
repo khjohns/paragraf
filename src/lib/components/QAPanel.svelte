@@ -23,7 +23,12 @@
     <div class="qa-desc">
       Kvalitetssikring verifiserer sitater, sjekker logisk konsistens og dekningsgrad.
     </div>
-    <button class="qa-btn" onclick={() => analysisState.startQA()} disabled={analysisState.qaLoading || (!analysisState.synthesisMarkdown && !analysisState.isPostSynthesisPhase)}>
+    <button
+      class="qa-btn"
+      onclick={() => analysisState.startQA()}
+      disabled={analysisState.qaLoading ||
+        (!analysisState.synthesisMarkdown && !analysisState.isPostSynthesisPhase)}
+    >
       {#if analysisState.qaLoading}
         <span class="spinner"></span>
         Kjører QA…
@@ -38,7 +43,13 @@
     <!-- QA Summary -->
     <div class="qa-summary" class:clean={report.total_flags === 0}>
       <span class="qa-count">{report.total_flags}</span>
-      <span>{report.total_flags === 0 ? 'Ingen problemer funnet' : report.total_flags === 1 ? 'problem funnet' : 'problemer funnet'}</span>
+      <span
+        >{report.total_flags === 0
+          ? 'Ingen problemer funnet'
+          : report.total_flags === 1
+            ? 'problem funnet'
+            : 'problemer funnet'}</span
+      >
     </div>
 
     <!-- Citation Verification -->
@@ -133,7 +144,11 @@
     {/if}
 
     <!-- Re-run -->
-    <button class="qa-rerun" onclick={() => analysisState.startQA()} disabled={analysisState.qaLoading}>
+    <button
+      class="qa-rerun"
+      onclick={() => analysisState.startQA()}
+      disabled={analysisState.qaLoading}
+    >
       {analysisState.qaLoading ? 'Kjører…' : 'Kjør QA på nytt'}
     </button>
   {/if}
@@ -174,8 +189,13 @@
     justify-content: center;
     gap: 6px;
   }
-  .qa-btn:hover { opacity: 0.85; }
-  .qa-btn:disabled { opacity: 0.4; cursor: default; }
+  .qa-btn:hover {
+    opacity: 0.85;
+  }
+  .qa-btn:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
 
   .qa-summary {
     display: flex;
@@ -213,7 +233,9 @@
     width: 100%;
     box-sizing: border-box;
   }
-  .qa-section-btn:hover { background: var(--p-hover); }
+  .qa-section-btn:hover {
+    background: var(--p-hover);
+  }
   .section-title {
     flex: 1;
     font-size: 12px;
@@ -238,7 +260,9 @@
     color: var(--p-ink4);
     transition: transform 0.15s ease;
   }
-  .chevron.open { transform: rotate(90deg); }
+  .chevron.open {
+    transform: rotate(90deg);
+  }
 
   .qa-section-content {
     display: flex;
@@ -342,16 +366,21 @@
     box-sizing: border-box;
     margin-top: 4px;
   }
-  .qa-rerun:hover { border-color: var(--p-border-s); color: var(--p-ink); }
-  .qa-rerun:disabled { opacity: 0.4; cursor: default; }
+  .qa-rerun:hover {
+    border-color: var(--p-border-s);
+    color: var(--p-ink);
+  }
+  .qa-rerun:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
 
   .spinner {
     width: 10px;
     height: 10px;
     border-radius: 50%;
-    border: 1.5px solid rgba(255,255,255,0.3);
+    border: 1.5px solid rgba(255, 255, 255, 0.3);
     border-top-color: white;
     animation: spin 0.8s linear infinite;
   }
-
 </style>

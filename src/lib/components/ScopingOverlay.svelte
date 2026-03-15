@@ -61,9 +61,7 @@
     if (!scopingResult) return;
 
     // Map provisions to seed format
-    const provisions = editedProvisions
-      .filter((p) => p.verified)
-      .map((p) => p.ref);
+    const provisions = editedProvisions.filter((p) => p.verified).map((p) => p.ref);
 
     // Update analysis with scoping results
     analysisState.setProblemStatement(editedProblem);
@@ -83,16 +81,11 @@
       // Run traversal via backend — persists candidates and gaps
       const result = await traverseAnalysis(
         analysisState.analysis.id,
-        analysisState.analysis.iteration,
+        analysisState.analysis.iteration
       );
 
       // Apply results to local state
-      analysisState.setResults(
-        result.nodes,
-        result.edges,
-        result.gaps,
-        result.suggestedProvisions
-      );
+      analysisState.setResults(result.nodes, result.edges, result.gaps, result.suggestedProvisions);
       analysisState.setStatus('candidates_ready');
     } catch (e) {
       searchError = e instanceof Error ? e.message : 'Søk feilet';
@@ -117,14 +110,18 @@
         (phase === 'input' && i === 0) ||
         ((phase === 'loading' || phase === 'proposal') && i === 1) ||
         (phase === 'searching' && i === 2)}
-      {@const isDone =
-        (i === 0 && phase !== 'input') ||
-        (i === 1 && phase === 'searching')}
+      {@const isDone = (i === 0 && phase !== 'input') || (i === 1 && phase === 'searching')}
       <div class="step-item">
         <div class="step-circle" class:active={isActive} class:done={isDone}>
           {#if isDone}
             <svg width="10" height="10" viewBox="0 0 10 10">
-              <path d="M2 5L4 7L8 3" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" />
+              <path
+                d="M2 5L4 7L8 3"
+                stroke="currentColor"
+                stroke-width="1.5"
+                fill="none"
+                stroke-linecap="round"
+              />
             </svg>
           {:else}
             {i + 1}
@@ -144,7 +141,8 @@
       <div class="input-phase">
         <h2 class="phase-title">Ny analyse</h2>
         <p class="phase-desc">
-          Beskriv problemstillingen. Claude vil vurdere og foreslå presisering, bestemmelser og søkestrategi.
+          Beskriv problemstillingen. Claude vil vurdere og foreslå presisering, bestemmelser og
+          søkestrategi.
         </p>
 
         <textarea
@@ -163,19 +161,23 @@
           <button class="btn-primary" onclick={submitToClaude} disabled={!problemText.trim()}>
             Vurder med Claude
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <path d="M3 7H11M11 7L8 4M11 7L8 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+              <path
+                d="M3 7H11M11 7L8 4M11 7L8 10"
+                stroke="currentColor"
+                stroke-width="1.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
             </svg>
           </button>
         </div>
       </div>
-
     {:else if phase === 'loading'}
       <div class="loading-phase">
         <div class="spinner"></div>
         <div class="loading-title">Analyserer problemstilling…</div>
         <div class="loading-desc">Claude vurderer bestemmelser, delspørsmål og søkestrategi</div>
       </div>
-
     {:else if phase === 'proposal' && scopingResult}
       <div class="proposal-phase">
         <!-- AI attribution -->
@@ -188,19 +190,25 @@
         <div class="field-group">
           <div class="field-header">
             <span class="field-label">Problemstilling (presisert)</span>
-            <button class="edit-icon" onclick={() => editingField = editingField === 'problem' ? null : 'problem'}>
-              <svg width="10" height="10" viewBox="0 0 10 10"><path d="M7.5 1.5L8.5 2.5L3 8H2V7L7.5 1.5Z" stroke="currentColor" stroke-width="1" fill="none" /></svg>
+            <button
+              class="edit-icon"
+              onclick={() => (editingField = editingField === 'problem' ? null : 'problem')}
+            >
+              <svg width="10" height="10" viewBox="0 0 10 10"
+                ><path
+                  d="M7.5 1.5L8.5 2.5L3 8H2V7L7.5 1.5Z"
+                  stroke="currentColor"
+                  stroke-width="1"
+                  fill="none"
+                /></svg
+              >
             </button>
           </div>
           {#if editingField === 'problem'}
-            <textarea
-              class="edit-textarea"
-              bind:value={editedProblem}
-              rows="3"
-            ></textarea>
+            <textarea class="edit-textarea" bind:value={editedProblem} rows="3"></textarea>
           {:else}
             <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-            <div class="field-value clickable" onclick={() => editingField = 'problem'}>
+            <div class="field-value clickable" onclick={() => (editingField = 'problem')}>
               {editedProblem}
             </div>
           {/if}
@@ -242,7 +250,13 @@
             <span class="spacer"></span>
             <div class="verified-indicator">
               <svg width="10" height="10" viewBox="0 0 10 10">
-                <path d="M2 5L4 7L8 3" stroke="var(--p-success)" stroke-width="1.5" fill="none" stroke-linecap="round" />
+                <path
+                  d="M2 5L4 7L8 3"
+                  stroke="var(--p-success)"
+                  stroke-width="1.5"
+                  fill="none"
+                  stroke-linecap="round"
+                />
               </svg>
               Verifisert mot lovtekst
             </div>
@@ -254,11 +268,22 @@
                 <div class="verify-badge" class:verified={prov.verified}>
                   {#if prov.verified}
                     <svg width="10" height="10" viewBox="0 0 10 10">
-                      <path d="M2 5L4 7L8 3" stroke="var(--p-success)" stroke-width="1.5" fill="none" stroke-linecap="round" />
+                      <path
+                        d="M2 5L4 7L8 3"
+                        stroke="var(--p-success)"
+                        stroke-width="1.5"
+                        fill="none"
+                        stroke-linecap="round"
+                      />
                     </svg>
                   {/if}
                 </div>
-                <span class="prov-ref">{prov.ref.replace('foa:', 'FOA § ').replace('loa:', 'LOA § ').replace('dir:', 'Dir. art. ')}</span>
+                <span class="prov-ref"
+                  >{prov.ref
+                    .replace('foa:', 'FOA § ')
+                    .replace('loa:', 'LOA § ')
+                    .replace('dir:', 'Dir. art. ')}</span
+                >
                 <span class="prov-label">{prov.label}</span>
                 {#if prov.primary}
                   <span class="prov-primary-badge">Primær</span>
@@ -288,15 +313,15 @@
         <!-- Search strategy -->
         <div class="field-group">
           <span class="field-label">Søkestrategi</span>
-          {#each [
-            { label: 'Referansetabell', items: scopingResult.search_strategy.ref_table, type: 'ref' },
-            { label: 'Fulltekstsøk', items: editedFts, type: 'fts' },
-            { label: 'Vektorsøk', items: editedVector, type: 'vec' },
-            { label: 'Forarbeider', items: scopingResult.search_strategy.prep_work, type: 'prep' },
-          ] as group}
+          {#each [{ label: 'Referansetabell', items: scopingResult.search_strategy.ref_table, type: 'ref' }, { label: 'Fulltekstsøk', items: editedFts, type: 'fts' }, { label: 'Vektorsøk', items: editedVector, type: 'vec' }, { label: 'Forarbeider', items: scopingResult.search_strategy.prep_work, type: 'prep' }] as group}
             <div class="strategy-group">
               <div class="strategy-header">
-                <div class="strategy-dot" class:ref={group.type === 'ref'} class:fts={group.type === 'fts'} class:vec={group.type === 'vec'}></div>
+                <div
+                  class="strategy-dot"
+                  class:ref={group.type === 'ref'}
+                  class:fts={group.type === 'fts'}
+                  class:vec={group.type === 'vec'}
+                ></div>
                 <span class="strategy-label">{group.label}</span>
               </div>
               {#each group.items as item}
@@ -324,16 +349,19 @@
           <button class="btn-primary" onclick={approve}>
             Godkjenn og start søk
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <path d="M3 7H11M11 7L8 4M11 7L8 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+              <path
+                d="M3 7H11M11 7L8 4M11 7L8 10"
+                stroke="currentColor"
+                stroke-width="1.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
             </svg>
           </button>
-          <button class="btn-secondary" onclick={revise}>
-            Be Claude revidere
-          </button>
+          <button class="btn-secondary" onclick={revise}> Be Claude revidere </button>
           <span class="actions-hint">Alt over kan redigeres — klikk på teksten</span>
         </div>
       </div>
-
     {:else if phase === 'searching'}
       <div class="searching-phase">
         <div class="spinner"></div>
@@ -341,11 +369,10 @@
         <div class="loading-desc">Referansetabell · Fulltekstsøk · Vektorsøk</div>
 
         <div class="search-steps">
-          {#each [
-            { label: 'Referansetabell', detail: editedProvisions.filter(p => p.verified).map(p => p.ref.replace('foa:', '§ ').replace('loa:', '§ ')).join(', ') },
-            { label: 'Fulltekstsøk', detail: editedFts.join(', ') },
-            { label: 'Vektorsøk', detail: editedVector.length > 0 ? 'konseptuelt' : '' },
-          ] as step}
+          {#each [{ label: 'Referansetabell', detail: editedProvisions
+                .filter((p) => p.verified)
+                .map((p) => p.ref.replace('foa:', '§ ').replace('loa:', '§ '))
+                .join(', ') }, { label: 'Fulltekstsøk', detail: editedFts.join(', ') }, { label: 'Vektorsøk', detail: editedVector.length > 0 ? 'konseptuelt' : '' }] as step}
             {#if step.detail}
               <div class="search-step running">
                 <div class="search-step-spinner"></div>
@@ -483,7 +510,7 @@
     background: rgba(180, 60, 60, 0.06);
     border: 1px solid rgba(180, 60, 60, 0.15);
     font-size: 12px;
-    color: #8B3030;
+    color: #8b3030;
   }
 
   /* Loading phase */
@@ -607,14 +634,18 @@
     font-size: 10px;
     color: var(--p-ink4);
   }
-  .spacer { flex: 1; }
+  .spacer {
+    flex: 1;
+  }
   .edit-icon {
     all: unset;
     cursor: pointer;
     opacity: 0.3;
     padding: 2px;
   }
-  .edit-icon:hover { opacity: 0.7; }
+  .edit-icon:hover {
+    opacity: 0.7;
+  }
   .field-value {
     font-size: 13px;
     line-height: 1.55;
@@ -797,9 +828,15 @@
     border-radius: 50%;
     background: var(--p-ink4);
   }
-  .strategy-dot.ref { background: var(--p-ink); }
-  .strategy-dot.fts { background: var(--p-ink2); }
-  .strategy-dot.vec { background: var(--p-ink3); }
+  .strategy-dot.ref {
+    background: var(--p-ink);
+  }
+  .strategy-dot.fts {
+    background: var(--p-ink2);
+  }
+  .strategy-dot.vec {
+    background: var(--p-ink3);
+  }
   .strategy-label {
     font-size: 11px;
     font-weight: 600;
@@ -868,7 +905,9 @@
     gap: 6px;
     transition: opacity 0.12s ease;
   }
-  .btn-primary:hover { opacity: 0.85; }
+  .btn-primary:hover {
+    opacity: 0.85;
+  }
   .btn-primary:disabled {
     opacity: 0.4;
     cursor: default;

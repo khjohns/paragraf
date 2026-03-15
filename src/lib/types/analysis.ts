@@ -127,12 +127,13 @@ export type ScreeningMode = 'claude' | 'me' | 'pick';
 export type EvolutionType = 'established' | 'confirmed' | 'qualified' | 'consolidating';
 
 /** Evolution display config — shared between PropositionRegistry and Toolbar */
-export const EVOLUTION_CONFIG: Record<EvolutionType, { label: string; color: string; bg: string }> = {
-  established: { label: 'Etablert', color: 'var(--p-ink)', bg: 'rgba(26,24,20,0.06)' },
-  confirmed: { label: 'Bekreftet', color: 'var(--p-success)', bg: 'var(--p-success-bg)' },
-  qualified: { label: 'Presisert', color: 'var(--p-warn)', bg: 'var(--p-warn-bg)' },
-  consolidating: { label: 'Konsoliderende', color: 'var(--p-provision-accent)', bg: '#E8EEF0' },
-};
+export const EVOLUTION_CONFIG: Record<EvolutionType, { label: string; color: string; bg: string }> =
+  {
+    established: { label: 'Etablert', color: 'var(--p-ink)', bg: 'rgba(26,24,20,0.06)' },
+    confirmed: { label: 'Bekreftet', color: 'var(--p-success)', bg: 'var(--p-success-bg)' },
+    qualified: { label: 'Presisert', color: 'var(--p-warn)', bg: 'var(--p-warn-bg)' },
+    consolidating: { label: 'Konsoliderende', color: 'var(--p-provision-accent)', bg: '#E8EEF0' },
+  };
 
 /** A single instance where a proposition appears in a case */
 export interface PropositionInstance {
@@ -230,7 +231,12 @@ export interface QAVerifiedQuote {
 
 /** QA logic flag */
 export interface QALogicFlag {
-  type: 'argumentative_gap' | 'unsupported_conclusion' | 'analogy_not_flagged' | 'missing_nuance' | 'contradiction';
+  type:
+    | 'argumentative_gap'
+    | 'unsupported_conclusion'
+    | 'analogy_not_flagged'
+    | 'missing_nuance'
+    | 'contradiction';
   location: string;
   description: string;
   severity: 'high' | 'medium' | 'low';

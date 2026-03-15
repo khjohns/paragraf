@@ -32,23 +32,40 @@
     const isNowRead = !!analysisState.analysis.readStatus[uiState.selectedNodeId];
     const readCount = Object.values(analysisState.analysis.readStatus).filter(Boolean).length;
     toastState.show(
-      isNowRead ? `Markert som lest · ${readCount} av ${caseNodes.length}` : 'Fjernet lesemarkering',
+      isNowRead
+        ? `Markert som lest · ${readCount} av ${caseNodes.length}`
+        : 'Fjernet lesemarkering',
       'success'
     );
   }
 
   const keyHandlers: Record<string, (e: KeyboardEvent) => void> = {
-    ArrowDown: (e) => { e.preventDefault(); navigateList('ArrowDown'); },
-    ArrowUp: (e) => { e.preventDefault(); navigateList('ArrowUp'); },
+    ArrowDown: (e) => {
+      e.preventDefault();
+      navigateList('ArrowDown');
+    },
+    ArrowUp: (e) => {
+      e.preventDefault();
+      navigateList('ArrowUp');
+    },
     m: () => toggleSelectedRead(),
     M: () => toggleSelectedRead(),
-    r: () => { if (uiState.selectedNodeId) window.dispatchEvent(new CustomEvent('paragraf:shortcut', { detail: 'read' })); },
-    R: () => { if (uiState.selectedNodeId) window.dispatchEvent(new CustomEvent('paragraf:shortcut', { detail: 'read' })); },
+    r: () => {
+      if (uiState.selectedNodeId)
+        window.dispatchEvent(new CustomEvent('paragraf:shortcut', { detail: 'read' }));
+    },
+    R: () => {
+      if (uiState.selectedNodeId)
+        window.dispatchEvent(new CustomEvent('paragraf:shortcut', { detail: 'read' }));
+    },
     Escape: () => {
       if (showHelp) showHelp = false;
-      else if (uiState.selectedNodeId) window.dispatchEvent(new CustomEvent('paragraf:shortcut', { detail: 'escape' }));
+      else if (uiState.selectedNodeId)
+        window.dispatchEvent(new CustomEvent('paragraf:shortcut', { detail: 'escape' }));
     },
-    '?': () => { showHelp = !showHelp; },
+    '?': () => {
+      showHelp = !showHelp;
+    },
   };
 
   function handleKeydown(e: KeyboardEvent) {

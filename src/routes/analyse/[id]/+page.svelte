@@ -23,9 +23,9 @@
   // Skip overlay for legacy analyses that have nodes but no explicit status
   let showScoping = $derived(
     (analysisState.analysis.status === 'scoping' ||
-    analysisState.analysis.status === 'searching' ||
-    analysisState.analysis.status === undefined) &&
-    analysisState.nodes.length === 0
+      analysisState.analysis.status === 'searching' ||
+      analysisState.analysis.status === undefined) &&
+      analysisState.nodes.length === 0
   );
 
   const traversal = createTraversalQuery(() => ({

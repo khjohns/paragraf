@@ -1,5 +1,16 @@
 import { apiFetch } from './client';
-import type { AnalysisSummary, AnalysisDbResponse, ScopingResult, ScreeningResult, PostSearchSuggestion, CrossPropositionsResult, EuCaseForScreening, EuScreeningResult, SynthesisResult, QAReport } from '$lib/types/analysis';
+import type {
+  AnalysisSummary,
+  AnalysisDbResponse,
+  ScopingResult,
+  ScreeningResult,
+  PostSearchSuggestion,
+  CrossPropositionsResult,
+  EuCaseForScreening,
+  EuScreeningResult,
+  SynthesisResult,
+  QAReport,
+} from '$lib/types/analysis';
 import type { TraversalResponse } from '$lib/types/api';
 
 export function fetchAnalyses(): Promise<AnalysisSummary[]> {
@@ -27,10 +38,7 @@ export function updateAnalysis(
   });
 }
 
-export function scopeAnalysis(
-  analysisId: string,
-  problem: string
-): Promise<ScopingResult> {
+export function scopeAnalysis(analysisId: string, problem: string): Promise<ScopingResult> {
   return apiFetch<ScopingResult>(`/api/analyses/${analysisId}/scope`, {
     method: 'POST',
     body: JSON.stringify({ problem }),
@@ -68,7 +76,7 @@ function streamSSE<T>(
   errorLabel: string,
   onResult: (result: T & { done?: boolean; error?: string }) => void,
   onDone: () => void,
-  onError: (error: string) => void,
+  onError: (error: string) => void
 ): AbortController {
   const controller = new AbortController();
 
@@ -140,7 +148,7 @@ export function screenCases(
   sakNrs: string[],
   onResult: (result: ScreeningResult & { done?: boolean; error?: string }) => void,
   onDone: () => void,
-  onError: (error: string) => void,
+  onError: (error: string) => void
 ): AbortController {
   return streamSSE<ScreeningResult>(
     `/api/analyses/${analysisId}/screen`,
@@ -148,7 +156,7 @@ export function screenCases(
     'Screening feilet',
     onResult,
     onDone,
-    onError,
+    onError
   );
 }
 
@@ -167,15 +175,12 @@ export function crossPropositions(analysisId: string): Promise<CrossPropositions
 export function rescreenCase(
   analysisId: string,
   sakNr: string,
-  sections: string[] = ['vurdering', 'bakgrunn'],
+  sections: string[] = ['vurdering', 'bakgrunn']
 ): Promise<ScreeningResult> {
-  return apiFetch<ScreeningResult>(
-    `/api/analyses/${analysisId}/screen/${sakNr}/rescreen`,
-    {
-      method: 'POST',
-      body: JSON.stringify({ sections }),
-    },
-  );
+  return apiFetch<ScreeningResult>(`/api/analyses/${analysisId}/screen/${sakNr}/rescreen`, {
+    method: 'POST',
+    body: JSON.stringify({ sections }),
+  });
 }
 
 // --- EU Screening ---
@@ -189,7 +194,7 @@ export function screenEuCases(
   euCaseIds: string[] | null,
   onResult: (result: EuScreeningResult & { done?: boolean; error?: string }) => void,
   onDone: () => void,
-  onError: (error: string) => void,
+  onError: (error: string) => void
 ): AbortController {
   return streamSSE<EuScreeningResult>(
     `/api/analyses/${analysisId}/eu-screen`,
@@ -197,7 +202,7 @@ export function screenEuCases(
     'EU-screening feilet',
     onResult,
     onDone,
-    onError,
+    onError
   );
 }
 
@@ -211,7 +216,7 @@ export function synthesize(analysisId: string): Promise<SynthesisResult> {
 
 export function updateSynthesisNote(
   analysisId: string,
-  content: string,
+  content: string
 ): Promise<{ ok: boolean; version: number }> {
   return apiFetch(`/api/analyses/${analysisId}/synthesis`, {
     method: 'PATCH',
@@ -262,7 +267,7 @@ export function streamChat(
   messages: ChatMessage[],
   onChunk: (text: string) => void,
   onDone: () => void,
-  onError: (error: string) => void,
+  onError: (error: string) => void
 ): AbortController {
   return streamSSE<{ text?: string }>(
     `/api/analyses/${analysisId}/chat`,
@@ -273,6 +278,6 @@ export function streamChat(
       else if (result.text) onChunk(result.text);
     },
     onDone,
-    onError,
+    onError
   );
 }
