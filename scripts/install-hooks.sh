@@ -1,0 +1,5 @@
+#!/bin/sh
+# Install git hooks for this repository
+cp scripts/pre-commit .git/hooks/pre-commit
+chmod +x .git/hooks/pre-commit
+echo "Git hooks installed."

@@ -1,0 +1,12 @@
+#!/bin/sh
+# Run prettier on staged .svelte, .ts, and .js files before commit
+
+STAGED=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(svelte|ts|js)$')
+
+if [ -z "$STAGED" ]; then
+  exit 0
+fi
+
+echo "$STAGED" | xargs npx prettier --write
+
+echo "$STAGED" | xargs git add
