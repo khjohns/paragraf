@@ -37,6 +37,14 @@ def _section_filter(query, column: str, law_section: str):
     return query.or_(f"{column}.eq.{law_section},{column}.like.{law_section} %")
 
 
+def _matches_provision(ref: dict, law_name: str, law_section: str) -> bool:
+    """Check if a law reference row matches a given provision."""
+    ref_section = ref.get("law_section") or ""
+    return ref["law_name"] == law_name and (
+        ref_section == law_section or ref_section.startswith(law_section + " ")
+    )
+
+
 def parse_provision(provision_id: str) -> tuple[str, str]:
     """Parse 'anskaffelsesforskriften:16-10' -> ('anskaffelsesforskriften', '16-10')."""
     parts = provision_id.split(":", 1)
@@ -142,98 +150,110 @@ def _build_provision_nodes(client, provisions: list[str]) -> list[dict]:
     return nodes
 
 
-def _build_edges(
-    client, case_sak_nrs: set[str], provisions: list[str],
-    law_refs_data: list[dict],
-) -> tuple[list[dict], list[dict], list[dict]]:
-    """Build edges and collect EU + forarbeider nodes.
+def _add_edge(
+    edges: list[dict], seen: set[tuple[str, str]],
+    from_id: str, to_id: str, **extra,
+) -> None:
+    """Append an edge if not already seen."""
+    key = (from_id, to_id)
+    if key not in seen:
+        seen.add(key)
+        edges.append({"from": from_id, "to": to_id, "valence": "unknown", **extra})
 
-    Returns (edges, eu_nodes, prep_nodes).
-    law_refs_data is pre-fetched from kofa_law_references (avoids duplicate query).
-    """
-    sak_list = list(case_sak_nrs)
-    edges: list[dict] = []
-    seen_edges: set[tuple[str, str]] = set()
-    eu_nodes: list[dict] = []
-    prep_nodes: list[dict] = []
-    seen_eu: set[str] = set()
-    seen_prep: set[str] = set()
 
-    # --- Case → Provision edges (from pre-fetched law references) ---
-    provision_set = set(provisions)
+def _build_case_provision_edges(
+    law_refs_data: list[dict], provisions: list[str],
+    edges: list[dict], seen_edges: set[tuple[str, str]],
+) -> None:
+    """Case → Provision edges from pre-fetched law references."""
+    by_law: dict[str, list[tuple[str, str]]] = {}
+    for pid in provisions:
+        law_name, law_section = parse_provision(pid)
+        by_law.setdefault(law_name, []).append((pid, law_section))
     for ref in law_refs_data:
-        for prov_id in provision_set:
-            law_name, law_section = parse_provision(prov_id)
-            ref_section = ref.get("law_section") or ""
-            if ref["law_name"] == law_name and (ref_section == law_section or ref_section.startswith(law_section + " ")):
-                key = (f"kofa:{ref['sak_nr']}", prov_id)
-                if key not in seen_edges:
-                    seen_edges.add(key)
-                    edges.append({"from": key[0], "to": key[1], "valence": "unknown"})
+        candidates = by_law.get(ref["law_name"])
+        if not candidates:
+            continue
+        for prov_id, law_section in candidates:
+            if _matches_provision(ref, ref["law_name"], law_section):
+                _add_edge(edges, seen_edges, f"kofa:{ref['sak_nr']}", prov_id)
                 break
 
-    # --- Case → Case edges ---
+
+def _build_case_case_edges(
+    client, case_sak_nrs: set[str],
+    edges: list[dict], seen_edges: set[tuple[str, str]],
+) -> None:
+    """Case → Case edges from kofa_case_references."""
     case_refs = (
         client.table("kofa_case_references")
         .select("from_sak_nr, to_sak_nr, context")
-        .in_("from_sak_nr", sak_list)
+        .in_("from_sak_nr", list(case_sak_nrs))
         .execute()
     )
     for ref in case_refs.data or []:
         if ref["to_sak_nr"] in case_sak_nrs:
-            key = (f"kofa:{ref['from_sak_nr']}", f"kofa:{ref['to_sak_nr']}")
-            if key not in seen_edges:
-                seen_edges.add(key)
-                edges.append({
-                    "from": key[0],
-                    "to": key[1],
-                    "valence": "unknown",
-                    "context": ref.get("context"),
-                })
+            _add_edge(
+                edges, seen_edges,
+                f"kofa:{ref['from_sak_nr']}", f"kofa:{ref['to_sak_nr']}",
+                context=ref.get("context"),
+            )
 
-    # --- Case → EU edges ---
+
+def _build_eu_edges(
+    client, case_sak_nrs: set[str],
+    edges: list[dict], seen_edges: set[tuple[str, str]],
+) -> list[dict]:
+    """Case → EU edges. Returns eu_nodes."""
     eu_refs = (
         client.table("kofa_eu_references")
         .select("sak_nr, eu_case_id, eu_case_name, context")
-        .in_("sak_nr", sak_list)
+        .in_("sak_nr", list(case_sak_nrs))
         .execute()
     )
-    eu_ids = set()
     eu_cite_count: dict[str, int] = {}
+    eu_ids: set[str] = set()
     for ref in eu_refs.data or []:
         eu_id = ref["eu_case_id"]
         eu_ids.add(eu_id)
         eu_cite_count[eu_id] = eu_cite_count.get(eu_id, 0) + 1
-        key = (f"kofa:{ref['sak_nr']}", f"eu:{eu_id}")
-        if key not in seen_edges:
-            seen_edges.add(key)
-            edges.append({"from": key[0], "to": key[1], "valence": "unknown"})
+        _add_edge(edges, seen_edges, f"kofa:{ref['sak_nr']}", f"eu:{eu_id}")
 
-    # Batch-fetch EU case metadata
-    if eu_ids:
-        eu_data = (
-            client.table("kofa_eu_case_law")
-            .select("eu_case_id, case_name, judgment_date, subject")
-            .in_("eu_case_id", list(eu_ids))
-            .execute()
-        )
-        for eu in eu_data.data or []:
-            node_id = f"eu:{eu['eu_case_id']}"
-            if node_id not in seen_eu:
-                seen_eu.add(node_id)
-                eu_nodes.append({
-                    "id": node_id,
-                    "type": "eu_case",
-                    "label": eu["eu_case_id"],
-                    "subtitle": eu.get("case_name") or "",
-                    "date": str(eu["judgment_date"]) if eu.get("judgment_date") else None,
-                    "citations": eu_cite_count.get(eu["eu_case_id"], 0),
-                    "iteration": 1,
-                    "isSeed": False,
-                    "isDelimitation": False,
-                })
+    if not eu_ids:
+        return []
 
-    # --- Forarbeider → Provision edges (one node per document) ---
+    eu_data = (
+        client.table("kofa_eu_case_law")
+        .select("eu_case_id, case_name, judgment_date, subject")
+        .in_("eu_case_id", list(eu_ids))
+        .execute()
+    )
+    eu_nodes: list[dict] = []
+    seen_eu: set[str] = set()
+    for eu in eu_data.data or []:
+        node_id = f"eu:{eu['eu_case_id']}"
+        if node_id in seen_eu:
+            continue
+        seen_eu.add(node_id)
+        eu_nodes.append({
+            "id": node_id,
+            "type": "eu_case",
+            "label": eu["eu_case_id"],
+            "subtitle": eu.get("case_name") or "",
+            "date": str(eu["judgment_date"]) if eu.get("judgment_date") else None,
+            "citations": eu_cite_count.get(eu["eu_case_id"], 0),
+            "iteration": 1,
+            "isSeed": False,
+            "isDelimitation": False,
+        })
+    return eu_nodes
+
+
+def _build_prep_edges(
+    client, provisions: list[str],
+    edges: list[dict], seen_edges: set[tuple[str, str]],
+) -> list[dict]:
+    """Forarbeider → Provision edges. Returns prep_nodes."""
     all_prep_doc_ids: set[str] = set()
     for prov_id in provisions:
         law_name, law_section = parse_provision(prov_id)
@@ -246,36 +266,55 @@ def _build_edges(
         for ref in prep_refs.data or []:
             doc_id = ref["doc_id"]
             all_prep_doc_ids.add(doc_id)
-            node_id = f"forarbeid:{doc_id}"
-            key = (node_id, prov_id)
-            if key not in seen_edges:
-                seen_edges.add(key)
-                edges.append({"from": key[0], "to": key[1], "valence": "unknown"})
+            _add_edge(edges, seen_edges, f"forarbeid:{doc_id}", prov_id)
 
-    # Batch-fetch forarbeider metadata (single query for all provisions)
-    if all_prep_doc_ids:
-        prep_data = (
-            client.table("kofa_forarbeider")
-            .select("doc_id, title, full_title")
-            .in_("doc_id", list(all_prep_doc_ids))
-            .execute()
-        )
-        prep_map = {p["doc_id"]: p for p in (prep_data.data or [])}
-        for did in all_prep_doc_ids:
-            node_id = f"forarbeid:{did}"
-            if node_id not in seen_prep:
-                seen_prep.add(node_id)
-                meta = prep_map.get(did, {})
-                prep_nodes.append({
-                    "id": node_id,
-                    "type": "prep_work",
-                    "label": meta.get("title") or did,
-                    "subtitle": meta.get("full_title") or "",
-                    "citations": 0,
-                    "iteration": 1,
-                    "isSeed": False,
-                    "isDelimitation": False,
-                })
+    if not all_prep_doc_ids:
+        return []
+
+    prep_data = (
+        client.table("kofa_forarbeider")
+        .select("doc_id, title, full_title")
+        .in_("doc_id", list(all_prep_doc_ids))
+        .execute()
+    )
+    prep_map = {p["doc_id"]: p for p in (prep_data.data or [])}
+    prep_nodes: list[dict] = []
+    seen_prep: set[str] = set()
+    for did in all_prep_doc_ids:
+        node_id = f"forarbeid:{did}"
+        if node_id in seen_prep:
+            continue
+        seen_prep.add(node_id)
+        meta = prep_map.get(did, {})
+        prep_nodes.append({
+            "id": node_id,
+            "type": "prep_work",
+            "label": meta.get("title") or did,
+            "subtitle": meta.get("full_title") or "",
+            "citations": 0,
+            "iteration": 1,
+            "isSeed": False,
+            "isDelimitation": False,
+        })
+    return prep_nodes
+
+
+def _build_edges(
+    client, case_sak_nrs: set[str], provisions: list[str],
+    law_refs_data: list[dict],
+) -> tuple[list[dict], list[dict], list[dict]]:
+    """Build edges and collect EU + forarbeider nodes.
+
+    Returns (edges, eu_nodes, prep_nodes).
+    law_refs_data is pre-fetched from kofa_law_references (avoids duplicate query).
+    """
+    edges: list[dict] = []
+    seen_edges: set[tuple[str, str]] = set()
+
+    _build_case_provision_edges(law_refs_data, provisions, edges, seen_edges)
+    _build_case_case_edges(client, case_sak_nrs, edges, seen_edges)
+    eu_nodes = _build_eu_edges(client, case_sak_nrs, edges, seen_edges)
+    prep_nodes = _build_prep_edges(client, provisions, edges, seen_edges)
 
     return edges, eu_nodes, prep_nodes
 
@@ -317,6 +356,147 @@ def _compute_gaps(
     return gaps
 
 
+def _detect_regulation_versions(law_refs_data: list[dict]) -> dict[str, str]:
+    """Detect regulation version per case. 'new' if ANY reference is 'new'."""
+    case_reg: dict[str, str] = {}
+    for row in law_refs_data:
+        sak = row["sak_nr"]
+        if row.get("regulation_version") == "new":
+            case_reg[sak] = "new"
+        elif sak not in case_reg:
+            case_reg[sak] = "old"
+    return case_reg
+
+
+def _classify_category(signal_count: int) -> str:
+    """Classify case into A/B/C based on signal count."""
+    if signal_count >= 2:
+        return "A"
+    if signal_count == 1:
+        return "B"
+    return "C"
+
+
+def _build_case_nodes(
+    all_sak_nrs: set[str], case_map: dict[str, dict],
+    ref_cases: dict[str, set[str]], fts_cases: set[str], vec_cases: set[str],
+    seed_cases: list[str], case_reg: dict[str, str],
+) -> list[dict]:
+    """Build GraphNode dicts for all discovered KOFA cases."""
+    case_nodes = []
+    for sak_nr in all_sak_nrs:
+        case = case_map.get(sak_nr)
+        if not case:
+            continue
+
+        signals = {"ref": sak_nr in ref_cases, "fts": sak_nr in fts_cases, "vec": sak_nr in vec_cases}
+        category = _classify_category(sum(signals.values()))
+        reg = case_reg.get(sak_nr)
+
+        node: dict = {
+            "id": f"kofa:{sak_nr}",
+            "type": "kofa_case",
+            "label": sak_nr,
+            "subtitle": case.get("saken_gjelder") or "",
+            "date": str(case["avsluttet"]) if case.get("avsluttet") else None,
+            "outcome": simplify_outcome(case.get("avgjoerelse")),
+            "category": category,
+            "signals": signals,
+            "citations": 0,
+            "iteration": 1,
+            "isSeed": sak_nr in seed_cases,
+            "isDelimitation": False,
+        }
+        if reg:
+            node["regulation"] = reg
+        case_nodes.append(node)
+    return case_nodes
+
+
+def _fill_case_citations(client, case_nodes: list[dict]) -> None:
+    """Fetch and fill citation counts for case nodes."""
+    sak_list = [n["label"] for n in case_nodes]
+    if not sak_list:
+        return
+
+    cite_result = (
+        client.table("kofa_case_references")
+        .select("to_sak_nr")
+        .in_("to_sak_nr", sak_list)
+        .limit(5000)
+        .execute()
+    )
+    cite_by_sak: dict[str, int] = {}
+    for row in cite_result.data or []:
+        sak = row["to_sak_nr"]
+        cite_by_sak[sak] = cite_by_sak.get(sak, 0) + 1
+    for node in case_nodes:
+        node["citations"] = cite_by_sak.get(node["label"], 0)
+
+
+def _compute_case_scores(case_nodes: list[dict]) -> None:
+    """Compute and set final_score on each case node."""
+    max_cite = max((n["citations"] for n in case_nodes), default=0)
+    for node in case_nodes:
+        signal_count = sum(node.get("signals", {}).values())
+        node["score"] = round(compute_case_score(
+            signal_count=signal_count,
+            citation_count=node["citations"],
+            max_citations=max_cite,
+            authority_weight=AUTHORITY_WEIGHT.get(node["type"], 0.4),
+        ), 4)
+
+
+def _fill_provision_citations(provision_nodes: list[dict], edges: list[dict]) -> None:
+    """Count incoming edges to each provision node and set citations."""
+    provision_id_set = {n["id"] for n in provision_nodes}
+    prov_citation_counts: dict[str, int] = {}
+    for edge in edges:
+        if edge["to"] in provision_id_set:
+            prov_citation_counts[edge["to"]] = prov_citation_counts.get(edge["to"], 0) + 1
+    for node in provision_nodes:
+        node["citations"] = prov_citation_counts.get(node["id"], 0)
+
+
+def _compute_suggested_provisions(
+    all_law_refs_data: list[dict], seed_provisions: list[str],
+) -> list[dict]:
+    """Find provisions frequently referenced by discovered cases but not in seed list."""
+    seed_set = set(seed_provisions)
+    prov_counts: dict[str, int] = {}
+    for row in all_law_refs_data:
+        if row.get("regulation_version") != "new":
+            continue
+        ref_section = row.get("law_section") or ""
+        base = ref_section.split(" ")[0]
+        prov_id = f"{row['law_name']}:{base}"
+        if prov_id not in seed_set:
+            prov_counts[prov_id] = prov_counts.get(prov_id, 0) + 1
+    return [
+        {"id": pid, "count": cnt}
+        for pid, cnt in sorted(prov_counts.items(), key=lambda x: -x[1])[:5]
+    ]
+
+
+def _compute_stats(case_nodes: list[dict]) -> dict:
+    """Compute category statistics for case nodes."""
+    counts = {"A": 0, "B": 0, "C": 0}
+    delimitations = 0
+    for n in case_nodes:
+        cat = n.get("category")
+        if cat in counts:
+            counts[cat] += 1
+        if n.get("isDelimitation"):
+            delimitations += 1
+    return {
+        "total": len(case_nodes),
+        "categoryA": counts["A"],
+        "categoryB": counts["B"],
+        "categoryC": counts["C"],
+        "delimitations": delimitations,
+    }
+
+
 def build_traversal_response(
     provisions: list[str],
     fts_terms: list[str],
@@ -341,7 +521,7 @@ def build_traversal_response(
             "nodes": _build_provision_nodes(client, provisions),
             "edges": [],
             "gaps": _compute_gaps(provisions, {}),
-            "stats": {"total": 0, "categoryA": 0, "categoryB": 0, "categoryC": 0, "delimitations": 0},
+            "stats": _compute_stats([]),
         }
 
     # --- 3. Batch-fetch case metadata ---
@@ -355,7 +535,6 @@ def build_traversal_response(
     case_map = {c["sak_nr"]: c for c in (case_data.data or [])}
 
     # --- 4. Batch-fetch law references for all discovered cases ---
-    # Used for both regulation version detection AND edge building (avoids duplicate query)
     all_law_refs = (
         client.table("kofa_law_references")
         .select("sak_nr, law_name, law_section, regulation_version")
@@ -364,131 +543,25 @@ def build_traversal_response(
     )
     all_law_refs_data = all_law_refs.data or []
 
-    # A case's regulation = 'new' if ANY of its references are 'new'
-    case_reg: dict[str, str] = {}
-    for row in all_law_refs_data:
-        sak = row["sak_nr"]
-        if row.get("regulation_version") == "new":
-            case_reg[sak] = "new"
-        elif sak not in case_reg:
-            case_reg[sak] = "old"
-
     # --- 5. Build case nodes ---
-    case_nodes = []
-    for sak_nr in all_sak_nrs:
-        case = case_map.get(sak_nr)
-        if not case:
-            continue  # Case not in DB (broken reference)
-
-        has_ref = sak_nr in ref_cases
-        has_fts = sak_nr in fts_cases
-        has_vec = sak_nr in vec_cases
-        signals = {"ref": has_ref, "fts": has_fts, "vec": has_vec}
-
-        signal_count = sum(signals.values())
-        if signal_count >= 2:
-            category = "A"
-        elif signal_count == 1:
-            category = "B"
-        else:
-            category = "C"  # Seed cases with no signal match
-
-        reg = case_reg.get(sak_nr)
-
-        node: dict = {
-            "id": f"kofa:{sak_nr}",
-            "type": "kofa_case",
-            "label": sak_nr,
-            "subtitle": case.get("saken_gjelder") or "",
-            "date": str(case["avsluttet"]) if case.get("avsluttet") else None,
-            "outcome": simplify_outcome(case.get("avgjoerelse")),
-            "category": category,
-            "signals": signals,
-            "citations": 0,  # Filled in edge-building step
-            "iteration": 1,
-            "isSeed": sak_nr in seed_cases,
-            "isDelimitation": False,
-        }
-        if reg:
-            node["regulation"] = reg
-        case_nodes.append(node)
+    case_reg = _detect_regulation_versions(all_law_refs_data)
+    case_nodes = _build_case_nodes(
+        all_sak_nrs, case_map, ref_cases, fts_cases, vec_cases, seed_cases, case_reg,
+    )
 
     # --- 6. Build provision nodes ---
     provision_nodes = _build_provision_nodes(client, provisions)
 
-    # --- 7. Build edges + compute citations ---
+    # --- 7. Build edges + citations ---
     edges, eu_nodes, prep_nodes = _build_edges(client, all_sak_nrs, provisions, all_law_refs_data)
-
-    # Count how many OTHER cases cite each case (from full DB, not just graph)
-    sak_list = [n["label"] for n in case_nodes]
-    if sak_list:
-        cite_result = (
-            client.table("kofa_case_references")
-            .select("to_sak_nr")
-            .in_("to_sak_nr", sak_list)
-            .limit(5000)
-            .execute()
-        )
-        # Group by to_sak_nr to get per-case citation counts
-        cite_by_sak: dict[str, int] = {}
-        for row in cite_result.data or []:
-            sak = row["to_sak_nr"]
-            cite_by_sak[sak] = cite_by_sak.get(sak, 0) + 1
-        for node in case_nodes:
-            node["citations"] = cite_by_sak.get(node["label"], 0)
-
-    # --- Compute final_score per case node ---
-    max_cite = max((n["citations"] for n in case_nodes), default=0)
-    for node in case_nodes:
-        signal_count = sum(node.get("signals", {}).values())
-        node["score"] = round(compute_case_score(
-            signal_count=signal_count,
-            citation_count=node["citations"],
-            max_citations=max_cite,
-            authority_weight=AUTHORITY_WEIGHT.get(node["type"], 0.4),
-        ), 4)
-
-    # Provision citations: count incoming graph edges
-    provision_id_set = {n["id"] for n in provision_nodes}
-    prov_citation_counts: dict[str, int] = {}
-    for edge in edges:
-        if edge["to"] in provision_id_set:
-            prov_citation_counts[edge["to"]] = prov_citation_counts.get(edge["to"], 0) + 1
-    for node in provision_nodes:
-        node["citations"] = prov_citation_counts.get(node["id"], 0)
-
-    # --- 8. Gap matrix ---
-    gaps = _compute_gaps(provisions, ref_cases)
-
-    # --- 9. Suggested provisions ---
-    # Find provisions frequently referenced by discovered cases but not in seed list
-    seed_set = set(provisions)
-    prov_counts: dict[str, int] = {}
-    for row in all_law_refs_data:
-        ref_section = row.get("law_section") or ""
-        base = ref_section.split(" ")[0]  # strip "tredje ledd" etc
-        prov_id = f"{row['law_name']}:{base}"
-        if prov_id not in seed_set and row.get("regulation_version") == "new":
-            prov_counts[prov_id] = prov_counts.get(prov_id, 0) + 1
-    suggested = [
-        {"id": pid, "count": cnt}
-        for pid, cnt in sorted(prov_counts.items(), key=lambda x: -x[1])[:5]
-    ]
-
-    # --- 10. Stats ---
-    all_nodes = provision_nodes + case_nodes + eu_nodes + prep_nodes
-    stats = {
-        "total": len(case_nodes),
-        "categoryA": sum(1 for n in case_nodes if n.get("category") == "A"),
-        "categoryB": sum(1 for n in case_nodes if n.get("category") == "B"),
-        "categoryC": sum(1 for n in case_nodes if n.get("category") == "C"),
-        "delimitations": sum(1 for n in case_nodes if n.get("isDelimitation")),
-    }
+    _fill_case_citations(client, case_nodes)
+    _compute_case_scores(case_nodes)
+    _fill_provision_citations(provision_nodes, edges)
 
     return {
-        "nodes": all_nodes,
+        "nodes": provision_nodes + case_nodes + eu_nodes + prep_nodes,
         "edges": edges,
-        "gaps": gaps,
-        "stats": stats,
-        "suggestedProvisions": suggested,
+        "gaps": _compute_gaps(provisions, ref_cases),
+        "stats": _compute_stats(case_nodes),
+        "suggestedProvisions": _compute_suggested_provisions(all_law_refs_data, provisions),
     }
