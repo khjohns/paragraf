@@ -7,6 +7,7 @@
   import GraphView from '$lib/components/GraphView.svelte';
   import PropositionRegistry from '$lib/components/PropositionRegistry.svelte';
   import SynthesisView from '$lib/components/SynthesisView.svelte';
+  import ChatDrawer from '$lib/components/ChatDrawer.svelte';
   import NodeDetail from '$lib/components/NodeDetail.svelte';
   import ScopingOverlay from '$lib/components/ScopingOverlay.svelte';
   import KeyboardShortcuts from '$lib/components/KeyboardShortcuts.svelte';
@@ -79,15 +80,18 @@
 
     {#snippet middlePanel()}
       <Toolbar />
-      {#if uiState.viewMode === 'graph'}
-        <GraphView />
-      {:else if uiState.viewMode === 'propositions'}
-        <PropositionRegistry />
-      {:else if uiState.viewMode === 'synthesis'}
-        <SynthesisView />
-      {:else}
-        <NodeList />
-      {/if}
+      <div class="middle-content">
+        {#if uiState.viewMode === 'graph'}
+          <GraphView />
+        {:else if uiState.viewMode === 'propositions'}
+          <PropositionRegistry />
+        {:else if uiState.viewMode === 'synthesis'}
+          <SynthesisView />
+        {:else}
+          <NodeList />
+        {/if}
+      </div>
+      <ChatDrawer />
     {/snippet}
 
     {#snippet rightPanel()}
@@ -95,3 +99,10 @@
     {/snippet}
   </AppShell>
 {/if}
+
+<style>
+  .middle-content {
+    flex: 1;
+    overflow-y: auto;
+  }
+</style>

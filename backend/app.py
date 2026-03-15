@@ -17,6 +17,7 @@ from cross_propositions import generate_cross_propositions, CrossPropositionsErr
 from eu_screening import identify_eu_cases, screen_eu_cases, EuScreeningError
 from synthesis import generate_synthesis, update_synthesis, SynthesisError
 from qa import run_qa, QAError
+from chat import chat_stream, ChatError
 
 STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
 
@@ -371,6 +372,28 @@ def complete_route(analysis_id):
     """Mark analysis as complete."""
     update_analysis(analysis_id, {"status": "complete"})
     return jsonify({"ok": True})
+
+
+@app.route("/api/analyses/<analysis_id>/chat", methods=["POST"])
+def chat_route(analysis_id):
+    """Free-form chat with analysis context. Streams response via SSE."""
+    body = request.get_json()
+    if not body or not body.get("messages"):
+        return jsonify({"error": "messages required"}), 400
+
+    def generate():
+        try:
+            for _event, data in chat_stream(analysis_id, body["messages"]):
+                yield f"data: {json.dumps(data, ensure_ascii=False)}\n\n"
+        except ChatError as e:
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+        yield f"data: {json.dumps({'done': True})}\n\n"
+
+    return Response(
+        generate(),
+        mimetype="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 # SPA fallback — serve static frontend in production
