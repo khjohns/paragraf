@@ -381,18 +381,9 @@ def chat_route(analysis_id):
     if not body or not body.get("messages"):
         return jsonify({"error": "messages required"}), 400
 
-    def generate():
-        try:
-            for _event, data in chat_stream(analysis_id, body["messages"]):
-                yield f"data: {json.dumps(data, ensure_ascii=False)}\n\n"
-        except ChatError as e:
-            yield f"data: {json.dumps({'error': str(e)})}\n\n"
-        yield f"data: {json.dumps({'done': True})}\n\n"
-
-    return Response(
-        generate(),
-        mimetype="text/event-stream",
-        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    return sse_response(
+        lambda: chat_stream(analysis_id, body["messages"]),
+        ChatError,
     )
 
 

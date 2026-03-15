@@ -255,6 +255,7 @@ export interface ChatMessage {
 
 /**
  * Stream a chat response via SSE. Returns AbortController for cancellation.
+ * Reuses streamSSE — maps {text} chunks to onChunk calls.
  */
 export function streamChat(
   analysisId: string,
@@ -263,65 +264,15 @@ export function streamChat(
   onDone: () => void,
   onError: (error: string) => void,
 ): AbortController {
-  const controller = new AbortController();
-
-  fetch(`/api/analyses/${analysisId}/chat`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ messages }),
-    signal: controller.signal,
-  })
-    .then(async (response) => {
-      if (!response.ok) {
-        const data = await response.json().catch(() => null);
-        onError((data as { error?: string })?.error ?? 'Chat feilet');
-        return;
-      }
-
-      const reader = response.body?.getReader();
-      if (!reader) {
-        onError('Ingen respons-strøm');
-        return;
-      }
-
-      const decoder = new TextDecoder();
-      let buffer = '';
-
-      const processLine = (line: string) => {
-        if (!line.startsWith('data: ')) return;
-        try {
-          const data = JSON.parse(line.slice(6));
-          if (data.done) onDone();
-          else if (data.error) onError(data.error);
-          else if (data.text) onChunk(data.text);
-        } catch {
-          // Ignore parse errors for partial lines
-        }
-      };
-
-      try {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split('\n');
-          buffer = lines.pop() ?? '';
-
-          for (const line of lines) {
-            processLine(line);
-          }
-        }
-        processLine(buffer);
-      } finally {
-        reader.releaseLock();
-      }
-    })
-    .catch((err) => {
-      if (err.name !== 'AbortError') {
-        onError(err.message ?? 'Nettverksfeil');
-      }
-    });
-
-  return controller;
+  return streamSSE<{ text?: string }>(
+    `/api/analyses/${analysisId}/chat`,
+    { messages },
+    'Chat feilet',
+    (result) => {
+      if (result.error) onError(result.error);
+      else if (result.text) onChunk(result.text);
+    },
+    onDone,
+    onError,
+  );
 }

@@ -14,6 +14,14 @@
   let messagesEndEl: HTMLDivElement | undefined = $state();
   let textareaEl: HTMLTextAreaElement | undefined = $state();
   let abortController: AbortController | null = null;
+  let hasInput = $derived(inputText.trim().length > 0);
+
+  // Abort streaming on component destroy
+  $effect(() => {
+    return () => {
+      abortController?.abort();
+    };
+  });
 
   function scrollToBottom() {
     requestAnimationFrame(() => {
@@ -91,12 +99,13 @@
     // Bold
     escaped = escaped.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
     // References
+    const escAttr = (s: string) => s.replace(/"/g, '&quot;');
     escaped = escaped.replace(
       /\{ref:(\w+):([^:}]+)(?::([^}]+))?\}/g,
       (_match, type, id, paragraph) => {
         const label = paragraph ? `${id} ${paragraph}` : id;
-        const nodeId = `${type}:${id}`;
-        return `<button class="ref-link ref-${type}" data-node-id="${nodeId}">${label}</button>`;
+        const nodeId = escAttr(`${type}:${id}`);
+        return `<button class="ref-link ref-${escAttr(type)}" data-node-id="${nodeId}">${label}</button>`;
       }
     );
     return escaped;
@@ -129,6 +138,19 @@
     return blocks;
   }
 </script>
+
+{#snippet assistantBlocks(content: string)}
+  {#each parseBlocks(content) as block}
+    {#if block.type === 'challenge'}
+      <div class="challenge-block">
+        <div class="challenge-label">Mulige motargumenter</div>
+        <p class="challenge-text">{@html parseRefs(block.content.replace(/^\*\*Mulige? motargumenter?:\*\*\s*/, ''))}</p>
+      </div>
+    {:else}
+      <p class="msg-text">{@html parseRefs(block.content)}</p>
+    {/if}
+  {/each}
+{/snippet}
 
 <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
 {#if drawerState === 'closed'}
@@ -187,32 +209,14 @@
           </div>
         {:else}
           <div class="msg-assistant">
-            {#each parseBlocks(msg.content) as block}
-              {#if block.type === 'challenge'}
-                <div class="challenge-block">
-                  <div class="challenge-label">Mulige motargumenter</div>
-                  <p class="challenge-text">{@html parseRefs(block.content.replace(/^\*\*Mulige? motargumenter?:\*\*\s*/, ''))}</p>
-                </div>
-              {:else}
-                <p class="msg-text">{@html parseRefs(block.content)}</p>
-              {/if}
-            {/each}
+            {@render assistantBlocks(msg.content)}
           </div>
         {/if}
       {/each}
 
       {#if streaming && streamingText}
         <div class="msg-assistant">
-          {#each parseBlocks(streamingText) as block}
-            {#if block.type === 'challenge'}
-              <div class="challenge-block">
-                <div class="challenge-label">Mulige motargumenter</div>
-                <p class="challenge-text">{@html parseRefs(block.content.replace(/^\*\*Mulige? motargumenter?:\*\*\s*/, ''))}</p>
-              </div>
-            {:else}
-              <p class="msg-text">{@html parseRefs(block.content)}</p>
-            {/if}
-          {/each}
+          {@render assistantBlocks(streamingText)}
           <span class="streaming-cursor"></span>
         </div>
       {:else if streaming}
@@ -238,9 +242,9 @@
         ></textarea>
         <button
           class="send-btn"
-          class:active={inputText.trim().length > 0}
+          class:active={hasInput}
           onclick={sendMessage}
-          disabled={!inputText.trim() || streaming}
+          disabled={!hasInput || streaming}
         >
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
             <path d="M3 13L13 8L3 3V7L9 8L3 9V13Z" fill="currentColor" />
