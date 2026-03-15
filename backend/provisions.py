@@ -1,4 +1,5 @@
 from db import get_client
+from traversal import _section_filter
 
 # Alias → lovdata dok_id mapping (for section lookup in lovdata_sections)
 # kofa_law_references uses aliases, lovdata_sections uses full IDs
@@ -35,7 +36,7 @@ def _walk_structure_path(client, structure_id: str) -> list[str]:
         visited.add(current_id)
         struct = (
             client.table("lovdata_structure")
-            .select("id, title, parent_id, structure_type")
+            .select("id, title, parent_id")
             .eq("id", current_id)
             .limit(1)
             .execute()
@@ -51,28 +52,14 @@ def _walk_structure_path(client, structure_id: str) -> list[str]:
 
 def _fetch_referencing_cases(client, law_name: str, section_id: str) -> tuple[int, list[dict]]:
     """Count referencing cases and return top 10 with metadata."""
-    section_filter = f"law_section.eq.{section_id},law_section.like.{section_id} %"
+    query = client.table("kofa_law_references").select("sak_nr", count="exact").eq("law_name", law_name)
+    query = _section_filter(query, "law_section", section_id)
+    ref_result = query.limit(30).execute()
 
-    ref_count_result = (
-        client.table("kofa_law_references")
-        .select("sak_nr", count="exact")
-        .eq("law_name", law_name)
-        .or_(section_filter)
-        .limit(0)
-        .execute()
-    )
-    total = ref_count_result.count or 0
+    total = ref_result.count or 0
     if total == 0:
         return 0, []
 
-    ref_result = (
-        client.table("kofa_law_references")
-        .select("sak_nr")
-        .eq("law_name", law_name)
-        .or_(section_filter)
-        .limit(30)
-        .execute()
-    )
     ref_sak_nrs = list({r["sak_nr"] for r in (ref_result.data or [])})[:10]
     if not ref_sak_nrs:
         return total, []
