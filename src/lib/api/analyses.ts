@@ -1,5 +1,5 @@
 import { apiFetch } from './client';
-import type { AnalysisSummary, AnalysisDbResponse, ScopingResult, ScreeningResult, PostSearchSuggestion, CrossPropositionsResult } from '$lib/types/analysis';
+import type { AnalysisSummary, AnalysisDbResponse, ScopingResult, ScreeningResult, PostSearchSuggestion, CrossPropositionsResult, EuCaseForScreening, EuScreeningResult, SynthesisResult, QAReport } from '$lib/types/analysis';
 import type { TraversalResponse } from '$lib/types/api';
 
 export function fetchAnalyses(): Promise<AnalysisSummary[]> {
@@ -60,28 +60,28 @@ export function updateCandidate(
 }
 
 /**
- * Start AI screening for multiple cases via SSE.
- * Returns an EventSource-like reader that yields ScreeningResult objects.
+ * Generic SSE stream reader — shared by KOFA and EU screening.
  */
-export function screenCases(
-  analysisId: string,
-  sakNrs: string[],
-  onResult: (result: ScreeningResult & { done?: boolean; error?: string }) => void,
+function streamSSE<T>(
+  url: string,
+  body: Record<string, unknown>,
+  errorLabel: string,
+  onResult: (result: T & { done?: boolean; error?: string }) => void,
   onDone: () => void,
   onError: (error: string) => void,
 ): AbortController {
   const controller = new AbortController();
 
-  fetch(`/api/analyses/${analysisId}/screen`, {
+  fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ sak_nrs: sakNrs }),
+    body: JSON.stringify(body),
     signal: controller.signal,
   })
     .then(async (response) => {
       if (!response.ok) {
         const data = await response.json().catch(() => null);
-        onError((data as { error?: string })?.error ?? 'Screening feilet');
+        onError((data as { error?: string })?.error ?? errorLabel);
         return;
       }
 
@@ -118,7 +118,6 @@ export function screenCases(
             processLine(line);
           }
         }
-        // Process remaining buffer
         processLine(buffer);
       } finally {
         reader.releaseLock();
@@ -131,6 +130,26 @@ export function screenCases(
     });
 
   return controller;
+}
+
+/**
+ * Start AI screening for multiple cases via SSE.
+ */
+export function screenCases(
+  analysisId: string,
+  sakNrs: string[],
+  onResult: (result: ScreeningResult & { done?: boolean; error?: string }) => void,
+  onDone: () => void,
+  onError: (error: string) => void,
+): AbortController {
+  return streamSSE<ScreeningResult>(
+    `/api/analyses/${analysisId}/screen`,
+    { sak_nrs: sakNrs },
+    'Screening feilet',
+    onResult,
+    onDone,
+    onError,
+  );
 }
 
 export function postSearch(analysisId: string): Promise<PostSearchSuggestion> {
@@ -157,4 +176,53 @@ export function rescreenCase(
       body: JSON.stringify({ sections }),
     },
   );
+}
+
+// --- EU Screening ---
+
+export function fetchEuCases(analysisId: string): Promise<EuCaseForScreening[]> {
+  return apiFetch<EuCaseForScreening[]>(`/api/analyses/${analysisId}/eu-cases`);
+}
+
+export function screenEuCases(
+  analysisId: string,
+  euCaseIds: string[] | null,
+  onResult: (result: EuScreeningResult & { done?: boolean; error?: string }) => void,
+  onDone: () => void,
+  onError: (error: string) => void,
+): AbortController {
+  return streamSSE<EuScreeningResult>(
+    `/api/analyses/${analysisId}/eu-screen`,
+    { eu_case_ids: euCaseIds },
+    'EU-screening feilet',
+    onResult,
+    onDone,
+    onError,
+  );
+}
+
+// --- Synthesis ---
+
+export function synthesize(analysisId: string): Promise<SynthesisResult> {
+  return apiFetch<SynthesisResult>(`/api/analyses/${analysisId}/synthesize`, {
+    method: 'POST',
+  });
+}
+
+export function updateSynthesisNote(
+  analysisId: string,
+  content: string,
+): Promise<{ ok: boolean; version: number }> {
+  return apiFetch(`/api/analyses/${analysisId}/synthesis`, {
+    method: 'PATCH',
+    body: JSON.stringify({ content }),
+  });
+}
+
+// --- QA ---
+
+export function runQA(analysisId: string): Promise<QAReport> {
+  return apiFetch<QAReport>(`/api/analyses/${analysisId}/qa`, {
+    method: 'POST',
+  });
 }

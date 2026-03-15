@@ -173,6 +173,111 @@ export interface CrossPropositionsResult {
   themes: string[];
 }
 
+/** EU case identified for screening */
+export interface EuCaseForScreening {
+  eu_case_id: string;
+  celex: string | null;
+  case_name: string | null;
+  judgment_date: string | null;
+  subject: string | null;
+  description: string | null;
+  ref_count: number;
+  referencing_sak_nrs: string[];
+  contexts: string[];
+}
+
+/** EU case screening result */
+export interface EuScreeningResult {
+  eu_case_id: string;
+  case_name: string | null;
+  ref_count: number;
+  factum: string;
+  holding: string;
+  proposition: string;
+  directive_articles: string[];
+  kofa_relevance: string;
+  quotes: { p: number; text: string }[];
+  relevance: 'A' | 'B' | 'C';
+  relevance_reasoning: string;
+  error?: string;
+  done?: boolean;
+}
+
+/** Synthesis note section */
+export interface SynthesisSection {
+  heading: string;
+  content: string;
+  requires_lawyer_input: boolean;
+}
+
+/** Synthesis result from Claude */
+export interface SynthesisResult {
+  title: string;
+  sections: SynthesisSection[];
+  unresolved_tensions: { description: string; cases: string[] }[];
+  coverage_notes: string;
+  markdown: string;
+}
+
+/** QA verified quote */
+export interface QAVerifiedQuote {
+  sak_nr: string;
+  paragraph: number;
+  quoted_text: string;
+  status: 'verified' | 'truncated' | 'inaccurate' | 'not_found';
+  issue: string | null;
+}
+
+/** QA logic flag */
+export interface QALogicFlag {
+  type: 'argumentative_gap' | 'unsupported_conclusion' | 'analogy_not_flagged' | 'missing_nuance' | 'contradiction';
+  location: string;
+  description: string;
+  severity: 'high' | 'medium' | 'low';
+  suggestion: string;
+}
+
+/** QA untreated case */
+export interface QAUntreatedCase {
+  sak_nr: string;
+  category: string;
+  proposition: string;
+  justified_omission: boolean;
+  reason: string;
+}
+
+/** QA report from backend */
+export interface QAReport {
+  citation_verification: {
+    verified_quotes: QAVerifiedQuote[];
+    summary: string;
+  };
+  logical_consistency: {
+    flags: QALogicFlag[];
+    summary: string;
+  };
+  coverage: {
+    untreated_cases: QAUntreatedCase[];
+    summary: string;
+  };
+  total_flags: number;
+}
+
+/** QA flag severity config — shared between QAPanel and other components */
+export const QA_SEVERITY_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
+  high: { label: 'Alvorlig', color: 'var(--p-error, #C13515)', bg: 'rgba(193,53,21,0.06)' },
+  medium: { label: 'Middels', color: 'var(--p-warn)', bg: 'var(--p-warn-bg)' },
+  low: { label: 'Lav', color: 'var(--p-ink3)', bg: 'var(--p-hover)' },
+};
+
+/** Citation status config */
+export const CITATION_STATUS_CONFIG: Record<string, { label: string; color: string }> = {
+  verified: { label: 'Verifisert', color: 'var(--p-success)' },
+  truncated: { label: 'Trunkert', color: 'var(--p-warn)' },
+  inaccurate: { label: 'Unøyaktig', color: 'var(--p-error, #C13515)' },
+  not_found: { label: 'Ikke funnet', color: 'var(--p-ink3)' },
+};
+
 /** DB response shape — mapped to Analysis in loadFromDb */
 export interface AnalysisDbResponse {
   id: string;

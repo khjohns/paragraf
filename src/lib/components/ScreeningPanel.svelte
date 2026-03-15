@@ -331,7 +331,5 @@
     flex-shrink: 0;
   }
 
-  @keyframes spin {
-    to { transform: rotate(360deg); }
-  }
+
 </style>

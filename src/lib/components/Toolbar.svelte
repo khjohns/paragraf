@@ -75,9 +75,27 @@
         class:active={uiState.viewMode === 'propositions'}
         onclick={() => uiState.setViewMode('propositions')}>Rettssetninger</button
       >
+      <button
+        class="view-btn"
+        class:active={uiState.viewMode === 'synthesis'}
+        onclick={() => uiState.setViewMode('synthesis')}>Notat</button
+      >
     </div>
 
-    {#if uiState.viewMode === 'propositions'}
+    {#if uiState.viewMode === 'synthesis'}
+      <span class="toolbar-sep"></span>
+      {#if analysisState.synthesisResult}
+        <span class="prop-count">{analysisState.synthesisResult.sections.length} seksjoner</span>
+        {#if analysisState.qaReport}
+          <span class="toolbar-sep-dot">·</span>
+          <span class="qa-flag-count" class:has-flags={analysisState.qaReport.total_flags > 0}>
+            {analysisState.qaReport.total_flags} QA-flagg
+          </span>
+        {/if}
+      {:else}
+        <span class="prop-count">Ingen syntese ennå</span>
+      {/if}
+    {:else if uiState.viewMode === 'propositions'}
       <span class="toolbar-sep"></span>
       <span class="prop-count">{analysisState.propositions.length} rettssetninger</span>
       {#if tensionCount > 0}
@@ -558,6 +576,15 @@
     border-radius: 50%;
     border: 2px solid currentColor;
     background: var(--p-surface);
+  }
+
+  .qa-flag-count {
+    font-size: 11px;
+    color: var(--p-ink3);
+  }
+  .qa-flag-count.has-flags {
+    font-weight: 500;
+    color: var(--p-warn);
   }
 
   .sort-warning {

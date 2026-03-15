@@ -1,4 +1,4 @@
-export type ViewMode = 'list' | 'graph' | 'propositions';
+export type ViewMode = 'list' | 'graph' | 'propositions' | 'synthesis';
 export type ListFilter = 'all' | 'delimitation' | 'unread';
 export type ListSort = 'category' | 'citations' | 'date';
 

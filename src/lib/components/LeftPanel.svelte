@@ -7,6 +7,8 @@
   import SeedInput from './SeedInput.svelte';
   import ScreeningPanel from './ScreeningPanel.svelte';
   import PostSearchPanel from './PostSearchPanel.svelte';
+  import EuScreeningPanel from './EuScreeningPanel.svelte';
+  import QAPanel from './QAPanel.svelte';
   import CategoryBadge from './CategoryBadge.svelte';
   import DelimBadge from './DelimBadge.svelte';
   import ValencePip from './ValencePip.svelte';
@@ -148,6 +150,13 @@
       </LeftPanelSection>
     {/if}
 
+    <!-- 3d. EU-dommer -->
+    {#if analysisState.isScreeningPhase || analysisState.analysis.status === 'screening_complete' || analysisState.analysis.status === 'post_search' || analysisState.analysis.status === 'synthesis' || analysisState.analysis.status === 'qa'}
+      <LeftPanelSection num="3d" title="EU-dommer">
+        <EuScreeningPanel />
+      </LeftPanelSection>
+    {/if}
+
     <!-- 4. Kartlegging -->
     <LeftPanelSection
       num="4"
@@ -259,6 +268,13 @@
         </button>
       </div>
     </LeftPanelSection>
+
+    <!-- 4b. Kvalitetssikring -->
+    {#if analysisState.analysis.status === 'synthesis' || analysisState.analysis.status === 'qa' || analysisState.analysis.status === 'complete'}
+      <LeftPanelSection num="4b" title="Kvalitetssikring">
+        <QAPanel />
+      </LeftPanelSection>
+    {/if}
 
     <!-- 5. Om rangeringen -->
     <LeftPanelSection num="5" title="Om rangeringen">

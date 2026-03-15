@@ -124,3 +124,6 @@ button:active:not(:disabled),
 	opacity: 0.75;
 	transition: opacity 0.06s ease;
 }
+
+/* Shared spinner animation — used by multiple components */
+@keyframes spin { to { transform: rotate(360deg); } }
