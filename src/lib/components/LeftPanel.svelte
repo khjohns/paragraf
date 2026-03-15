@@ -262,7 +262,7 @@
             {#if analysisState.filterIteration !== null}
               <div class="filter-active-notice">
                 Viser kun runde {analysisState.filterIteration}
-                <button class="clear-filter" onclick={() => (analysisState.filterIteration = null)}
+                <button class="clear-filter" onclick={() => analysisState.clearFilterIteration()}
                   >Vis alle</button
                 >
               </div>
