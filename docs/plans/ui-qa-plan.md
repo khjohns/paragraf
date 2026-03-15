@@ -42,24 +42,35 @@ Funn dokumenteres per view. Fiks gjøres umiddelbart etter hvert view — ikke s
 
 ---
 
-### 2. Scoping overlay (`/analyse/[id]` med status `scoping`)
+### 2. Scoping overlay (`/analyse/[id]` med status `scoping`) ✓
 
 **Komponenter:** `ScopingOverlay.svelte`, `SeedInput.svelte`
 **Mockup:** `paragraf-scoping-concept.jsx`
 **Sprint:** 11
 
 **Sjekkliste:**
-- [ ] Fase 1: Blankt tekstfelt + én knapp. Minimal terskel
-- [ ] Fase 2: Strukturert forslag — alle felter redigerbare. Bestemmelser med verifisert ordlyd og hake (grønn = DB, gul = web). Søkestrategi i klartekst. Claudes begrunnelse kollaperbar
-- [ ] Fase 3: Søkefremdrift per søketype (R/F/V)
-- [ ] Stegindikator øverst: Problemstilling → Scoping → Søk → Kandidater
-- [ ] AI-tillitsgrense: Claudes forslag har gullbrun venstekant
-- [ ] «Be Claude revidere»-knapp
-- [ ] Loading state under Claude-kall
-- [ ] Feilhåndtering: hva skjer ved API-feil?
-- [ ] Overgang fra overlay til workspace ved godkjenning
+- [x] Fase 1: Blankt tekstfelt + én knapp. Minimal terskel
+- [x] Fase 2: Strukturert forslag — alle felter redigerbare. Bestemmelser med verifisert ordlyd og hake (grønn = DB, gul = web). Søkestrategi i klartekst. Claudes begrunnelse kollaperbar
+- [x] Fase 3: Søkefremdrift per søketype (R/F/V)
+- [x] Stegindikator øverst: Problemstilling → Scoping → Søk → Kandidater
+- [x] AI-tillitsgrense: Claudes forslag har gullbrun venstekant
+- [x] «Be Claude revidere»-knapp
+- [x] Loading state under Claude-kall
+- [x] Feilhåndtering: hva skjer ved API-feil?
+- [x] Overgang fra overlay til workspace ved godkjenning
 
 **Audit-fokus:** Input-felter bruker `--p-input` bakgrunn (mørkere enn omgivelsene). Bestemmelseskort følger node-type-farger (provision = blå-grå).
+
+**Audit-funn (fikset):**
+- `--p-provision` og `--p-kofa` var udefinerte tokens → rettet til `--p-provision-accent` / `--p-kofa-accent`
+- Hardkodede AI-farger (rgba) → erstattet med `--p-ai-border-subtle`, `--p-ai-bg`, `--p-ai-text`
+- Hardkodede feil-farger → erstattet med `--p-danger` / `--p-danger-bg`
+- Border-radius brukte vilkårlige px-verdier (5px, 8px) → rettet til `var(--radius-md)` / `var(--radius-lg)`
+- Off-grid spacing (6px, 10px, 14px) → snappet til 4px-grid (4px, 8px, 12px)
+- `--font-body` (udefinert) i SeedInput → rettet til `--font-ui`
+- Chip padding 10px → 8px (4px-grid)
+- Letter-spacing 0.05em → 0.06em (system-konsistens)
+- Textarea fokus brukte `--p-ai-border` → rettet til `--p-border-s`
 
 ---
 
