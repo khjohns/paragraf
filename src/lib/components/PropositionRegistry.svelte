@@ -1,5 +1,6 @@
 <script lang="ts">
   import { analysisState } from '$lib/stores/analysis.svelte';
+  import { pipelineState } from '$lib/stores/pipeline.svelte';
   import { crossPropositions } from '$lib/api/analyses';
   import { toastState } from '$lib/stores/toast.svelte';
   import {
@@ -49,29 +50,29 @@
   }
 
   // Group propositions by theme
-  let themes = $derived([...new Set(analysisState.propositions.map((p) => p.theme))]);
+  let themes = $derived([...new Set(pipelineState.propositions.map((p) => p.theme))]);
 
   let propositionsByTheme = $derived.by(() => {
     const map: Record<string, Proposition[]> = {};
     for (const theme of themes) {
-      map[theme] = analysisState.propositions.filter((p) => p.theme === theme);
+      map[theme] = pipelineState.propositions.filter((p) => p.theme === theme);
     }
     return map;
   });
 
-  let hasPropositions = $derived(analysisState.propositions.length > 0);
+  let hasPropositions = $derived(pipelineState.propositions.length > 0);
 
   async function runCrossAnalysis() {
     const id = analysisState.analysis.id;
-    analysisState.setCrossPropositionsLoading(true);
+    pipelineState.setCrossPropositionsLoading(true);
     try {
       const result = await crossPropositions(id);
-      analysisState.setPropositions(result.propositions);
+      pipelineState.setPropositions(result.propositions);
       toastState.show(`${result.propositions.length} rettssetninger identifisert`, 'success');
     } catch {
       toastState.show('Tverrgående analyse feilet', 'error');
     } finally {
-      analysisState.setCrossPropositionsLoading(false);
+      pipelineState.setCrossPropositionsLoading(false);
     }
   }
 </script>
@@ -100,9 +101,9 @@
       <button
         class="generate-btn"
         onclick={runCrossAnalysis}
-        disabled={analysisState.crossPropositionsLoading}
+        disabled={pipelineState.crossPropositionsLoading}
       >
-        {#if analysisState.crossPropositionsLoading}
+        {#if pipelineState.crossPropositionsLoading}
           <span class="spinner"></span>
           Analyserer…
         {:else}

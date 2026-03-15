@@ -1,5 +1,6 @@
 <script lang="ts">
   import { analysisState } from '$lib/stores/analysis.svelte';
+  import { screeningState } from '$lib/stores/screening.svelte';
   import { fetchEuCases } from '$lib/api/analyses';
   import type { EuCaseForScreening } from '$lib/types/analysis';
 
@@ -7,9 +8,9 @@
   let loading = $state(false);
   let identified = $state(false);
 
-  let screenedCount = $derived(Object.keys(analysisState.euScreeningResults).length);
-  let batchActive = $derived(analysisState.isBatchActive('eu_screening'));
-  let batchProgress = $derived(analysisState.getBatchProgress('eu_screening'));
+  let screenedCount = $derived(Object.keys(screeningState.euScreeningResults).length);
+  let batchActive = $derived(screeningState.isBatchActive('eu_screening'));
+  let batchProgress = $derived(screeningState.getBatchProgress('eu_screening'));
 
   async function identifyEuCases() {
     loading = true;
@@ -26,7 +27,7 @@
   function startEuScreening() {
     if (euCases.length === 0) return;
     const ids = euCases.map((ec) => ec.eu_case_id);
-    analysisState.startEuScreeningBatch(ids);
+    screeningState.startEuScreeningBatch(ids);
   }
 </script>
 
@@ -43,7 +44,7 @@
 
     <div class="eu-list">
       {#each euCases as ec}
-        {@const result = analysisState.euScreeningResults[ec.eu_case_id]}
+        {@const result = screeningState.euScreeningResults[ec.eu_case_id]}
         <div class="eu-row" class:screened={!!result}>
           <div class="eu-row-header">
             <span class="eu-id">{ec.eu_case_id}</span>

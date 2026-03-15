@@ -2,6 +2,7 @@
   import { NODE_TYPE_ACCENT, type GraphNode } from '$lib/types/graph';
   import { uiState } from '$lib/stores/ui.svelte';
   import { analysisState } from '$lib/stores/analysis.svelte';
+  import { screeningState } from '$lib/stores/screening.svelte';
   import { rescreenCase } from '$lib/api/analyses';
   import NodeTypeIcon from './NodeTypeIcon.svelte';
   import CategoryBadge from './CategoryBadge.svelte';
@@ -13,7 +14,7 @@
 
   let isSelected = $derived(uiState.selectedNodeId === node.id);
   let isRead = $derived(!!analysisState.analysis.readStatus[node.id]);
-  let screeningStatus = $derived(analysisState.screeningStatus[node.id]);
+  let screeningStatus = $derived(screeningState.screeningStatus[node.id]);
   let isDelimitation = $derived(
     node.isDelimitation || !!analysisState.analysis.delimitations[node.id]
   );
@@ -23,9 +24,11 @@
   let accent = $derived(NODE_TYPE_ACCENT[node.type]);
   let isCase = $derived(node.type === 'kofa_case');
   let sakNr = $derived(node.label);
-  let screeningResult = $derived(isCase ? analysisState.screeningResults[sakNr] : undefined);
-  let isStreaming = $derived(analysisState.streamingSakNr === sakNr);
-  let assignment = $derived(isCase ? analysisState.getAssignment(sakNr, node.category) : undefined);
+  let screeningResult = $derived(isCase ? screeningState.screeningResults[sakNr] : undefined);
+  let isStreaming = $derived(screeningState.streamingSakNr === sakNr);
+  let assignment = $derived(
+    isCase ? screeningState.getAssignment(sakNr, node.category) : undefined
+  );
   let showScreening = $derived(analysisState.isScreeningPhase);
   let expanded = $state(false);
 
@@ -55,13 +58,13 @@
 
   function handleAssign(e: Event, value: 'claude' | 'me') {
     e.stopPropagation();
-    analysisState.setAssignment(sakNr, node.category, value);
+    screeningState.setAssignment(sakNr, node.category, value);
   }
 
   async function handleRescreen() {
     try {
       const result = await rescreenCase(analysisState.analysis.id, sakNr);
-      analysisState.addScreeningResult(result);
+      screeningState.addScreeningResult(result);
     } catch (err) {
       console.error('Re-screen failed:', err);
     }

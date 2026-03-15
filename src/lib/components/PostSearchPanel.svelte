@@ -1,21 +1,22 @@
 <script lang="ts">
   import { analysisState } from '$lib/stores/analysis.svelte';
+  import { pipelineState } from '$lib/stores/pipeline.svelte';
   import { postSearch } from '$lib/api/analyses';
   import { toastState } from '$lib/stores/toast.svelte';
 
-  let suggestions = $derived(analysisState.postSearchSuggestions);
+  let suggestions = $derived(pipelineState.postSearchSuggestions);
 
   async function runPostSearch() {
     const id = analysisState.analysis.id;
-    analysisState.setPostSearchLoading(true);
+    pipelineState.setPostSearchLoading(true);
     try {
       const result = await postSearch(id);
-      analysisState.setPostSearchSuggestions(result);
+      pipelineState.setPostSearchSuggestions(result);
       toastState.show('Ettersøksforslag generert', 'success');
     } catch {
       toastState.show('Ettersøk feilet', 'error');
     } finally {
-      analysisState.setPostSearchLoading(false);
+      pipelineState.setPostSearchLoading(false);
     }
   }
 
@@ -48,8 +49,8 @@
       <p class="ps-desc">
         Analyser hull i søkedekningen basert på screeningresultater og gap-matrise.
       </p>
-      <button class="ps-btn" onclick={runPostSearch} disabled={analysisState.postSearchLoading}>
-        {#if analysisState.postSearchLoading}
+      <button class="ps-btn" onclick={runPostSearch} disabled={pipelineState.postSearchLoading}>
+        {#if pipelineState.postSearchLoading}
           <span class="ps-spinner"></span>
           Analyserer…
         {:else}
@@ -131,8 +132,8 @@
         </div>
       {/if}
 
-      <button class="ps-rerun" onclick={runPostSearch} disabled={analysisState.postSearchLoading}>
-        {analysisState.postSearchLoading ? 'Analyserer…' : 'Kjør på nytt'}
+      <button class="ps-rerun" onclick={runPostSearch} disabled={pipelineState.postSearchLoading}>
+        {pipelineState.postSearchLoading ? 'Analyserer…' : 'Kjør på nytt'}
       </button>
     </div>
   {/if}

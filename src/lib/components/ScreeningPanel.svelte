@@ -1,5 +1,6 @@
 <script lang="ts">
   import { analysisState } from '$lib/stores/analysis.svelte';
+  import { screeningState } from '$lib/stores/screening.svelte';
   import CategoryBadge from './CategoryBadge.svelte';
   import type { ScreeningMode } from '$lib/types/analysis';
 
@@ -15,28 +16,28 @@
     for (const n of cases) {
       const cat = n.category as 'A' | 'B' | 'C';
       catCounts[cat]++;
-      const assignment = analysisState.getAssignment(n.label, cat);
+      const assignment = screeningState.getAssignment(n.label, cat);
       if (assignment === 'claude') claude++;
       else me++;
-      if (analysisState.screeningResults[n.label]) catScreened[cat]++;
+      if (screeningState.screeningResults[n.label]) catScreened[cat]++;
       if (assignment === 'me' && analysisState.analysis.readStatus[n.id]) catRead[cat]++;
     }
 
     return { catCounts, catScreened, catRead, claudeCount: claude, meCount: me };
   });
-  let screenedCount = $derived(Object.keys(analysisState.screeningResults).length);
-  let batchActive = $derived(analysisState.isBatchActive('screening'));
-  let batchProgress = $derived(analysisState.getBatchProgress('screening'));
+  let screenedCount = $derived(Object.keys(screeningState.screeningResults).length);
+  let batchActive = $derived(screeningState.isBatchActive('screening'));
+  let batchProgress = $derived(screeningState.getBatchProgress('screening'));
 
   function startScreening() {
     // Collect cases assigned to Claude
     const claudeCases = cases
-      .filter((n) => analysisState.getAssignment(n.label, n.category) === 'claude')
+      .filter((n) => screeningState.getAssignment(n.label, n.category) === 'claude')
       .map((n) => n.label);
 
     if (claudeCases.length === 0) return;
 
-    analysisState.startScreeningBatch(claudeCases);
+    screeningState.startScreeningBatch(claudeCases);
   }
 
   const modes: { key: ScreeningMode; label: string }[] = [
@@ -56,7 +57,7 @@
     {@const read = stats.catRead[cat as keyof typeof stats.catRead]}
     {@const done = screened + read}
     {@const pct = count > 0 ? Math.round((done / count) * 100) : 0}
-    {@const currentMode = analysisState.screeningModes[cat] ?? 'claude'}
+    {@const currentMode = screeningState.screeningModes[cat] ?? 'claude'}
 
     <div class="cat-control">
       <div class="cat-header">
@@ -78,7 +79,7 @@
           <button
             class="mode-btn"
             class:active={currentMode === m.key}
-            onclick={() => analysisState.setCategoryMode(cat, m.key)}
+            onclick={() => screeningState.setCategoryMode(cat, m.key)}
           >
             {m.label}
           </button>
@@ -97,7 +98,7 @@
       <span>Du leser</span>
       <span class="summary-val me">{stats.meCount}</span>
     </div>
-    {#if analysisState.screeningStarted && screenedCount > 0}
+    {#if screeningState.screeningStarted && screenedCount > 0}
       <div class="summary-row screened">
         <span>Screenet</span>
         <span class="summary-val">{screenedCount}/{stats.claudeCount}</span>
@@ -105,7 +106,7 @@
     {/if}
   </div>
 
-  {#if !analysisState.screeningStarted}
+  {#if !screeningState.screeningStarted}
     <button class="start-btn" onclick={startScreening} disabled={stats.claudeCount === 0}>
       Start screening
     </button>
