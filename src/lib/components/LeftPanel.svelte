@@ -270,7 +270,7 @@
     </LeftPanelSection>
 
     <!-- 4b. Kvalitetssikring -->
-    {#if analysisState.analysis.status === 'synthesis' || analysisState.analysis.status === 'qa' || analysisState.analysis.status === 'complete'}
+    {#if analysisState.isPostSynthesisPhase}
       <LeftPanelSection num="4b" title="Kvalitetssikring">
         <QAPanel />
       </LeftPanelSection>

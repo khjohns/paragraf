@@ -1,7 +1,7 @@
 import type { GraphNode, GraphEdge, GapPair } from '$lib/types/graph';
 import type { Analysis, AnalysisStatus, Seeds, IterationEntry, AnalysisDbResponse, AnalysisCandidate, ScreeningResult, ScreeningAssignment, ScreeningMode, Proposition, PostSearchSuggestion, EuScreeningResult, SynthesisResult, QAReport } from '$lib/types/analysis';
 import type { SuggestedProvision } from '$lib/types/api';
-import { updateAnalysis, fetchDocuments } from '$lib/api/analyses';
+import { updateAnalysis, fetchDocuments, runQA, completeAnalysis } from '$lib/api/analyses';
 import type { AnalysisDocuments } from '$lib/api/analyses';
 import { toastState } from './toast.svelte';
 
@@ -68,6 +68,13 @@ class AnalysisState {
     this.analysis.status === 'screening' ||
     this.analysis.status === 'screening_complete' ||
     this.analysis.status === 'candidates_ready'
+  );
+
+  /** Whether the analysis is in a post-synthesis phase (synthesis done or later) */
+  isPostSynthesisPhase = $derived(
+    this.analysis.status === 'synthesis' ||
+    this.analysis.status === 'qa' ||
+    this.analysis.status === 'complete'
   );
 
   /** The DB analysis ID — set when loading a workspace */
@@ -323,6 +330,33 @@ class AnalysisState {
     this.qaLoading = loading;
   }
 
+  /** Run QA on the synthesis note — shared by SynthesisView and QAPanel */
+  async startQA() {
+    this.qaLoading = true;
+    try {
+      const result = await runQA(this.analysis.id);
+      this.qaReport = result;
+      this.setStatus('qa');
+      toastState.show(`QA fullført — ${result.total_flags} flagg`, result.total_flags > 0 ? 'info' : 'success');
+    } catch (e) {
+      toastState.show('QA feilet — prøv igjen', 'error');
+      console.error('QA failed:', e);
+    } finally {
+      this.qaLoading = false;
+    }
+  }
+
+  /** Mark analysis as complete */
+  async markComplete() {
+    try {
+      await completeAnalysis(this.analysis.id);
+      this.setStatus('complete');
+      toastState.show('Analysen er ferdigstilt', 'success');
+    } catch {
+      toastState.show('Kunne ikke ferdigstille', 'error');
+    }
+  }
+
   // --- DB Persistence ---
 
   /** Load from DB response — maps AnalysisDbResponse to internal Analysis shape */
@@ -380,8 +414,7 @@ class AnalysisState {
     this.qaLoading = false;
 
     // Rehydrate synthesis/QA documents from DB if analysis is in a post-synthesis phase
-    const status = data.status;
-    if (status === 'synthesis' || status === 'qa' || status === 'complete') {
+    if (data.status === 'synthesis' || data.status === 'qa' || data.status === 'complete') {
       this.loadDocuments(data.id);
     }
 
@@ -400,9 +433,11 @@ class AnalysisState {
         try {
           this.qaReport = JSON.parse(docs.qa_report.content);
         } catch {
-          // Corrupt QA report — ignore
+          console.error('Corrupt QA report in DB — could not parse');
         }
       }
+      // Update localStorage cache so it stays coherent with DB rehydration
+      this.save();
     } catch {
       // Document fetch failed — synthesis/QA will show empty state
     }

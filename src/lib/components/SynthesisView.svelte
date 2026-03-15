@@ -1,7 +1,6 @@
 <script lang="ts">
   import { analysisState } from '$lib/stores/analysis.svelte';
-  import { uiState } from '$lib/stores/ui.svelte';
-  import { synthesize, updateSynthesisNote, runQA, completeAnalysis } from '$lib/api/analyses';
+  import { synthesize, updateSynthesisNote } from '$lib/api/analyses';
   import { toastState } from '$lib/stores/toast.svelte';
 
   let editing = $state(false);
@@ -18,6 +17,7 @@
   let lawyerSections = $derived(
     analysisState.synthesisResult?.sections.filter((s) => s.requires_lawyer_input) ?? []
   );
+  let showQABar = $derived(hasNote && !editing && analysisState.isPostSynthesisPhase);
 
   async function generateNote() {
     analysisState.setSynthesisLoading(true);
@@ -55,37 +55,6 @@
 
   function cancelEditing() {
     editing = false;
-  }
-
-  let qaReport = $derived(analysisState.qaReport);
-  let showQABar = $derived(
-    hasNote && !editing &&
-    (analysisState.analysis.status === 'synthesis' || analysisState.analysis.status === 'qa' || analysisState.analysis.status === 'complete')
-  );
-
-  async function startQA() {
-    analysisState.setQaLoading(true);
-    try {
-      const result = await runQA(analysisState.analysis.id);
-      analysisState.setQaReport(result);
-      analysisState.setStatus('qa');
-      toastState.show(`QA fullført — ${result.total_flags} flagg`, result.total_flags > 0 ? 'info' : 'success');
-    } catch (e) {
-      toastState.show('QA feilet — prøv igjen', 'error');
-      console.error('QA failed:', e);
-    } finally {
-      analysisState.setQaLoading(false);
-    }
-  }
-
-  async function markComplete() {
-    try {
-      await completeAnalysis(analysisState.analysis.id);
-      analysisState.setStatus('complete');
-      toastState.show('Analysen er ferdigstilt', 'success');
-    } catch (e) {
-      toastState.show('Kunne ikke ferdigstille', 'error');
-    }
   }
 </script>
 
@@ -211,13 +180,13 @@
 
       {#if showQABar}
         <div class="workflow-bar">
-          {#if !qaReport}
+          {#if !analysisState.qaReport}
             <div class="workflow-step">
               <div class="workflow-label">Neste steg: Kvalitetssikring</div>
               <div class="workflow-desc">Verifiser sitater, sjekk logikk og dekning mot kildene.</div>
-              <button class="workflow-btn" onclick={startQA} disabled={analysisState.qaLoading}>
+              <button class="workflow-btn" onclick={() => analysisState.startQA()} disabled={analysisState.qaLoading}>
                 {#if analysisState.qaLoading}
-                  <span class="spinner dark"></span>
+                  <span class="spinner"></span>
                   Kjører QA…
                 {:else}
                   Kjør kvalitetssikring
@@ -226,16 +195,16 @@
             </div>
           {:else}
             <div class="workflow-step">
-              <div class="qa-inline-summary" class:clean={qaReport.total_flags === 0}>
-                <span class="qa-inline-count">{qaReport.total_flags}</span>
-                <span>{qaReport.total_flags === 0 ? 'Ingen problemer funnet' : qaReport.total_flags === 1 ? 'problem funnet' : 'problemer funnet'}</span>
+              <div class="qa-inline-summary" class:clean={analysisState.qaReport.total_flags === 0}>
+                <span class="qa-inline-count">{analysisState.qaReport.total_flags}</span>
+                <span>{analysisState.qaReport.total_flags === 0 ? 'Ingen problemer funnet' : analysisState.qaReport.total_flags === 1 ? 'problem funnet' : 'problemer funnet'}</span>
               </div>
               <div class="workflow-actions">
-                <button class="workflow-btn secondary" onclick={startQA} disabled={analysisState.qaLoading}>
+                <button class="workflow-btn secondary" onclick={() => analysisState.startQA()} disabled={analysisState.qaLoading}>
                   {analysisState.qaLoading ? 'Kjører…' : 'Kjør QA på nytt'}
                 </button>
                 {#if analysisState.analysis.status !== 'complete'}
-                  <button class="workflow-btn" onclick={markComplete}>
+                  <button class="workflow-btn" onclick={() => analysisState.markComplete()}>
                     Ferdigstill analyse
                   </button>
                 {:else}
@@ -586,9 +555,5 @@
     font-weight: 600;
   }
 
-  .spinner.dark {
-    border-color: rgba(255,255,255,0.3);
-    border-top-color: white;
-  }
 
 </style>
