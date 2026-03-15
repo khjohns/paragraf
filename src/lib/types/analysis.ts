@@ -284,6 +284,22 @@ export const CITATION_STATUS_CONFIG: Record<string, { label: string; color: stri
   not_found: { label: 'Ikke funnet', color: 'var(--p-ink3)' },
 };
 
+/** Batch job status from polling */
+export interface BatchStatus {
+  batch_id: string;
+  processing_status: 'in_progress' | 'ended' | 'canceling' | 'canceled' | 'expired';
+  request_counts: {
+    processing: number;
+    succeeded: number;
+    errored: number;
+    canceled: number;
+    expired: number;
+  };
+}
+
+/** Batch job type identifier */
+export type BatchType = 'screening' | 'eu_screening' | 'qa';
+
 /** DB response shape — mapped to Analysis in loadFromDb */
 export interface AnalysisDbResponse {
   id: string;

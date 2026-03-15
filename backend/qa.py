@@ -17,6 +17,9 @@ from llm_utils import (
     call_claude_structured,
     load_analysis_context,
     format_sub_problems,
+    build_batch_request,
+    submit_batch,
+    get_batch_results,
 )
 
 logger = logging.getLogger(__name__)
@@ -368,19 +371,13 @@ def _compress_candidates_for_qa(candidates: list[dict]) -> str:
     return "\n".join(parts)
 
 
-def run_qa(analysis_id: str) -> dict:
-    """Run full QA on the synthesis note.
+def _load_qa_inputs(analysis_id: str) -> tuple[str, list[dict], str]:
+    """Load synthesis note and screened candidates for QA.
 
-    Performs three checks:
-    1. Citation verification (with Citations API)
-    2. Logical consistency
-    3. Coverage check
-
-    Returns combined QA report. Persists report in analysis_documents.
+    Returns (note_markdown, candidates, candidates_summary).
     """
     client = get_client()
 
-    # Load the synthesis note
     doc = (
         client.table("analysis_documents")
         .select("content")
@@ -395,7 +392,6 @@ def run_qa(analysis_id: str) -> dict:
 
     note_markdown = doc[0]["content"]
 
-    # Load screened candidates
     candidates = (
         client.table("analysis_candidates")
         .select("sak_nr, category, ai_screening")
@@ -406,21 +402,16 @@ def run_qa(analysis_id: str) -> dict:
         .data
     ) or []
 
-    candidates_summary = _compress_candidates_for_qa(candidates)
+    return note_markdown, candidates, _compress_candidates_for_qa(candidates)
 
-    # Run 3 QA checks in parallel (all are independent LLM calls)
-    logger.info("Starting QA for analysis %s", analysis_id)
 
-    with ThreadPoolExecutor(max_workers=3) as executor:
-        citation_future = executor.submit(_verify_citations_with_api, candidates, note_markdown)
-        logic_future = executor.submit(_check_logical_consistency, note_markdown, candidates_summary)
-        coverage_future = executor.submit(_check_coverage, note_markdown, candidates_summary)
-
-        citation_result = citation_future.result()
-        logic_result = logic_future.result()
-        coverage_result = coverage_future.result()
-
-    # Combine results
+def _build_and_persist_qa_report(
+    analysis_id: str,
+    citation_result: dict,
+    logic_result: dict,
+    coverage_result: dict,
+) -> dict:
+    """Assemble QA report from sub-results, persist, and return."""
     report = {
         "citation_verification": citation_result,
         "logical_consistency": logic_result,
@@ -432,7 +423,7 @@ def run_qa(analysis_id: str) -> dict:
         ),
     }
 
-    # Persist QA report
+    client = get_client()
     client.table("analysis_documents").upsert(
         {
             "analysis_id": analysis_id,
@@ -444,3 +435,195 @@ def run_qa(analysis_id: str) -> dict:
     ).execute()
 
     return report
+
+
+def run_qa(analysis_id: str) -> dict:
+    """Run full QA on the synthesis note.
+
+    Performs three checks in parallel:
+    1. Citation verification (with Citations API)
+    2. Logical consistency
+    3. Coverage check
+
+    Returns combined QA report. Persists report in analysis_documents.
+    """
+    note_markdown, candidates, candidates_summary = _load_qa_inputs(analysis_id)
+
+    logger.info("Starting QA for analysis %s", analysis_id)
+
+    with ThreadPoolExecutor(max_workers=3) as executor:
+        citation_future = executor.submit(_verify_citations_with_api, candidates, note_markdown)
+        logic_future = executor.submit(_check_logical_consistency, note_markdown, candidates_summary)
+        coverage_future = executor.submit(_check_coverage, note_markdown, candidates_summary)
+
+        citation_result = citation_future.result()
+        logic_result = logic_future.result()
+        coverage_result = coverage_future.result()
+
+    return _build_and_persist_qa_report(
+        analysis_id, citation_result, logic_result, coverage_result
+    )
+
+
+def _build_citation_batch_request(candidates: list[dict], note_markdown: str) -> dict | None:
+    """Build a batch request for citation verification.
+
+    Uses structured output (not Citations API) for batch compatibility.
+    Returns None if no quotes to verify.
+    """
+    client_db = get_client()
+
+    quotes_to_verify = []
+    source_cases = set()
+    for c in candidates:
+        screening = c.get("ai_screening", {})
+        for q in screening.get("quotes", []):
+            quotes_to_verify.append({
+                "sak_nr": c["sak_nr"],
+                "paragraph": q.get("p", 0),
+                "text": q.get("text", ""),
+            })
+            source_cases.add(c["sak_nr"])
+
+    if not quotes_to_verify:
+        return None
+
+    important_cases = [c["sak_nr"] for c in candidates if c.get("category") in ("A", "B")]
+    cases_to_fetch = [s for s in source_cases if s in important_cases][:8]
+
+    all_rows = (
+        client_db.table("kofa_decision_text")
+        .select("sak_nr, paragraph_number, text")
+        .in_("sak_nr", cases_to_fetch)
+        .eq("section", "vurdering")
+        .order("paragraph_number")
+        .execute()
+        .data
+    ) or []
+
+    source_texts: dict[str, str] = {}
+    for row in all_rows:
+        sak_nr = row["sak_nr"]
+        line = f"[{row['paragraph_number']}] {row['text']}"
+        if sak_nr in source_texts:
+            source_texts[sak_nr] += f"\n\n{line}"
+        else:
+            source_texts[sak_nr] = line
+
+    if not source_texts:
+        return None
+
+    # Build a combined user message with source texts and quotes
+    source_parts = []
+    for sak_nr, text in source_texts.items():
+        source_parts.append(f"<kildetekst sak_nr=\"{sak_nr}\">\n{text}\n</kildetekst>")
+
+    quotes_text = "\n".join(
+        f"- {q['sak_nr']} §{q['paragraph']}: «{q['text']}»"
+        for q in quotes_to_verify
+        if q["sak_nr"] in source_texts
+    )
+
+    user_message = f"""{chr(10).join(source_parts)}
+
+Verifiser følgende sitater mot kildetekstene over.
+
+<sitater_å_verifisere>
+{quotes_text}
+</sitater_å_verifisere>
+
+For hvert sitat: sjekk om det finnes ordrett i kildeteksten, om det er trunkert \
+(fjerner kvalifikasjoner), eller om det avviker. Returner strukturert resultat."""
+
+    return build_batch_request(
+        custom_id="citation_qa",
+        system_prompt=CITATION_QA_SYSTEM_PROMPT,
+        user_message=user_message,
+        schema=CITATION_QA_SCHEMA,
+        max_tokens=4000,
+        effort="medium",
+    )
+
+
+def submit_qa_batch(analysis_id: str) -> str:
+    """Submit QA as a batch with 3 requests (citation, logic, coverage).
+
+    Returns batch_id for polling.
+    """
+    note_markdown, candidates, candidates_summary = _load_qa_inputs(analysis_id)
+
+    # Build batch requests
+    requests = []
+
+    # 1. Citation verification
+    citation_req = _build_citation_batch_request(candidates, note_markdown)
+    if citation_req:
+        requests.append(citation_req)
+    else:
+        # No quotes — add a dummy that returns empty
+        requests.append(build_batch_request(
+            custom_id="citation_qa",
+            system_prompt=CITATION_QA_SYSTEM_PROMPT,
+            user_message="Ingen sitater å verifisere. Returner tomt resultat.",
+            schema=CITATION_QA_SCHEMA,
+            max_tokens=1000,
+            effort="medium",
+        ))
+
+    # 2. Logical consistency
+    logic_message = f"""<notat>
+{note_markdown}
+</notat>
+
+<screeningresultater>
+{candidates_summary}
+</screeningresultater>
+
+Sjekk notatets logiske konsistens mot screeningresultatene. Flagg problemer."""
+
+    requests.append(build_batch_request(
+        custom_id="logic_qa",
+        system_prompt=LOGIC_QA_SYSTEM_PROMPT,
+        user_message=logic_message,
+        schema=LOGIC_QA_SCHEMA,
+        max_tokens=4000,
+        effort="medium",
+    ))
+
+    # 3. Coverage check
+    coverage_message = f"""<notat>
+{note_markdown}
+</notat>
+
+<kandidater>
+{candidates_summary}
+</kandidater>
+
+Sjekk om alle viktige saker (spesielt A-kandidater) er behandlet i notatet."""
+
+    requests.append(build_batch_request(
+        custom_id="coverage_qa",
+        system_prompt=COVERAGE_QA_SYSTEM_PROMPT,
+        user_message=coverage_message,
+        schema=COVERAGE_QA_SCHEMA,
+        max_tokens=4000,
+        effort="medium",
+    ))
+
+    return submit_batch(requests, log_label="QA batch")
+
+
+def process_qa_batch_results(analysis_id: str, batch_id: str) -> dict:
+    """Retrieve and process QA batch results. Persists report.
+
+    Returns the combined QA report.
+    """
+    raw_results = get_batch_results(batch_id)
+
+    citation_result = raw_results.get("citation_qa", {"verified_quotes": [], "summary": "Batch-feil"})
+    logic_result = raw_results.get("logic_qa", {"flags": [], "summary": "Batch-feil"})
+    coverage_result = raw_results.get("coverage_qa", {"untreated_cases": [], "summary": "Batch-feil"})
+
+    return _build_and_persist_qa_report(
+        analysis_id, citation_result, logic_result, coverage_result
+    )

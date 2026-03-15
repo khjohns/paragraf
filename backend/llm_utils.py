@@ -133,6 +133,120 @@ def format_sub_problems(sub_problems: list[str]) -> str:
     return "\n".join(f"  {i+1}. {sp}" for i, sp in enumerate(sub_problems))
 
 
+def build_batch_request(
+    custom_id: str,
+    system_prompt: str,
+    user_message: str,
+    schema: dict,
+    max_tokens: int = 4000,
+    effort: str = "high",
+) -> dict:
+    """Build a single request for the Message Batches API.
+
+    Returns a dict with custom_id and params matching the batch request format.
+    """
+    return {
+        "custom_id": custom_id,
+        "params": {
+            "model": CLAUDE_MODEL,
+            "max_tokens": max_tokens,
+            "output_config": {
+                "format": {
+                    "type": "json_schema",
+                    "schema": schema,
+                },
+                "effort": effort,
+            },
+            "system": [
+                {
+                    "type": "text",
+                    "text": system_prompt,
+                    "cache_control": {"type": "ephemeral"},
+                }
+            ],
+            "messages": [{"role": "user", "content": user_message}],
+        },
+    }
+
+
+def submit_batch(requests: list[dict], log_label: str = "Batch") -> str:
+    """Submit a batch of requests to the Message Batches API.
+
+    Args:
+        requests: List of dicts from build_batch_request().
+        log_label: Label for logging.
+
+    Returns:
+        The batch ID for polling.
+    """
+    client = get_anthropic_client()
+    batch = client.messages.batches.create(requests=requests)
+    logger.info(
+        "%s: submitted batch %s with %d requests",
+        log_label,
+        batch.id,
+        len(requests),
+    )
+    return batch.id
+
+
+def poll_batch_status(batch_id: str) -> dict:
+    """Poll batch status. Returns dict with processing_status and request_counts.
+
+    Returns:
+        {
+            "batch_id": str,
+            "processing_status": "in_progress" | "ended" | ...,
+            "request_counts": {"processing": int, "succeeded": int, "errored": int, "canceled": int, "expired": int},
+        }
+    """
+    client = get_anthropic_client()
+    batch = client.messages.batches.retrieve(batch_id)
+    return {
+        "batch_id": batch.id,
+        "processing_status": batch.processing_status,
+        "request_counts": {
+            "processing": batch.request_counts.processing,
+            "succeeded": batch.request_counts.succeeded,
+            "errored": batch.request_counts.errored,
+            "canceled": batch.request_counts.canceled,
+            "expired": batch.request_counts.expired,
+        },
+    }
+
+
+def get_batch_results(batch_id: str) -> dict[str, dict]:
+    """Retrieve results from a completed batch.
+
+    Returns a dict mapping custom_id → parsed JSON result.
+    Failed requests have {"error": message} as value.
+    """
+    client = get_anthropic_client()
+    results: dict[str, dict] = {}
+
+    for entry in client.messages.batches.results(batch_id):
+        custom_id = entry.custom_id
+        if entry.result.type == "succeeded":
+            text = entry.result.message.content[0].text
+            results[custom_id] = json.loads(text)
+            logger.info(
+                "Batch result %s: %d input tokens, %d output tokens",
+                custom_id,
+                entry.result.message.usage.input_tokens,
+                entry.result.message.usage.output_tokens,
+            )
+        elif entry.result.type == "errored":
+            error_msg = str(entry.result.error)
+            logger.error("Batch request %s errored: %s", custom_id, error_msg)
+            results[custom_id] = {"error": error_msg}
+        else:
+            # expired or canceled
+            logger.warning("Batch request %s: %s", custom_id, entry.result.type)
+            results[custom_id] = {"error": f"Request {entry.result.type}"}
+
+    return results
+
+
 def parse_json_response(text: str) -> dict | None:
     """Parse JSON from LLM response, handling markdown code blocks."""
     try:

@@ -11,12 +11,13 @@ from eu_cases import get_eu_case_detail
 from forarbeider import get_forarbeid_detail, get_forarbeid_section
 from analyses import list_analyses, get_analysis, get_analysis_with_seeds, create_analysis, update_analysis, upsert_seeds, update_candidate, persist_candidates, parse_seed_rows, get_analysis_documents
 from scoping import generate_scope, ScopeError
-from screening import screen_cases, rescreen_case, ScreeningError
+from screening import screen_cases, rescreen_case, screen_cases_batch, process_screening_batch_results, ScreeningError
 from post_search import generate_post_search, PostSearchError
 from cross_propositions import generate_cross_propositions, CrossPropositionsError
-from eu_screening import identify_eu_cases, screen_eu_cases, EuScreeningError
+from eu_screening import identify_eu_cases, screen_eu_cases, screen_eu_cases_batch, process_eu_screening_batch_results, EuScreeningError
 from synthesis import generate_synthesis, update_synthesis, SynthesisError
-from qa import run_qa, QAError
+from qa import run_qa, submit_qa_batch, process_qa_batch_results, QAError
+from llm_utils import poll_batch_status
 from chat import chat_stream, ChatError
 
 STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
@@ -364,6 +365,92 @@ def qa_route(analysis_id):
         update_analysis(analysis_id, {"status": "qa"})
         return jsonify(result)
     except QAError as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# --- Batch API endpoints ---
+
+
+@app.route("/api/analyses/<analysis_id>/screen-batch", methods=["POST"])
+def screen_batch_route(analysis_id):
+    """Submit screening as a batch job. Returns batch_id for polling."""
+    body = request.get_json()
+    if not body or not body.get("sak_nrs"):
+        return jsonify({"error": "sak_nrs required"}), 400
+
+    try:
+        update_analysis(analysis_id, {"status": "screening"})
+        batch_id = screen_cases_batch(analysis_id, body["sak_nrs"])
+        return jsonify({"batch_id": batch_id})
+    except ScreeningError as e:
+        return jsonify({"error": str(e)}), 500
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/analyses/<analysis_id>/eu-screen-batch", methods=["POST"])
+def eu_screen_batch_route(analysis_id):
+    """Submit EU screening as a batch job. Returns batch_id for polling."""
+    body = request.get_json() or {}
+    eu_case_ids = body.get("eu_case_ids")
+
+    try:
+        batch_id = screen_eu_cases_batch(analysis_id, eu_case_ids)
+        return jsonify({"batch_id": batch_id})
+    except EuScreeningError as e:
+        return jsonify({"error": str(e)}), 500
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/analyses/<analysis_id>/qa-batch", methods=["POST"])
+def qa_batch_route(analysis_id):
+    """Submit QA as a batch job. Returns batch_id for polling."""
+    try:
+        batch_id = submit_qa_batch(analysis_id)
+        return jsonify({"batch_id": batch_id})
+    except QAError as e:
+        return jsonify({"error": str(e)}), 500
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/analyses/<analysis_id>/batch-status/<batch_id>")
+def batch_status_route(analysis_id, batch_id):
+    """Poll batch status. Returns processing_status and request_counts."""
+    try:
+        status = poll_batch_status(batch_id)
+        return jsonify(status)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/analyses/<analysis_id>/batch-results/<batch_id>", methods=["POST"])
+def batch_results_route(analysis_id, batch_id):
+    """Retrieve and process batch results. Body must include batch_type."""
+    body = request.get_json() or {}
+    batch_type = body.get("batch_type")
+    if not batch_type:
+        return jsonify({"error": "batch_type required"}), 400
+
+    try:
+        if batch_type == "screening":
+            results = process_screening_batch_results(analysis_id, batch_id)
+            update_analysis(analysis_id, {"status": "screening_complete"})
+            return jsonify({"results": results})
+        elif batch_type == "eu_screening":
+            eu_cases_meta = body.get("eu_cases_meta")
+            results = process_eu_screening_batch_results(
+                analysis_id, batch_id, eu_cases_meta
+            )
+            return jsonify({"results": results})
+        elif batch_type == "qa":
+            report = process_qa_batch_results(analysis_id, batch_id)
+            update_analysis(analysis_id, {"status": "qa"})
+            return jsonify(report)
+        else:
+            return jsonify({"error": f"Ukjent batch_type: {batch_type}"}), 400
+    except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 

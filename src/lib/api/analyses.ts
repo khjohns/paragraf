@@ -10,6 +10,8 @@ import type {
   EuScreeningResult,
   SynthesisResult,
   QAReport,
+  BatchStatus,
+  BatchType,
 } from '$lib/types/analysis';
 import type { TraversalResponse } from '$lib/types/api';
 
@@ -248,6 +250,50 @@ export function fetchDocuments(analysisId: string): Promise<AnalysisDocuments> {
 export function completeAnalysis(analysisId: string): Promise<{ ok: boolean }> {
   return apiFetch<{ ok: boolean }>(`/api/analyses/${analysisId}/complete`, {
     method: 'POST',
+  });
+}
+
+// --- Batch API ---
+
+export function submitScreeningBatch(
+  analysisId: string,
+  sakNrs: string[]
+): Promise<{ batch_id: string }> {
+  return apiFetch(`/api/analyses/${analysisId}/screen-batch`, {
+    method: 'POST',
+    body: JSON.stringify({ sak_nrs: sakNrs }),
+  });
+}
+
+export function submitEuScreeningBatch(
+  analysisId: string,
+  euCaseIds: string[] | null
+): Promise<{ batch_id: string }> {
+  return apiFetch(`/api/analyses/${analysisId}/eu-screen-batch`, {
+    method: 'POST',
+    body: JSON.stringify({ eu_case_ids: euCaseIds }),
+  });
+}
+
+export function submitQaBatch(analysisId: string): Promise<{ batch_id: string }> {
+  return apiFetch(`/api/analyses/${analysisId}/qa-batch`, {
+    method: 'POST',
+  });
+}
+
+export function pollBatchStatus(analysisId: string, batchId: string): Promise<BatchStatus> {
+  return apiFetch<BatchStatus>(`/api/analyses/${analysisId}/batch-status/${batchId}`);
+}
+
+export function fetchBatchResults(
+  analysisId: string,
+  batchId: string,
+  batchType: BatchType,
+  extra?: Record<string, unknown>
+): Promise<unknown> {
+  return apiFetch(`/api/analyses/${analysisId}/batch-results/${batchId}`, {
+    method: 'POST',
+    body: JSON.stringify({ batch_type: batchType, ...extra }),
   });
 }
 

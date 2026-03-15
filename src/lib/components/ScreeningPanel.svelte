@@ -1,6 +1,5 @@
 <script lang="ts">
   import { analysisState } from '$lib/stores/analysis.svelte';
-  import { screenCases } from '$lib/api/analyses';
   import CategoryBadge from './CategoryBadge.svelte';
   import type { ScreeningMode } from '$lib/types/analysis';
 
@@ -26,8 +25,8 @@
     return { catCounts, catScreened, catRead, claudeCount: claude, meCount: me };
   });
   let screenedCount = $derived(Object.keys(analysisState.screeningResults).length);
-
-  let abortController: AbortController | null = null;
+  let batchActive = $derived(analysisState.isBatchActive('screening'));
+  let batchProgress = $derived(analysisState.getBatchProgress('screening'));
 
   function startScreening() {
     // Collect cases assigned to Claude
@@ -37,41 +36,7 @@
 
     if (claudeCases.length === 0) return;
 
-    analysisState.startScreening();
-    analysisState.setStatus('screening');
-
-    // Build index for O(1) next-case lookup
-    const caseIndex = new Map(claudeCases.map((sn, i) => [sn, i]));
-    analysisState.setStreamingSakNr(claudeCases[0]);
-
-    abortController = screenCases(
-      analysisState.analysis.id,
-      claudeCases,
-      (result) => {
-        if (result.error && !result.sak_nr) return;
-        analysisState.addScreeningResult(result);
-
-        // Set next case as streaming
-        const idx = caseIndex.get(result.sak_nr) ?? -1;
-        if (idx < claudeCases.length - 1) {
-          analysisState.setStreamingSakNr(claudeCases[idx + 1]);
-        } else {
-          analysisState.setStreamingSakNr(null);
-        }
-      },
-      () => {
-        analysisState.setStreamingSakNr(null);
-        // Check if all Claude cases are screened
-        const allScreened = claudeCases.every((sn) => analysisState.screeningResults[sn]);
-        if (allScreened) {
-          analysisState.setStatus('screening_complete');
-        }
-      },
-      (error) => {
-        analysisState.setStreamingSakNr(null);
-        console.error('Screening error:', error);
-      }
-    );
+    analysisState.startScreeningBatch(claudeCases);
   }
 
   const modes: { key: ScreeningMode; label: string }[] = [
@@ -146,10 +111,20 @@
     </button>
   {/if}
 
-  {#if analysisState.streamingSakNr}
-    <div class="streaming-indicator">
-      <div class="streaming-spinner"></div>
-      Leser {analysisState.streamingSakNr}…
+  {#if batchActive}
+    <div class="batch-indicator">
+      <div class="batch-header">
+        <div class="streaming-spinner"></div>
+        <span>Screening pågår…</span>
+        <span class="batch-pct">{batchProgress}%</span>
+      </div>
+      <div class="progress-track batch-track">
+        <div
+          class="progress-fill"
+          class:complete={batchProgress === 100}
+          style:width="{batchProgress}%"
+        ></div>
+      </div>
     </div>
   {/if}
 </div>
@@ -305,17 +280,31 @@
     cursor: default;
   }
 
-  .streaming-indicator {
+  .batch-indicator {
     margin-top: 4px;
-    padding: 6px 8px;
-    border-radius: 4px;
+    padding: 8px 10px;
+    border-radius: 5px;
     background: var(--p-highlight);
     border: 1px solid var(--p-ai-border);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .batch-header {
     display: flex;
     align-items: center;
     gap: 6px;
     font-size: 11px;
     color: var(--p-kofa);
+    font-weight: 500;
+  }
+  .batch-pct {
+    margin-left: auto;
+    font-family: var(--font-data);
+    font-weight: 600;
+  }
+  .batch-track {
+    width: 100%;
   }
   .streaming-spinner {
     width: 8px;

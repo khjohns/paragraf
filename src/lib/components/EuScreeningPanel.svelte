@@ -1,6 +1,6 @@
 <script lang="ts">
   import { analysisState } from '$lib/stores/analysis.svelte';
-  import { fetchEuCases, screenEuCases } from '$lib/api/analyses';
+  import { fetchEuCases } from '$lib/api/analyses';
   import type { EuCaseForScreening } from '$lib/types/analysis';
 
   let euCases = $state<EuCaseForScreening[]>([]);
@@ -8,6 +8,8 @@
   let identified = $state(false);
 
   let screenedCount = $derived(Object.keys(analysisState.euScreeningResults).length);
+  let batchActive = $derived(analysisState.isBatchActive('eu_screening'));
+  let batchProgress = $derived(analysisState.getBatchProgress('eu_screening'));
 
   async function identifyEuCases() {
     loading = true;
@@ -23,36 +25,8 @@
 
   function startEuScreening() {
     if (euCases.length === 0) return;
-
-    analysisState.setEuScreeningLoading(true);
     const ids = euCases.map((ec) => ec.eu_case_id);
-    analysisState.setStreamingEuCaseId(ids[0]);
-
-    const caseIndex = new Map(ids.map((id, i) => [id, i]));
-
-    screenEuCases(
-      analysisState.analysis.id,
-      ids,
-      (result) => {
-        if (result.error && !result.eu_case_id) return;
-        analysisState.addEuScreeningResult(result);
-        const idx = caseIndex.get(result.eu_case_id) ?? -1;
-        if (idx < ids.length - 1) {
-          analysisState.setStreamingEuCaseId(ids[idx + 1]);
-        } else {
-          analysisState.setStreamingEuCaseId(null);
-        }
-      },
-      () => {
-        analysisState.setStreamingEuCaseId(null);
-        analysisState.setEuScreeningLoading(false);
-      },
-      (error) => {
-        analysisState.setStreamingEuCaseId(null);
-        analysisState.setEuScreeningLoading(false);
-        console.error('EU screening error:', error);
-      }
-    );
+    analysisState.startEuScreeningBatch(ids);
   }
 </script>
 
@@ -95,17 +69,27 @@
     </div>
 
     {#if screenedCount < euCases.length}
-      <button class="eu-btn" onclick={startEuScreening} disabled={analysisState.euScreeningLoading}>
-        {analysisState.euScreeningLoading ? 'Screener…' : 'Screen EU-dommer'}
+      <button class="eu-btn" onclick={startEuScreening} disabled={batchActive}>
+        {batchActive ? 'Screener…' : 'Screen EU-dommer'}
       </button>
     {:else}
       <div class="eu-done">{screenedCount} av {euCases.length} screenet</div>
     {/if}
 
-    {#if analysisState.streamingEuCaseId}
-      <div class="streaming-indicator">
-        <div class="streaming-spinner"></div>
-        Leser {analysisState.streamingEuCaseId}…
+    {#if batchActive}
+      <div class="batch-indicator">
+        <div class="batch-header">
+          <div class="streaming-spinner"></div>
+          <span>EU-screening pågår…</span>
+          <span class="batch-pct">{batchProgress}%</span>
+        </div>
+        <div class="batch-track">
+          <div
+            class="batch-fill"
+            class:complete={batchProgress === 100}
+            style:width="{batchProgress}%"
+          ></div>
+        </div>
       </div>
     {/if}
   {/if}
@@ -220,16 +204,43 @@
     text-align: center;
     padding: 6px;
   }
-  .streaming-indicator {
-    padding: 6px 8px;
-    border-radius: 4px;
+  .batch-indicator {
+    padding: 8px 10px;
+    border-radius: 5px;
     background: var(--p-highlight);
     border: 1px solid var(--p-ai-border);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .batch-header {
     display: flex;
     align-items: center;
     gap: 6px;
     font-size: 11px;
     color: var(--p-eu-accent, #2d6a5d);
+    font-weight: 500;
+  }
+  .batch-pct {
+    margin-left: auto;
+    font-family: var(--font-data);
+    font-weight: 600;
+  }
+  .batch-track {
+    width: 100%;
+    height: 3px;
+    border-radius: 2px;
+    background: var(--p-input);
+    overflow: hidden;
+  }
+  .batch-fill {
+    height: 100%;
+    border-radius: 2px;
+    background: var(--p-eu-accent, #2d6a5d);
+    transition: width 0.3s ease;
+  }
+  .batch-fill.complete {
+    background: var(--p-success);
   }
   .streaming-spinner {
     width: 8px;

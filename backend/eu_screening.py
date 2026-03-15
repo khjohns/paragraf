@@ -12,6 +12,9 @@ from llm_utils import (
     call_claude_structured,
     load_analysis_context,
     format_sub_problems,
+    build_batch_request,
+    submit_batch,
+    get_batch_results,
 )
 
 logger = logging.getLogger(__name__)
@@ -349,3 +352,74 @@ def _persist_eu_screening(analysis_id: str, eu_case_id: str, result: dict):
             },
             on_conflict="analysis_id,source_case,source",
         ).execute()
+
+
+def screen_eu_cases_batch(
+    analysis_id: str,
+    eu_case_ids: list[str] | None = None,
+) -> str:
+    """Submit EU case screening as a single batch.
+
+    Returns batch_id for polling.
+    """
+    ctx = load_analysis_context(analysis_id)
+    problem = ctx["problem"]
+    sub_problems = ctx["sub_problems"]
+    provisions = ctx["provisions"]
+
+    all_eu_cases = identify_eu_cases(analysis_id)
+    if not all_eu_cases:
+        raise EuScreeningError("Ingen EU-saker å screene")
+
+    if eu_case_ids:
+        all_eu_cases = [ec for ec in all_eu_cases if ec["eu_case_id"] in eu_case_ids]
+
+    requests = []
+    for ec in all_eu_cases:
+        user_message = _build_eu_user_message(ec, problem, sub_problems, provisions)
+        requests.append(
+            build_batch_request(
+                custom_id=ec["eu_case_id"],
+                system_prompt=EU_SCREENING_SYSTEM_PROMPT,
+                user_message=user_message,
+                schema=EU_SCREENING_SCHEMA,
+                max_tokens=4000,
+                effort="high",
+            )
+        )
+
+    if not requests:
+        raise EuScreeningError("Ingen EU-saker med data å screene")
+
+    return submit_batch(requests, log_label=f"EU screening batch ({len(requests)} saker)")
+
+
+def process_eu_screening_batch_results(
+    analysis_id: str,
+    batch_id: str,
+    eu_cases_meta: list[dict] | None = None,
+) -> list[dict]:
+    """Retrieve and persist results from a completed EU screening batch.
+
+    Returns list of EU screening result dicts.
+    """
+    raw_results = get_batch_results(batch_id)
+
+    # Build metadata map for enriching results
+    meta_map: dict[str, dict] = {}
+    if eu_cases_meta:
+        for ec in eu_cases_meta:
+            meta_map[ec["eu_case_id"]] = ec
+
+    results = []
+    for eu_case_id, result in raw_results.items():
+        result["eu_case_id"] = eu_case_id
+        meta = meta_map.get(eu_case_id, {})
+        result["case_name"] = meta.get("case_name")
+        result["ref_count"] = meta.get("ref_count", 0)
+
+        if "error" not in result:
+            _persist_eu_screening(analysis_id, eu_case_id, result)
+        results.append(result)
+
+    return results
