@@ -293,7 +293,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    margin-top: 2px;
+    margin-top: 0;
     flex-shrink: 0;
     transition: all 0.12s ease;
   }
@@ -307,7 +307,7 @@
   }
 
   .type-icon {
-    margin-top: 3px;
+    margin-top: 4px;
     flex-shrink: 0;
   }
 
@@ -358,10 +358,10 @@
     flex-shrink: 0;
   }
   .screening-badge {
-    font-size: 9px;
+    font-size: 10px;
     font-weight: 600;
     padding: 2px 6px;
-    border-radius: 3px;
+    border-radius: var(--radius-badge);
     background: var(--p-highlight);
     border: 1px solid var(--p-ai-border-subtle);
     color: var(--p-kofa-accent);
@@ -396,7 +396,7 @@
   .outcome-badge {
     font-weight: 600;
     padding: 2px 6px;
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-badge);
     font-size: 10px;
   }
   .outcome-badge.brudd {
@@ -432,7 +432,7 @@
     display: flex;
     gap: 0;
     flex-shrink: 0;
-    margin-top: 1px;
+    margin-top: 0;
   }
   .assign-btn {
     all: unset;
@@ -446,11 +446,11 @@
     transition: all 0.1s ease;
   }
   .assign-btn.assign-ai {
-    border-radius: 3px 0 0 3px;
+    border-radius: var(--radius-badge) 0 0 var(--radius-badge);
     border-right: none;
   }
   .assign-btn.assign-me {
-    border-radius: 0 3px 3px 0;
+    border-radius: 0 var(--radius-badge) var(--radius-badge) 0;
   }
   .assign-btn.assign-ai.active {
     background: var(--p-highlight);
@@ -480,7 +480,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    margin-top: 3px;
+    margin-top: 4px;
   }
   .row-spinner {
     width: 8px;

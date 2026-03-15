@@ -31,7 +31,7 @@
   .brand {
     font-size: 11px;
     font-weight: 700;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
     color: var(--p-ink2);
   }

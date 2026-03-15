@@ -127,7 +127,6 @@
     max-width: 280px;
     width: 100%;
     animation: scaleIn 0.12s ease-out;
-    box-shadow: 0 8px 24px rgba(26, 24, 20, 0.12);
   }
   .dialog-header {
     font-size: 0.8125rem;

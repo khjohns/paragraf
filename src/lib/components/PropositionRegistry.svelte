@@ -293,7 +293,7 @@
     cursor: pointer;
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
     padding: 8px 16px;
     border-radius: var(--radius-lg);
     background: var(--p-ink);
@@ -313,7 +313,7 @@
     width: 14px;
     height: 14px;
     border: 2px solid rgba(255, 255, 255, 0.3);
-    border-top-color: white;
+    border-top-color: var(--p-panel);
     border-radius: 50%;
     animation: spin 0.6s linear infinite;
   }
@@ -334,7 +334,7 @@
     align-items: center;
     gap: 8px;
     margin-bottom: 8px;
-    padding-left: 2px;
+    padding-left: 4px;
   }
   .theme-bar {
     width: 3px;
@@ -353,8 +353,8 @@
   .theme-tension-badge {
     font-size: 10px;
     font-weight: 600;
-    padding: 1px 6px;
-    border-radius: 3px;
+    padding: 2px 6px;
+    border-radius: var(--radius-badge);
     background: var(--p-tension-bg);
     color: var(--p-tension);
   }
@@ -364,7 +364,7 @@
     gap: 0;
   }
   .card-gap {
-    height: 6px;
+    height: 8px;
   }
 
   /* Proposition card */
@@ -381,14 +381,14 @@
     all: unset;
     cursor: pointer;
     width: 100%;
-    padding: 12px 14px;
+    padding: 12px 16px;
     display: flex;
     align-items: flex-start;
     gap: 8px;
     text-align: left;
   }
   .chevron {
-    margin-top: 5px;
+    margin-top: 4px;
     flex-shrink: 0;
     opacity: 0.35;
     transition: transform 0.15s ease;
@@ -409,16 +409,16 @@
   .prop-meta {
     display: flex;
     align-items: center;
-    gap: 6px;
-    margin-top: 3px;
+    gap: 8px;
+    margin-top: 4px;
     font-size: 11px;
     color: var(--p-ink4);
   }
   .ai-badge {
-    font-size: 9px;
+    font-size: 10px;
     font-weight: 700;
-    padding: 1px 5px;
-    border-radius: 3px;
+    padding: 2px 6px;
+    border-radius: var(--radius-badge);
     background: var(--p-highlight);
     border: 1px solid var(--p-ai-border-subtle);
     color: var(--p-ai-text);
@@ -426,7 +426,7 @@
 
   /* Instances timeline */
   .prop-instances {
-    padding: 2px 14px 14px 30px;
+    padding: 4px 16px 16px 32px;
   }
   .instance {
     position: relative;
@@ -457,22 +457,22 @@
   .instance-content {
     display: flex;
     flex-direction: column;
-    gap: 5px;
+    gap: 4px;
   }
   .instance-header {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
     flex-wrap: wrap;
   }
   .instance-case {
     font-family: var(--font-data);
-    font-size: 11.5px;
+    font-size: 12px;
     font-weight: 600;
     color: var(--p-kofa-accent);
     cursor: pointer;
     border-bottom: 1px solid transparent;
-    padding-bottom: 1px;
+    padding-bottom: 0;
     transition: border-color 0.15s ease;
   }
   .instance-case:hover {
@@ -485,12 +485,12 @@
   .evo-badge {
     font-size: 10px;
     font-weight: 600;
-    letter-spacing: 0.03em;
-    padding: 2px 7px;
+    letter-spacing: 0.06em;
+    padding: 2px 8px;
     border-radius: 3px;
   }
   .instance-quote {
-    font-size: 13.5px;
+    font-size: 13px;
     line-height: 1.65;
     color: var(--p-ink);
     padding: 8px 12px;
@@ -501,7 +501,7 @@
 
   /* Tension connector */
   .tension-connector {
-    margin: 2px 0 10px;
+    margin: 4px 0 8px;
     padding: 8px 12px;
     border-radius: var(--radius-md);
     background: var(--p-tension-bg);

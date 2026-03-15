@@ -183,7 +183,7 @@
     gap: 8px;
     padding: 4px 8px;
     border-radius: var(--radius-sm);
-    margin-bottom: 2px;
+    margin-bottom: 4px;
     font-size: 12px;
     color: var(--p-ink4);
     font-weight: 400;
@@ -217,7 +217,7 @@
     gap: 4px;
     padding: 4px 8px;
     border-radius: var(--radius-md);
-    margin-bottom: 1px;
+    margin-bottom: 0;
     width: 100%;
   }
   .relation-row:hover {

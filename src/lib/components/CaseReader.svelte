@@ -296,7 +296,7 @@
   .case-parties {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 4px;
     font-size: 0.75rem;
     color: var(--p-ink3);
   }
@@ -329,7 +329,7 @@
     font-size: 0.6875rem;
     font-weight: 500;
     padding: 2px 8px;
-    border-radius: 10px;
+    border-radius: var(--radius-lg);
     background: var(--p-highlight);
     color: var(--p-ai-text);
     border: 1px solid var(--p-highlight-strong);
@@ -361,7 +361,7 @@
   }
   .paragraph.has-highlight {
     border-left: 2px solid var(--p-highlight-strong);
-    padding-left: 10px;
+    padding-left: 12px;
   }
   .paragraph.dimmed {
     opacity: 0.5;
@@ -394,7 +394,7 @@
   .ai-highlight {
     background: var(--p-highlight);
     padding: 1px 2px;
-    border-radius: 2px;
+    border-radius: var(--radius-sm);
   }
 
   /* AI comment — trust boundary: gold-brown left border */
@@ -402,8 +402,8 @@
     border-left: 3px solid var(--p-ai-border);
     background: var(--p-ai-bg);
     padding: 8px 12px;
-    margin: 6px 0 8px;
-    border-radius: 0 4px 4px 0;
+    margin: 8px 0 8px;
+    border-radius: 0 var(--radius-md) var(--radius-md) 0;
   }
   .ai-comment.fade-in {
     animation: fadeIn 0.3s ease;

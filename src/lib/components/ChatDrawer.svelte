@@ -288,7 +288,7 @@
   .drawer-label {
     font-size: 12px;
     font-weight: 500;
-    letter-spacing: 0.02em;
+    letter-spacing: 0.06em;
   }
   .ai-dot {
     width: 6px;
@@ -311,7 +311,7 @@
 
   /* Header */
   .drawer-header {
-    padding: 6px 16px;
+    padding: 8px 16px;
     display: flex;
     align-items: center;
     border-bottom: 1px solid var(--p-border);
@@ -331,19 +331,19 @@
   .header-left {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
   }
   .header-title {
     font-size: 12px;
     font-weight: 600;
     color: var(--p-ink2);
-    letter-spacing: 0.02em;
+    letter-spacing: 0.06em;
   }
   .ai-badge {
-    font-size: 9px;
-    font-weight: 700;
-    padding: 1px 5px;
-    border-radius: 3px;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: var(--radius-badge);
     background: var(--p-highlight, #fbf5e8);
     border: 1px solid var(--p-ai-border-subtle);
     color: var(--p-kofa-accent);
@@ -420,13 +420,17 @@
     letter-spacing: -0.01em;
   }
 
-  /* Assistant message */
+  /* Assistant message — AI-generated */
   .msg-assistant {
     margin-bottom: 20px;
     max-width: 90%;
+    border-left: 3px solid var(--p-ai-border-subtle);
+    background: var(--p-ai-bg);
+    padding: 12px 16px;
+    border-radius: var(--radius-md);
   }
   .msg-text {
-    margin: 0 0 10px;
+    margin: 0 0 8px;
     font-size: 14px;
     line-height: 1.65;
     color: var(--p-ink);
@@ -435,23 +439,23 @@
 
   /* Challenge block */
   .challenge-block {
-    margin: 12px 0 10px;
-    padding: 12px 14px;
+    margin: 12px 0 8px;
+    padding: 12px 16px;
     border-radius: var(--radius-lg);
-    border-left: 3px solid rgba(122, 92, 46, 0.18);
-    background: rgba(122, 92, 46, 0.04);
+    border-left: 3px solid var(--p-ai-border-subtle);
+    background: var(--p-ai-bg);
   }
   .challenge-label {
     font-size: 10px;
     font-weight: 700;
     letter-spacing: 0.06em;
-    color: #7a5c2e;
+    color: var(--p-ai-text);
     text-transform: uppercase;
     margin-bottom: 8px;
   }
   .challenge-text {
     margin: 0;
-    font-size: 13.5px;
+    font-size: 13px;
     line-height: 1.6;
     color: var(--p-ink2);
   }
@@ -551,9 +555,9 @@
     color: var(--p-ink4);
   }
   .send-btn {
-    width: 30px;
-    height: 30px;
-    border-radius: 8px;
+    width: 32px;
+    height: 32px;
+    border-radius: var(--radius-lg);
     border: none;
     background: transparent;
     color: var(--p-ink4);

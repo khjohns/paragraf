@@ -12,10 +12,10 @@
     align-items: center;
     justify-content: center;
     padding: 2px 6px;
-    border-radius: var(--radius-sm);
-    font-size: 11px;
+    border-radius: var(--radius-badge);
+    font-size: 10px;
     font-weight: 600;
-    letter-spacing: 0.03em;
+    letter-spacing: 0.06em;
     font-family: var(--font-data);
     flex-shrink: 0;
   }

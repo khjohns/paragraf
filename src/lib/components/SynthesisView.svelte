@@ -295,7 +295,7 @@
   .generate-btn {
     all: unset;
     margin-top: 8px;
-    padding: 10px 24px;
+    padding: 12px 24px;
     border-radius: var(--radius-lg);
     background: var(--p-ink);
     color: var(--p-panel);
@@ -319,7 +319,7 @@
     height: 12px;
     border-radius: 50%;
     border: 2px solid rgba(255, 255, 255, 0.3);
-    border-top-color: white;
+    border-top-color: var(--p-panel);
     animation: spin 0.8s linear infinite;
   }
 
@@ -337,7 +337,7 @@
     display: flex;
     align-items: center;
     gap: 4px;
-    padding: 5px 10px;
+    padding: 4px 8px;
     border-radius: var(--radius-md);
     font-size: 12px;
     font-weight: 500;
@@ -368,11 +368,15 @@
     margin-bottom: 16px;
   }
 
-  /* Note content */
+  /* Note content — AI-generated */
   .note-content {
     font-size: 14px;
     line-height: 1.7;
     color: var(--p-ink);
+    border-left: 3px solid var(--p-ai-border-subtle);
+    background: var(--p-ai-bg);
+    padding: 16px 20px;
+    border-radius: var(--radius-md);
   }
   .note-content h1 {
     font-size: 20px;
@@ -385,7 +389,7 @@
     font-weight: 600;
     margin: 24px 0 8px;
     color: var(--p-ink);
-    padding-bottom: 6px;
+    padding-bottom: 8px;
     border-bottom: 1px solid var(--p-border);
   }
   .note-content h3 {
@@ -426,14 +430,16 @@
     font-style: italic;
   }
 
-  /* Tensions section */
+  /* Tensions section — AI-generated */
   .tensions-section {
     margin-top: 24px;
-    padding-top: 16px;
-    border-top: 1px solid var(--p-border);
+    padding: 16px 20px;
+    border-left: 3px solid var(--p-ai-border-subtle);
+    background: var(--p-ai-bg);
+    border-radius: var(--radius-md);
   }
   .tensions-label {
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 600;
     color: var(--p-tension, #a63d3d);
     letter-spacing: 0.06em;
@@ -441,11 +447,11 @@
     margin-bottom: 8px;
   }
   .tension-item {
-    padding: 8px 10px;
+    padding: 8px 12px;
     border-radius: var(--radius-md);
     background: var(--p-tension-bg, rgba(166, 61, 61, 0.04));
     border: 1px solid var(--p-tension-border, rgba(166, 61, 61, 0.1));
-    margin-bottom: 6px;
+    margin-bottom: 8px;
   }
   .tension-desc {
     font-size: 12px;
@@ -480,12 +486,12 @@
   }
   .edit-actions {
     display: flex;
-    gap: 6px;
+    gap: 8px;
   }
   .edit-btn {
     all: unset;
     cursor: pointer;
-    padding: 5px 12px;
+    padding: 4px 12px;
     border-radius: var(--radius-md);
     font-size: 12px;
     font-weight: 500;
@@ -554,7 +560,7 @@
   }
   .workflow-btn {
     all: unset;
-    padding: 10px 20px;
+    padding: 12px 20px;
     border-radius: var(--radius-lg);
     background: var(--p-ink);
     color: var(--p-panel);
@@ -576,7 +582,7 @@
     background: transparent;
     color: var(--p-ink3);
     border: 1px solid var(--p-border);
-    padding: 9px 16px;
+    padding: 8px 16px;
     font-size: 12px;
   }
   .workflow-btn.secondary:hover {
@@ -587,18 +593,18 @@
   .qa-inline-summary {
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 10px 14px;
+    gap: 8px;
+    padding: 12px 16px;
     border-radius: var(--radius-lg);
     background: var(--p-warn-bg);
-    border: 1px solid rgba(166, 123, 46, 0.12);
+    border: 1px solid var(--p-ai-border-subtle);
     font-size: 13px;
     color: var(--p-warn);
     font-weight: 500;
   }
   .qa-inline-summary.clean {
     background: var(--p-success-bg);
-    border-color: rgba(61, 122, 74, 0.1);
+    border-color: var(--p-success-border, rgba(61, 122, 74, 0.1));
     color: var(--p-success);
   }
   .qa-inline-count {
@@ -608,10 +614,10 @@
   }
 
   .complete-badge {
-    padding: 10px 20px;
+    padding: 12px 20px;
     border-radius: var(--radius-lg);
     background: var(--p-success-bg);
-    border: 1px solid rgba(61, 122, 74, 0.1);
+    border: 1px solid var(--p-success-border, rgba(61, 122, 74, 0.1));
     color: var(--p-success);
     font-size: 13px;
     font-weight: 600;

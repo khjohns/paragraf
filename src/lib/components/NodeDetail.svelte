@@ -217,7 +217,7 @@
   .type-label {
     font-size: 11px;
     font-weight: 600;
-    letter-spacing: 0.03em;
+    letter-spacing: 0.06em;
   }
   .close-btn {
     all: unset;
@@ -298,7 +298,7 @@
   .signal-dots {
     display: inline-flex;
     align-items: center;
-    gap: 3px;
+    gap: 4px;
   }
   .sig-dot {
     width: 6px;
@@ -313,10 +313,10 @@
   }
 
   .outcome-badge {
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 600;
     padding: 2px 6px;
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-badge);
   }
   .outcome-badge.brudd {
     background: var(--p-warn-bg);

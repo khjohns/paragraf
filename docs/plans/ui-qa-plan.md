@@ -278,36 +278,36 @@ Funn dokumenteres per view. Fiks gjøres umiddelbart etter hvert view — ikke s
 
 ---
 
-### 11. Tverrgående sjekker
+### 11. Tverrgående sjekker ✓
 
 Disse gjelder alle views og sjekkes til slutt:
 
 **States:**
-- [ ] Alle knapper: default, hover, active, focus, disabled
-- [ ] Alle interaktive elementer har focus-ring (strong border fra `system.md`)
-- [ ] Loading states: spinner/puls der data hentes
-- [ ] Error states: feilmeldinger ved API-feil
-- [ ] Empty states: meningsfulle tomme tilstander
+- [x] Alle knapper: default, hover, active, focus, disabled — `button:active` global regel i app.css. Focus: se under.
+- [x] Alle interaktive elementer har focus-ring — fikset systemisk: `button:focus-visible, [role="button"]:focus-visible` med `!important` i app.css overskriver `all: unset` i komponent-styles. Bruker `var(--p-border-s)`.
+- [x] Loading states: spinner/puls der data hentes — verifisert i ScreeningPanel, SynthesisView, PostSearchPanel, PropositionRegistry
+- [x] Error states: feilmeldinger ved API-feil — verifisert i ScopingOverlay, ScreeningPanel
+- [x] Empty states: meningsfulle tomme tilstander — verifisert i NodeList, PropositionRegistry, Portfolio
 
 **AI-tillitsgrense (gjennomgående):**
-- [ ] Konsistent gullbrun venstekant på alt AI-generert innhold
-- [ ] Database-tekst aldri markert som AI
-- [ ] Ingen gråsone — alt er enten DB eller AI
+- [x] Konsistent gullbrun venstekant på alt AI-generert innhold — verifisert via token-bruk: `--p-ai-border-subtle`, `--p-ai-bg`, `--p-ai-text` konsistent i alle AI-renderende komponenter
+- [x] Database-tekst aldri markert som AI — CaseReader skiller tydelig mellom `.paragraph` (DB) og `.ai-highlight`/`.ai-comment` (AI)
+- [x] Ingen gråsone — alt er enten DB eller AI — `.ai-badge` med konsistent mønster (10px/600/var(--radius-badge)) markerer AI-innhold
 
 **Typografi:**
-- [ ] Inter for UI, JetBrains Mono for data (saksnumre, paragrafref, seeds)
-- [ ] 4-nivå teksthierarki brukt konsistent (ink, ink2, ink3, ink4)
-- [ ] Panel-titler: 11px, 600, uppercase, 0.06em tracking
+- [x] Inter for UI, JetBrains Mono for data — verifisert: alle `font-family` bruker `var(--font-ui)` eller `var(--font-data)`, ingen hardkodede fontnavn
+- [x] 4-nivå teksthierarki brukt konsistent (ink, ink2, ink3, ink4)
+- [x] Panel-titler: 11px, 600, uppercase, 0.06em tracking — alle letter-spacing standardisert til 0.06em (fikset fra 0.02/0.03/0.04/0.08em)
 
 **Farger:**
-- [ ] Node-type-farger konsistente på tvers av list items, detalj-panel headers, badges
-- [ ] Ingen hardkodede hex-verdier utenfor paletten
-- [ ] Semantiske farger (success/warn/danger/gap/delim) brukt riktig
+- [x] Node-type-farger konsistente på tvers — alle bruker `--p-{type}-accent/bg/border` tokens
+- [x] Ingen hardkodede hex-verdier utenfor paletten — fikset: `white` → `var(--p-panel)`, fjernet box-shadows (Toast, KeyboardShortcuts, GraphTooltip). Gjenstår: SVG `stroke="#fff"`/`fill="#fff"` i GraphNode (SVG-attributter kan ikke bruke CSS vars), JS-fallbacks for ukjente statuser (#B0A99E i Portfolio/PortfolioDetail)
+- [x] Semantiske farger (success/warn/danger/gap/delim) brukt riktig
 
 **Responsivitet:**
-- [ ] Paneler har fornuftige min-bredder
-- [ ] Tekst truncates/wraps riktig ved smale paneler
-- [ ] Scrolling fungerer i alle paneler uavhengig
+- [x] Paneler har fornuftige min-bredder — AppShell setter min-width på paneler
+- [x] Tekst truncates/wraps riktig ved smale paneler — `text-overflow: ellipsis` på nøkkelelementer
+- [x] Scrolling fungerer i alle paneler uavhengig — `overflow-y: auto` på panel-containere
 
 ---
 

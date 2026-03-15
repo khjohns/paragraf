@@ -146,7 +146,7 @@
   .status-label {
     font-size: 10px;
     font-weight: 600;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
   }
   .close-btn {
@@ -174,7 +174,7 @@
     color: var(--p-ink);
     line-height: 1.3;
     letter-spacing: -0.01em;
-    margin-bottom: 6px;
+    margin-bottom: 8px;
   }
   .detail-problem {
     font-size: 12px;
@@ -217,7 +217,7 @@
     color: var(--p-ink4);
     letter-spacing: 0.06em;
     text-transform: uppercase;
-    margin-bottom: 6px;
+    margin-bottom: 8px;
   }
 
   .provisions-list {
@@ -253,7 +253,7 @@
     font-size: 10px;
     font-weight: 600;
     padding: 2px 6px;
-    border-radius: 3px;
+    border-radius: var(--radius-badge);
     min-width: 20px;
     text-align: center;
   }
@@ -272,13 +272,13 @@
   .cat-bar {
     flex: 1;
     height: 4px;
-    border-radius: 2px;
+    border-radius: var(--radius-sm);
     background: var(--p-input);
     overflow: hidden;
   }
   .cat-bar-fill {
     height: 100%;
-    border-radius: 2px;
+    border-radius: var(--radius-sm);
     background: var(--p-ink2);
     transition: width 0.3s ease;
   }
@@ -303,10 +303,10 @@
     gap: 8px;
   }
   .ai-badge {
-    font-size: 9px;
+    font-size: 10px;
     font-weight: 700;
-    padding: 2px 5px;
-    border-radius: 3px;
+    padding: 2px 6px;
+    border-radius: var(--radius-badge);
     background: var(--p-surface);
     border: 1px solid var(--p-ai-border-subtle);
     color: var(--p-kofa-accent);
