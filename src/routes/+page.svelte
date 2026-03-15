@@ -60,7 +60,7 @@
     align-items: center;
     gap: 8px;
     padding: 8px 16px;
-    border-bottom: 1px solid var(--p-border-m);
+    border-bottom: 1px solid var(--p-border);
     background: var(--p-panel);
     flex-shrink: 0;
   }

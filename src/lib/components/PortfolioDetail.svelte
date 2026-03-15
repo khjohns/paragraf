@@ -297,7 +297,7 @@
     padding: 8px 12px;
     border-radius: 4px;
     background: var(--p-highlight);
-    border-left: 3px solid rgba(139, 105, 20, 0.2);
+    border-left: 3px solid var(--p-ai-border-subtle);
     display: flex;
     align-items: flex-start;
     gap: 8px;
@@ -308,7 +308,7 @@
     padding: 2px 5px;
     border-radius: 3px;
     background: var(--p-surface);
-    border: 1px solid rgba(139, 105, 20, 0.2);
+    border: 1px solid var(--p-ai-border-subtle);
     color: var(--p-kofa-accent);
     flex-shrink: 0;
   }
