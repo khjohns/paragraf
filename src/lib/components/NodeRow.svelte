@@ -75,10 +75,12 @@
 </script>
 
 <div class="node-row-wrapper" class:streaming={isStreaming}>
-  <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+  <!-- svelte-ignore a11y_click_events_have_key_events -->
   <div
     bind:this={rowEl}
     class="node-row"
+    role="button"
+    tabindex="0"
     class:selected={isSelected}
     class:dimmed={isDimmed}
     style:border-left-color={isSelected ? accent : 'transparent'}
@@ -91,7 +93,7 @@
     <div class="row-main">
       <!-- Assignment toggle (cases only, when screening phase) -->
       {#if isCase && showScreening}
-        <div class="assign-toggle" onclick={(e) => e.stopPropagation()}>
+        <div class="assign-toggle" role="group">
           <button
             class="assign-btn assign-ai"
             class:active={assignment === 'claude'}

@@ -192,6 +192,7 @@
             <span class="field-label">Problemstilling (presisert)</span>
             <button
               class="edit-icon"
+              aria-label="Rediger problemstilling"
               onclick={() => (editingField = editingField === 'problem' ? null : 'problem')}
             >
               <svg width="10" height="10" viewBox="0 0 10 10"
@@ -207,8 +208,13 @@
           {#if editingField === 'problem'}
             <textarea class="edit-textarea" bind:value={editedProblem} rows="3"></textarea>
           {:else}
-            <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-            <div class="field-value clickable" onclick={() => (editingField = 'problem')}>
+            <!-- svelte-ignore a11y_click_events_have_key_events -->
+            <div
+              class="field-value clickable"
+              onclick={() => (editingField = 'problem')}
+              role="button"
+              tabindex="0"
+            >
               {editedProblem}
             </div>
           {/if}

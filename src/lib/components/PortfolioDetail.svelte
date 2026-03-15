@@ -42,7 +42,7 @@
   <div class="detail-header">
     <div class="header-top">
       <span class="status-label" style:color={meta.color}>{meta.label}</span>
-      <button class="close-btn" onclick={onClose}>
+      <button class="close-btn" aria-label="Lukk detaljer" onclick={onClose}>
         <svg width="12" height="12" viewBox="0 0 12 12">
           <path
             d="M3 3L9 9M9 3L3 9"

@@ -150,7 +150,7 @@
         {@const isHighlighted = !!hl}
         {@const isExpanded = expandedParagraphs.has(para.paragraph_number)}
         {@const isDimmed = !showAllText && !isHighlighted && !isExpanded && hasCuration}
-        <!-- svelte-ignore a11y_no_static_element_interactions -->
+        <!-- svelte-ignore a11y_no_noninteractive_tabindex a11y_no_static_element_interactions -->
         <div
           class="paragraph"
           class:has-highlight={isHighlighted}
@@ -166,7 +166,7 @@
             }
           }}
           role={isDimmed ? 'button' : undefined}
-          tabindex={isDimmed ? 0 : undefined}
+          tabindex={isDimmed ? 0 : -1}
         >
           <span class="para-num">{para.paragraph_number}</span>
           <div class="para-content">

@@ -11,15 +11,19 @@
   let inputText = $state('');
   let streaming = $state(false);
   let streamingText = $state('');
+  let messagesEl: HTMLDivElement | undefined = $state();
   let messagesEndEl: HTMLDivElement | undefined = $state();
   let textareaEl: HTMLTextAreaElement | undefined = $state();
   let abortController: AbortController | null = null;
   let hasInput = $derived(inputText.trim().length > 0);
 
-  // Abort streaming on component destroy
+  // Abort streaming on component destroy + messages click delegation
   $effect(() => {
+    const el = messagesEl;
+    if (el) el.addEventListener('click', handleRefClick);
     return () => {
       abortController?.abort();
+      if (el) el.removeEventListener('click', handleRefClick);
     };
   });
 
@@ -157,9 +161,9 @@
   {/each}
 {/snippet}
 
-<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+<!-- svelte-ignore a11y_click_events_have_key_events -->
 {#if drawerState === 'closed'}
-  <div class="drawer-closed" onclick={openDrawer}>
+  <div class="drawer-closed" onclick={openDrawer} role="button" tabindex="0">
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
       <path d="M4 10L8 6L12 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
     </svg>
@@ -192,13 +196,12 @@
             {/if}
           </svg>
         </button>
-        <button class="header-btn close" onclick={closeDrawer}>×</button>
+        <button class="header-btn close" onclick={closeDrawer} aria-label="Lukk chat">×</button>
       </div>
     </div>
 
     <!-- Messages -->
-    <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-    <div class="messages" onclick={handleRefClick}>
+    <div class="messages" bind:this={messagesEl} role="log">
       {#if messages.length === 0 && !streaming}
         <div class="empty-chat">
           <div class="empty-chat-title">Still et spørsmål om rettskildebildet</div>
@@ -252,6 +255,7 @@
           class:active={hasInput}
           onclick={sendMessage}
           disabled={!hasInput || streaming}
+          aria-label="Send melding"
         >
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
             <path d="M3 13L13 8L3 3V7L9 8L3 9V13Z" fill="currentColor" />

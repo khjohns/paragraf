@@ -17,7 +17,8 @@
     children: Snippet;
   } = $props();
 
-  // eslint-disable-next-line svelte/state_referenced_locally -- intentional: use prop as initial value only
+  // Use prop as initial value only — subsequent changes managed locally
+  // svelte-ignore state_referenced_locally
   let open = $state(defaultOpen);
 </script>
 
