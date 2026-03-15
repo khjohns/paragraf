@@ -27,7 +27,7 @@
     </div>
     <button
       class="qa-btn"
-      onclick={() => screeningState.startQA()}
+      onclick={() => screeningState.startQaBatch()}
       disabled={pipelineState.qaLoading ||
         (!pipelineState.synthesisMarkdown && !analysisState.isPostSynthesisPhase)}
     >
@@ -148,7 +148,7 @@
     <!-- Re-run -->
     <button
       class="qa-rerun"
-      onclick={() => screeningState.startQA()}
+      onclick={() => screeningState.startQaBatch()}
       disabled={pipelineState.qaLoading}
     >
       {pipelineState.qaLoading ? 'Kjører…' : 'Kjør QA på nytt'}

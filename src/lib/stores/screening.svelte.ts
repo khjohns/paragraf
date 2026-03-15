@@ -147,11 +147,6 @@ class ScreeningState {
     }
   }
 
-  /** Start QA on the synthesis note (convenience method used by SynthesisView/QAPanel) */
-  async startQA() {
-    await this.startQaBatch();
-  }
-
   isBatchActive(batchType: BatchType): boolean {
     return !!this.batchJobs[batchType];
   }
@@ -188,20 +183,12 @@ class ScreeningState {
   }
 
   /** Hydrate screening state from DB candidates */
-  loadFromCandidates(
-    candidates: Array<{
-      sak_nr: string;
-      read_at?: string | null;
-      screening_status?: string | null;
-      ai_screening?: ScreeningResult | null;
-    }>
-  ) {
+  loadFromCandidates(candidates: AnalysisCandidate[]) {
     const status: Record<string, AnalysisCandidate['screening_status']> = {};
     const results: Record<string, ScreeningResult> = {};
     for (const c of candidates) {
       const nodeId = `kofa:${c.sak_nr}`;
-      if (c.screening_status)
-        status[nodeId] = c.screening_status as AnalysisCandidate['screening_status'];
+      if (c.screening_status) status[nodeId] = c.screening_status;
       if (c.ai_screening) results[c.sak_nr] = c.ai_screening;
     }
     this.screeningStatus = status;
@@ -212,18 +199,20 @@ class ScreeningState {
 
   private startPolling(batchType: BatchType, batchId: string) {
     this.stopPolling(batchType);
+    // Capture analysis ID at submission time so it stays correct even if the user switches analyses
+    const analysisId = this.deps.getAnalysisId();
 
     const poll = async () => {
       if (this.pollingInFlight[batchType]) return;
       this.pollingInFlight[batchType] = true;
       try {
-        const status = await pollBatchStatus(this.deps.getAnalysisId(), batchId);
+        const status = await pollBatchStatus(analysisId, batchId);
         const job = this.batchJobs[batchType];
         if (job) job.status = status;
 
         if (status.processing_status === 'ended') {
           this.stopPolling(batchType);
-          await this.handleBatchComplete(batchType, batchId);
+          await this.handleBatchComplete(batchType, batchId, analysisId);
           return;
         }
       } catch (e) {
@@ -245,8 +234,7 @@ class ScreeningState {
     delete this.pollingInFlight[batchType];
   }
 
-  private async handleBatchComplete(batchType: BatchType, batchId: string) {
-    const analysisId = this.deps.getAnalysisId();
+  private async handleBatchComplete(batchType: BatchType, batchId: string, analysisId: string) {
     try {
       if (batchType === 'screening') {
         const data = (await fetchBatchResults(analysisId, batchId, 'screening')) as {

@@ -212,7 +212,7 @@
               </div>
               <button
                 class="workflow-btn"
-                onclick={() => screeningState.startQA()}
+                onclick={() => screeningState.startQaBatch()}
                 disabled={pipelineState.qaLoading}
               >
                 {#if pipelineState.qaLoading}
@@ -238,7 +238,7 @@
               <div class="workflow-actions">
                 <button
                   class="workflow-btn secondary"
-                  onclick={() => screeningState.startQA()}
+                  onclick={() => screeningState.startQaBatch()}
                   disabled={pipelineState.qaLoading}
                 >
                   {pipelineState.qaLoading ? 'Kjører…' : 'Kjør QA på nytt'}
