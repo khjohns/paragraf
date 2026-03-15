@@ -74,25 +74,41 @@ Funn dokumenteres per view. Fiks gjøres umiddelbart etter hvert view — ikke s
 
 ---
 
-### 3. Workspace — kandidatliste (`/analyse/[id]`)
+### 3. Workspace — kandidatliste (`/analyse/[id]`) ✓
 
 **Komponenter:** `AppShell.svelte`, `WorkspaceHeader.svelte`, `Toolbar.svelte`, `LeftPanel.svelte`, `LeftPanelSection.svelte`, `NodeList.svelte`, `NodeRow.svelte`, `CategoryBadge.svelte`, `ValencePip.svelte`, `NodeTypeIcon.svelte`
 **Mockup:** `legal-workbench.jsx`
 **Sprint:** 10, 12
 
 **Sjekkliste:**
-- [ ] Tre-panel layout: venstre (fast bredde) + midt (fleksibel) + høyre (fast bredde, betinget)
-- [ ] Workspace header strip: `Paragraf · [provision] · [lest] · [iterasjon]`
-- [ ] View switcher (segmented control): Liste | Graf | Tidslinje | Rettssetninger
-- [ ] Kandidatliste med A/B/C-badges, signalprikker (R/F/V), screening-status
-- [ ] Listeformat per rad: checkbox · type-prikk · saksnummer (mono) · kategori · signaler · beskrivelse
-- [ ] Aktiv rad: venstrekant-accent + aktiv bakgrunn
-- [ ] Hover: subtil bakgrunnsendring
-- [ ] Fremdriftsindikator i venstepanel (7-stegs)
-- [ ] Gap-matrise i venstepanel
-- [ ] Dimming av filtrerte noder (15–25% opacity, ikke fjerning)
+- [x] Tre-panel layout: venstre (fast bredde) + midt (fleksibel) + høyre (fast bredde, betinget)
+- [x] Workspace header strip: `Paragraf · [provision] · [lest] · [iterasjon]`
+- [x] View switcher (segmented control): Liste | Graf | Tidslinje | Rettssetninger
+- [x] Kandidatliste med A/B/C-badges, signalprikker (R/F/V), screening-status
+- [x] Listeformat per rad: checkbox · type-prikk · saksnummer (mono) · kategori · signaler · beskrivelse
+- [x] Aktiv rad: venstrekant-accent + aktiv bakgrunn
+- [x] Hover: subtil bakgrunnsendring
+- [x] Fremdriftsindikator i venstepanel (7-stegs)
+- [x] Gap-matrise i venstepanel
+- [x] Dimming av filtrerte noder (15–25% opacity, ikke fjerning)
 
 **Audit-fokus:** List item-mønsteret fra `system.md` — 9px fargeprikk, 12px mono saksnummer, badge-mønster. Sidebar har *samme* bakgrunn som canvas (ikke annen farge).
+
+**Audit-funn (fikset):**
+- NodeRow: `--p-kofa` (3 steder) → `--p-kofa-accent` (udefinert token)
+- NodeRow: padding 11px → 12px, gap 10px → 8px, checkbox 15px → 16px (4px-grid)
+- NodeRow: `.row-line1` gap 5px → 4px, `.row-line2` gap 7px → 8px
+- NodeRow: badge padding `1px 5px` → `2px 6px` (badge-mønster)
+- NodeRow: `.screening-badge` brukte `var(--p-ai-border)` → `var(--p-ai-border-subtle)`, fjernet hardkodet fallback
+- Toolbar: padding 7px → 8px, view-switcher radius → `var(--radius-md)`, btn padding 11px → 12px
+- Toolbar: ai-toggle/reg-filter padding 3px → 4px, radius → `var(--radius-md)`
+- Toolbar: cat-pill padding 3px 9px → 4px 8px, graph-search radius → token
+- Toolbar: hardkodede rgba-verdier → tokens, `white` → `var(--p-panel)`
+- LeftPanel: problem-input radius 6px → `var(--radius-lg)`, padding 10px → 8px
+- LeftPanel: result-row padding 7px 10px → 8px 12px, radius 5px → `var(--radius-md)`
+- LeftPanel: mapping-content gap 14px → 12px, mapping-label letter-spacing → 0.06em
+- LeftPanel: gap-row/round-row/valence-legend off-grid spacing → snappet til 4px-grid
+- LeftPanel: alle hardkodede border-radius (4px, 5px) → tokens
 
 ---
 

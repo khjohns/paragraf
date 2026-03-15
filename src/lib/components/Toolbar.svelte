@@ -291,7 +291,7 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 7px 16px;
+    padding: 8px 16px;
     border-bottom: 1px solid var(--p-border);
     background: var(--p-panel);
     position: sticky;
@@ -326,14 +326,14 @@
   /* Segmented control — matches mock exactly */
   .view-switcher {
     display: flex;
-    border-radius: 5px;
+    border-radius: var(--radius-md);
     border: 1px solid var(--p-border);
     overflow: hidden;
   }
   .view-btn {
     all: unset;
     cursor: pointer;
-    padding: 4px 11px;
+    padding: 4px 12px;
     font-size: 11px;
     font-weight: 500;
     color: var(--p-ink3);
@@ -422,11 +422,11 @@
     cursor: pointer;
     display: flex;
     align-items: center;
-    gap: 3px;
-    padding: 3px 8px;
+    gap: 4px;
+    padding: 4px 8px;
     font-size: 10px;
     font-weight: 500;
-    border-radius: 4px;
+    border-radius: var(--radius-md);
     color: var(--p-ink4);
     border: 1px solid var(--p-border);
   }
@@ -435,17 +435,17 @@
   }
   .ai-toggle.active {
     background: var(--p-provision-accent);
-    color: white;
+    color: var(--p-panel);
     border-color: var(--p-provision-accent);
   }
 
   .reg-filter {
     all: unset;
     cursor: pointer;
-    padding: 3px 8px;
+    padding: 4px 8px;
     font-size: 10px;
     font-weight: 500;
-    border-radius: 4px;
+    border-radius: var(--radius-md);
     color: var(--p-ink3);
     border: 1px solid var(--p-border);
   }
@@ -455,7 +455,7 @@
   .reg-filter.active {
     background: var(--p-warn-bg);
     color: var(--p-warn);
-    border-color: rgba(166, 123, 46, 0.15);
+    border-color: var(--p-border-m);
   }
 
   /* Category filter pills */
@@ -465,7 +465,7 @@
     display: flex;
     align-items: center;
     gap: 4px;
-    padding: 3px 9px;
+    padding: 4px 8px;
     font-size: 11px;
     font-weight: 500;
     font-family: var(--font-data);
@@ -503,9 +503,9 @@
     display: flex;
     align-items: center;
     gap: 4px;
-    padding: 3px 8px;
+    padding: 4px 8px;
     border: 1px solid var(--p-border);
-    border-radius: 5px;
+    border-radius: var(--radius-md);
     background: var(--p-bg);
     min-width: 180px;
   }
@@ -532,7 +532,7 @@
     font-family: var(--font-data);
     color: var(--p-ink3);
     background: var(--p-surface);
-    padding: 1px 5px;
+    padding: 2px 6px;
     border-radius: 3px;
   }
   .search-clear {
@@ -559,7 +559,7 @@
   .prop-tension-count {
     font-size: 11px;
     font-weight: 500;
-    color: var(--p-tension, #a63d3d);
+    color: var(--p-tension);
   }
   .evolution-legend {
     display: flex;
@@ -593,12 +593,12 @@
   .sort-warning {
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 5px 16px;
+    gap: 8px;
+    padding: 4px 16px;
     font-size: 0.6875rem;
     font-weight: 500;
     color: var(--p-warn);
     background: var(--p-warn-bg);
-    border-bottom: 1px solid rgba(166, 123, 46, 0.12);
+    border-bottom: 1px solid var(--p-border);
   }
 </style>

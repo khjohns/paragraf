@@ -340,8 +340,8 @@
   }
   .problem-input {
     width: 100%;
-    padding: 10px 12px;
-    border-radius: 6px;
+    padding: 8px 12px;
+    border-radius: var(--radius-lg);
     background: var(--p-input);
     border: 1px solid var(--p-border);
     font-size: 13px;
@@ -365,8 +365,8 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 7px 10px;
-    border-radius: 5px;
+    padding: 8px 12px;
+    border-radius: var(--radius-md);
     background: var(--p-surface);
     border: 1px solid var(--p-border);
   }
@@ -383,7 +383,7 @@
   }
   .delim-row {
     background: var(--p-delim-bg);
-    border-color: rgba(196, 101, 10, 0.1);
+    border-color: var(--p-border);
   }
   .delim-count {
     color: var(--p-delim);
@@ -392,11 +392,11 @@
   .regulation-notice {
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 6px 10px;
-    border-radius: 4px;
+    gap: 8px;
+    padding: 8px 12px;
+    border-radius: var(--radius-md);
     background: var(--p-warn-bg);
-    border: 1px solid rgba(166, 123, 46, 0.12);
+    border: 1px solid var(--p-border);
     font-size: 11px;
     color: var(--p-warn);
     font-weight: 500;
@@ -406,8 +406,8 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 6px 10px;
-    border-radius: 4px;
+    padding: 8px 12px;
+    border-radius: var(--radius-md);
     background: var(--p-hover);
     font-size: 10px;
     color: var(--p-ink3);
@@ -434,7 +434,7 @@
   .mapping-content {
     display: flex;
     flex-direction: column;
-    gap: 14px;
+    gap: 12px;
   }
   .mapping-section {
     display: flex;
@@ -445,7 +445,7 @@
     font-size: 10px;
     font-weight: 600;
     color: var(--p-ink3);
-    letter-spacing: 0.05em;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
     margin-bottom: 2px;
   }
@@ -484,9 +484,9 @@
     all: unset;
     display: flex;
     align-items: center;
-    gap: 5px;
-    padding: 5px 8px;
-    border-radius: 4px;
+    gap: 4px;
+    padding: 4px 8px;
+    border-radius: var(--radius-md);
     margin-bottom: 2px;
     border: 1px solid transparent;
     width: 100%;
@@ -518,9 +518,9 @@
     color: var(--p-gap);
   }
   .gap-note {
-    margin-top: 6px;
-    padding: 6px 8px;
-    border-radius: 4px;
+    margin-top: 8px;
+    padding: 8px 8px;
+    border-radius: var(--radius-md);
     font-size: 11px;
     line-height: 1.4;
     color: var(--p-gap);
@@ -531,9 +531,9 @@
     all: unset;
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 6px 8px;
-    border-radius: 4px;
+    gap: 8px;
+    padding: 8px 8px;
+    border-radius: var(--radius-md);
     cursor: pointer;
     font-size: 11px;
     color: var(--p-ink2);
@@ -584,8 +584,8 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 5px 8px;
-    border-radius: 4px;
+    padding: 4px 8px;
+    border-radius: var(--radius-md);
     background: var(--p-active);
     font-size: 10px;
     color: var(--p-ink3);
@@ -607,7 +607,7 @@
     cursor: pointer;
     width: 100%;
     padding: 8px 12px;
-    border-radius: 5px;
+    border-radius: var(--radius-md);
     border: 1px dashed var(--p-border-m);
     font-size: 12px;
     font-weight: 500;
@@ -615,7 +615,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 6px;
+    gap: 8px;
   }
   .new-iter-btn:hover {
     border-color: var(--p-border-s);
@@ -638,9 +638,9 @@
   .valence-legend {
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 6px 8px;
-    border-radius: 4px;
+    gap: 8px;
+    padding: 8px 8px;
+    border-radius: var(--radius-md);
     background: var(--p-hover);
     margin-top: 4px;
   }
