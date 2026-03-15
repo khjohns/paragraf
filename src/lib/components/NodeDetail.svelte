@@ -1,28 +1,17 @@
 <script lang="ts">
-  import type { GraphNode, Valence } from '$lib/types/graph';
+  import type { GraphNode } from '$lib/types/graph';
   import { uiState } from '$lib/stores/ui.svelte';
   import { analysisState } from '$lib/stores/analysis.svelte';
   import { createCurationQuery } from '$lib/queries/curation';
   import CaseReader from './CaseReader.svelte';
-  import ProvisionDetail from './ProvisionDetail.svelte';
-  import EuCaseDetail from './EuCaseDetail.svelte';
-  import ForarbeidDetail from './ForarbeidDetail.svelte';
+  import NodeDetailOverview from './NodeDetailOverview.svelte';
   import NodeTypeIcon from './NodeTypeIcon.svelte';
   import CategoryBadge from './CategoryBadge.svelte';
   import DelimBadge from './DelimBadge.svelte';
-  import ValencePip from './ValencePip.svelte';
 
   let selectedNode = $derived(
     analysisState.nodes.find((n) => n.id === uiState.selectedNodeId) ?? null
   );
-
-  let isRead = $derived(
-    selectedNode ? !!analysisState.analysis.readStatus[selectedNode.id] : false
-  );
-  let isDelimitation = $derived(
-    selectedNode ? !!analysisState.analysis.delimitations[selectedNode.id] : false
-  );
-  let note = $derived(selectedNode ? (analysisState.analysis.notes[selectedNode.id] ?? '') : '');
 
   let mode = $state<'overview' | 'reading'>('overview');
 
@@ -56,40 +45,6 @@
     seedProvisions: analysisState.analysis.seeds.provisions,
   }));
 
-  // Connected nodes (use Set for O(1) lookups)
-  let connectedNodes = $derived.by(() => {
-    if (!selectedNode?.connectedTo) return [];
-    const idSet = new Set(selectedNode.connectedTo);
-    return analysisState.nodes.filter((n) => idSet.has(n.id));
-  });
-
-  // Build valence map once per selection (avoids O(N) per relation)
-  let valenceMap = $derived.by(() => {
-    if (!selectedNode) return new Map<string, Valence>();
-    const map = new Map<string, Valence>();
-    // Check selected node's valence first
-    if (selectedNode.valence) {
-      for (const [id, v] of Object.entries(selectedNode.valence)) {
-        if (v !== 'unknown') map.set(id, v);
-      }
-    }
-    // Check reverse valence from connected nodes
-    for (const cn of connectedNodes) {
-      if (
-        !map.has(cn.id) &&
-        cn.valence?.[selectedNode.id] &&
-        cn.valence[selectedNode.id] !== 'unknown'
-      ) {
-        map.set(cn.id, cn.valence[selectedNode.id]);
-      }
-    }
-    return map;
-  });
-
-  function getValence(targetId: string) {
-    return valenceMap.get(targetId) ?? 'unknown';
-  }
-
   // Reset mode when node changes
   $effect(() => {
     uiState.selectedNodeId;
@@ -114,12 +69,11 @@
 
   let meta = $derived(typeMeta[selectedNode?.type ?? ''] ?? typeMeta.kofa_case);
 
-  // Build breadcrumb labels from navigation history node IDs
-  let breadcrumbNodes = $derived(
-    uiState.navigationHistory
-      .map((id) => analysisState.nodes.find((n) => n.id === id))
-      .filter(Boolean) as import('$lib/types/graph').GraphNode[]
-  );
+  // Build breadcrumb labels using Map for O(1) lookups
+  let breadcrumbNodes = $derived.by(() => {
+    const nodeMap = new Map(analysisState.nodes.map((n) => [n.id, n]));
+    return uiState.navigationHistory.map((id) => nodeMap.get(id)).filter(Boolean) as GraphNode[];
+  });
 </script>
 
 {#if selectedNode}
@@ -224,126 +178,12 @@
           curationLoading={curationQuery.isLoading}
         />
       {:else}
-        <!-- Detail / Summary text -->
-        {#if selectedNode.detail}
-          <div class="detail-section">
-            <div class="section-label">
-              {selectedNode.type === 'provision' ? 'Ordlyd' : 'Sammendrag'}
-            </div>
-            <div class="detail-text">{selectedNode.detail}</div>
-          </div>
-        {/if}
-
-        <!-- AI-curated summary (KOFA cases only) -->
-        {#if selectedNode.type === 'kofa_case' && (curationQuery.data || curationQuery.isLoading)}
-          <div class="detail-section">
-            <div class="section-label">AI-markerte avsnitt</div>
-            {#if curationQuery.isLoading}
-              <div class="ai-loading">
-                <div class="ai-loading-bar"></div>
-                <span class="ai-loading-text">Genererer AI-kuratering...</span>
-              </div>
-            {:else if curationQuery.data}
-              {#if curationQuery.data.summary_note}
-                <div class="ai-summary-note">{curationQuery.data.summary_note}</div>
-              {/if}
-              {#each curationQuery.data.highlights.slice(0, 3) as hl}
-                <div class="ai-preview">
-                  <div class="ai-preview-num">Avsnitt {hl.paragraph}</div>
-                  <p class="ai-preview-text">
-                    {hl.relevance.length > 150 ? hl.relevance.slice(0, 150) + '...' : hl.relevance}
-                  </p>
-                  <button
-                    class="ai-preview-link"
-                    onclick={() => {
-                      mode = 'reading';
-                    }}
-                  >
-                    Les i kontekst →
-                  </button>
-                </div>
-              {/each}
-            {/if}
-          </div>
-        {/if}
-
-        <!-- Signals detail -->
-        {#if selectedNode.signals}
-          <div class="detail-section">
-            <div class="section-label">Treffsignaler</div>
-            {#each [{ key: 'ref' as const, label: 'Referansetabell', on: selectedNode.signals.ref }, { key: 'fts' as const, label: 'Fulltekstsøk', on: selectedNode.signals.fts }, { key: 'vec' as const, label: 'Vektorsøk', on: selectedNode.signals.vec }] as sig}
-              <div class="signal-row" class:signal-on={sig.on}>
-                <span class="sig-indicator" class:on={sig.on}></span>
-                <span class:signal-label-on={sig.on}>{sig.label}</span>
-              </div>
-            {/each}
-          </div>
-        {/if}
-
-        <!-- Relations -->
-        {#if connectedNodes.length > 0}
-          <div class="detail-section">
-            <div class="section-label">Relasjoner ({connectedNodes.length})</div>
-            {#each connectedNodes as cn}
-              {@const v = getValence(cn.id)}
-              <button class="relation-row" onclick={() => uiState.navigateTo(cn.id)}>
-                <NodeTypeIcon type={cn.type} size={10} />
-                <span class="relation-label">{cn.label}</span>
-                {#if v !== 'unknown'}
-                  <ValencePip valence={v} size={9} />
-                {/if}
-                <span class="relation-subtitle">{cn.subtitle?.slice(0, 28)}</span>
-              </button>
-            {/each}
-          </div>
-        {/if}
-
-        <!-- Provision detail -->
-        {#if selectedNode.type === 'provision'}
-          {@const parts = selectedNode.id.split(':')}
-          <ProvisionDetail dokId={parts[0] ?? ''} sectionId={parts[1] ?? ''} />
-        {/if}
-
-        <!-- EU case detail -->
-        {#if selectedNode.type === 'eu_case'}
-          <EuCaseDetail euCaseId={selectedNode.id.replace('eu:', '')} />
-        {/if}
-
-        <!-- Forarbeid detail -->
-        {#if selectedNode.type === 'prep_work'}
-          {@const docId = selectedNode.id.replace('forarbeid:', '')}
-          <ForarbeidDetail {docId} />
-        {/if}
-
-        <!-- Notes -->
-        <div class="detail-section">
-          <label class="section-label" for="notes-field">Mine notater</label>
-          <textarea
-            id="notes-field"
-            class="notes-field"
-            value={note}
-            oninput={(e) => analysisState.setNote(selectedNode!.id, e.currentTarget.value)}
-            placeholder="Skriv notater om denne rettskilden..."
-            rows="3"
-          ></textarea>
-        </div>
-
-        <!-- Actions -->
-        <div class="detail-actions">
-          <button
-            class="action-btn"
-            class:active={isRead}
-            onclick={() => analysisState.toggleRead(selectedNode!.id)}
-          >
-            {isRead ? '✓ Lest og vurdert' : 'Marker som lest'}
-          </button>
-          <button class="action-btn action-seed"> Bruk som seed i neste iterasjon </button>
-          {#if selectedNode.isDelimitation}
-            <div class="delim-notice">
-              Avgrensningspraksis — bestemmelsen ble vurdert som ikke-anvendelig
-            </div>
-          {/if}
-        </div>
+        <NodeDetailOverview
+          node={selectedNode}
+          curationData={curationQuery.data ?? null}
+          curationLoading={curationQuery.isLoading}
+          onReadMode={() => (mode = 'reading')}
+        />
       {/if}
     </div>
   </div>
@@ -519,212 +359,5 @@
   .detail-body {
     flex: 1;
     overflow-y: auto;
-  }
-
-  .detail-section {
-    padding: 12px 16px;
-    border-bottom: 1px solid var(--p-border);
-  }
-  .section-label {
-    font-size: 10px;
-    font-weight: 600;
-    color: var(--p-ink3);
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-    margin-bottom: 6px;
-  }
-
-  /* Detail text */
-  .detail-text {
-    font-size: 13px;
-    line-height: 1.6;
-    color: var(--p-ink);
-  }
-
-  /* Signals detail */
-  .signal-row {
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    padding: 4px 6px;
-    border-radius: var(--radius-sm);
-    margin-bottom: 2px;
-    font-size: 12px;
-    color: var(--p-ink4);
-    font-weight: 400;
-  }
-  .signal-row.signal-on {
-    background: rgba(26, 24, 20, 0.025);
-  }
-  .signal-label-on {
-    font-weight: 600;
-    color: var(--p-ink);
-  }
-  .sig-indicator {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: transparent;
-    border: 1.5px solid var(--p-signal-off);
-    flex-shrink: 0;
-  }
-  .sig-indicator.on {
-    background: var(--p-signal-on);
-    border-color: var(--p-signal-on);
-  }
-
-  /* Relations */
-  .relation-row {
-    all: unset;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    padding: 4px 6px;
-    border-radius: 4px;
-    margin-bottom: 1px;
-    width: 100%;
-  }
-  .relation-row:hover {
-    background: var(--p-hover);
-  }
-  .relation-label {
-    font-family: var(--font-data);
-    font-weight: 500;
-    font-size: 12px;
-  }
-  .relation-subtitle {
-    color: var(--p-ink4);
-    font-size: 10px;
-    flex: 1;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  /* Notes */
-  .notes-field {
-    width: 100%;
-    padding: 7px 10px;
-    font-size: 13px;
-    line-height: 1.5;
-    font-family: var(--font-ui);
-    background: var(--p-input);
-    border: 1px solid var(--p-border-m);
-    border-radius: 5px;
-    color: var(--p-ink);
-    resize: vertical;
-  }
-  .notes-field:focus {
-    outline: none;
-    border-color: var(--p-kofa-accent);
-  }
-
-  /* Actions */
-  .detail-actions {
-    padding: 12px 16px;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-  }
-  .action-btn {
-    all: unset;
-    cursor: pointer;
-    width: 100%;
-    padding: 7px 12px;
-    border-radius: 5px;
-    border: 1px solid var(--p-border-m);
-    color: var(--p-ink2);
-    font-size: 12px;
-    font-weight: 500;
-    text-align: center;
-  }
-  .action-btn:hover {
-    border-color: var(--p-border-s);
-    color: var(--p-ink);
-  }
-  .action-btn.active {
-    background: var(--p-success-bg);
-    border-color: rgba(61, 122, 74, 0.18);
-    color: var(--p-success);
-  }
-  .action-seed {
-    background: transparent;
-  }
-  .delim-notice {
-    padding: var(--spacing-2) var(--spacing-3);
-    border-radius: var(--radius-md);
-    background: var(--p-delim-bg);
-    border: 1px solid rgba(196, 101, 10, 0.1);
-    font-size: 0.6875rem;
-    color: var(--p-delim);
-    line-height: 1.4;
-    text-align: center;
-  }
-
-  /* AI loading state in overview */
-  .ai-loading {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-2);
-    padding: var(--spacing-1) 0;
-  }
-  .ai-loading-bar {
-    width: 3px;
-    height: var(--spacing-4);
-    border-radius: 2px;
-    background: var(--p-ai-border);
-    animation: pulse 2s ease-in-out infinite;
-  }
-  .ai-loading-text {
-    font-size: 0.75rem;
-    color: var(--p-ink4);
-  }
-  @keyframes pulse {
-    0%,
-    100% {
-      opacity: 0.15;
-    }
-    50% {
-      opacity: 0.8;
-    }
-  }
-  .ai-summary-note {
-    border-left: 3px solid var(--p-ai-border);
-    background: var(--p-ai-bg);
-    padding: 8px 12px;
-    margin-bottom: 8px;
-    border-radius: 0 4px 4px 0;
-    font-size: 0.8125rem;
-    line-height: 1.5;
-    color: var(--p-ai-text);
-  }
-  .ai-preview {
-    padding: 6px 0;
-    border-bottom: 1px solid var(--p-border);
-  }
-  .ai-preview-num {
-    font-family: var(--font-data);
-    font-size: 0.6875rem;
-    font-weight: 600;
-    color: var(--p-ai-border);
-    margin-bottom: 2px;
-  }
-  .ai-preview-text {
-    font-size: 0.75rem;
-    line-height: 1.4;
-    color: var(--p-ink2);
-  }
-  .ai-preview-link {
-    all: unset;
-    cursor: pointer;
-    font-size: 0.6875rem;
-    font-weight: 500;
-    color: var(--p-ai-border);
-    margin-top: 4px;
-    display: inline-block;
-  }
-  .ai-preview-link:hover {
-    text-decoration: underline;
   }
 </style>

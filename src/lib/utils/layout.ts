@@ -183,13 +183,11 @@ function remapEdges(
   return result;
 }
 
-/** Add layer constraint edges to enforce vertical hierarchy in dagre */
-function addLayerConstraints(
-  g: dagre.graphlib.Graph,
+/** Group node/aggregate IDs by their dagre layer rank */
+function groupByLayer(
   layoutNodes: GraphNode[],
-  aggregates: AggregateNode[],
-  realEdgeKeys: Set<string>
-) {
+  aggregates: AggregateNode[]
+): Map<number, string[]> {
   const byLayer = new Map<number, string[]>();
 
   for (const node of layoutNodes) {
@@ -203,25 +201,110 @@ function addLayerConstraints(
     byLayer.get(rank)!.push(agg.id);
   }
 
-  const layerKeys = [...byLayer.keys()].sort((a, b) => a - b);
-  for (let i = 0; i < layerKeys.length - 1; i++) {
-    const upper = byLayer.get(layerKeys[i])!;
-    const lower = byLayer.get(layerKeys[i + 1])!;
-    if (upper.length === 0 || lower.length === 0) continue;
+  return byLayer;
+}
 
-    const upperAnchor = upper[0];
-    const lowerAnchor = lower[0];
-    for (const id of upper) {
-      if (!realEdgeKeys.has(`${id}→${lowerAnchor}`)) {
-        g.setEdge(id, lowerAnchor, { weight: 2, minlen: 2 });
-      }
-    }
-    for (const id of lower) {
-      if (!realEdgeKeys.has(`${upperAnchor}→${id}`)) {
-        g.setEdge(upperAnchor, id, { weight: 2, minlen: 2 });
-      }
+/** Add constraint edges between two adjacent layers to enforce vertical hierarchy */
+function addInterLayerConstraints(
+  g: dagre.graphlib.Graph,
+  upperIds: string[],
+  lowerIds: string[],
+  realEdgeKeys: Set<string>
+) {
+  if (upperIds.length === 0 || lowerIds.length === 0) return;
+
+  const upperAnchor = upperIds[0];
+  const lowerAnchor = lowerIds[0];
+
+  for (const id of upperIds) {
+    if (!realEdgeKeys.has(`${id}→${lowerAnchor}`)) {
+      g.setEdge(id, lowerAnchor, { weight: 2, minlen: 2 });
     }
   }
+  for (const id of lowerIds) {
+    if (!realEdgeKeys.has(`${upperAnchor}→${id}`)) {
+      g.setEdge(upperAnchor, id, { weight: 2, minlen: 2 });
+    }
+  }
+}
+
+/** Add layer constraint edges to enforce vertical hierarchy in dagre */
+function addLayerConstraints(
+  g: dagre.graphlib.Graph,
+  layoutNodes: GraphNode[],
+  aggregates: AggregateNode[],
+  realEdgeKeys: Set<string>
+) {
+  const byLayer = groupByLayer(layoutNodes, aggregates);
+  const layerKeys = [...byLayer.keys()].sort((a, b) => a - b);
+
+  for (let i = 0; i < layerKeys.length - 1; i++) {
+    addInterLayerConstraints(
+      g,
+      byLayer.get(layerKeys[i])!,
+      byLayer.get(layerKeys[i + 1])!,
+      realEdgeKeys
+    );
+  }
+}
+
+/** Register all nodes and aggregates in the dagre graph */
+function populateGraphNodes(
+  g: dagre.graphlib.Graph,
+  layoutNodes: GraphNode[],
+  aggregates: AggregateNode[]
+) {
+  for (const node of layoutNodes) {
+    const size = nodeSize(node);
+    g.setNode(node.id, { width: size.width, height: size.height });
+  }
+  for (const agg of aggregates) {
+    const size = aggregateSize();
+    g.setNode(agg.id, { width: size.width, height: size.height });
+  }
+}
+
+/** Add real edges to the dagre graph, returns set of edge keys */
+function populateGraphEdges(g: dagre.graphlib.Graph, layoutEdges: GraphEdge[]): Set<string> {
+  const realEdgeKeys = new Set<string>();
+  for (const edge of layoutEdges) {
+    if (g.hasNode(edge.from) && g.hasNode(edge.to)) {
+      g.setEdge(edge.from, edge.to, { weight: 1, minlen: 1 });
+      realEdgeKeys.add(`${edge.from}→${edge.to}`);
+    }
+  }
+  return realEdgeKeys;
+}
+
+/** Extract node and edge layouts from a computed dagre graph */
+function extractLayoutResults(
+  g: dagre.graphlib.Graph,
+  realEdgeKeys: Set<string>
+): { nodes: Map<string, NodeLayout>; edges: EdgeLayout[]; width: number; height: number } {
+  const resultNodes = new Map<string, NodeLayout>();
+  for (const id of g.nodes()) {
+    const n = g.node(id);
+    if (n) {
+      resultNodes.set(id, { x: n.x, y: n.y, width: n.width, height: n.height });
+    }
+  }
+
+  const resultEdges: EdgeLayout[] = [];
+  for (const e of g.edges()) {
+    if (!realEdgeKeys.has(`${e.v}→${e.w}`)) continue;
+    const edgeData = g.edge(e);
+    if (edgeData?.points) {
+      resultEdges.push({ points: edgeData.points, from: e.v, to: e.w });
+    }
+  }
+
+  const graphLabel = g.graph();
+  return {
+    nodes: resultNodes,
+    edges: resultEdges,
+    width: graphLabel?.width ?? 800,
+    height: graphLabel?.height ?? 600,
+  };
 }
 
 /**
@@ -247,59 +330,33 @@ export function computeAggregatedLayout(
     expandedAggregates
   );
 
-  // Phase 3: Remap edges through aggregates
+  // Phase 3: Filter and remap through aggregates
   const layoutNodes = nodes.filter((n) => !aggregatedNodeIds.has(n.id));
   const layoutEdges = remapEdges(edges, aggregatedNodeIds, memberToAggregate);
 
-  // Phase 4: Build dagre graph
+  // Phase 4: Build and compute dagre graph
   const g = new dagre.graphlib.Graph();
   g.setGraph({ rankdir: 'TB', ranksep: 80, nodesep: 30, marginx: 40, marginy: 40 });
   g.setDefaultEdgeLabel(() => ({}));
 
-  for (const node of layoutNodes) {
-    const size = nodeSize(node);
-    g.setNode(node.id, { width: size.width, height: size.height });
-  }
-  for (const agg of aggregates) {
-    const size = aggregateSize();
-    g.setNode(agg.id, { width: size.width, height: size.height });
-  }
-
-  const realEdgeKeys = new Set<string>();
-  for (const edge of layoutEdges) {
-    if (g.hasNode(edge.from) && g.hasNode(edge.to)) {
-      g.setEdge(edge.from, edge.to, { weight: 1, minlen: 1 });
-      realEdgeKeys.add(`${edge.from}→${edge.to}`);
-    }
-  }
-
+  populateGraphNodes(g, layoutNodes, aggregates);
+  const realEdgeKeys = populateGraphEdges(g, layoutEdges);
   addLayerConstraints(g, layoutNodes, aggregates, realEdgeKeys);
   dagre.layout(g);
 
   // Phase 5: Extract results
-  const resultNodes = new Map<string, NodeLayout>();
-  for (const id of g.nodes()) {
-    const n = g.node(id);
-    if (n) {
-      resultNodes.set(id, { x: n.x, y: n.y, width: n.width, height: n.height });
-    }
-  }
+  const {
+    nodes: resultNodes,
+    edges: resultEdges,
+    width,
+    height,
+  } = extractLayoutResults(g, realEdgeKeys);
 
-  const resultEdges: EdgeLayout[] = [];
-  for (const e of g.edges()) {
-    if (!realEdgeKeys.has(`${e.v}→${e.w}`)) continue;
-    const edgeData = g.edge(e);
-    if (edgeData?.points) {
-      resultEdges.push({ points: edgeData.points, from: e.v, to: e.w });
-    }
-  }
-
-  const graphLabel = g.graph();
   return {
     nodes: resultNodes,
     edges: resultEdges,
-    width: graphLabel?.width ?? 800,
-    height: graphLabel?.height ?? 600,
+    width,
+    height,
     aggregates,
     memberToAggregate,
   };
