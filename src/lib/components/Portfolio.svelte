@@ -155,7 +155,7 @@
       <svg width="12" height="12" viewBox="0 0 12 12" class="new-icon">
         <path d="M6 2V10M2 6H10" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" />
       </svg>
-      Ny analyse
+      Kartlegg ny problemstilling
     </button>
   </div>
 </div>
@@ -277,7 +277,7 @@
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 8px 16px;
+    padding: 8px 16px 8px 19px;
     border-bottom: 1px solid var(--p-border-m);
     font-size: 10px;
     font-weight: 600;
@@ -390,19 +390,24 @@
     align-items: center;
     gap: 8px;
     padding: 12px 16px;
+    margin: 8px 16px;
     cursor: pointer;
-    color: var(--p-ink3);
+    color: var(--p-ink2);
     font-size: 12px;
-    font-weight: 500;
+    font-weight: 600;
+    border: 1px dashed var(--p-border-m);
+    border-radius: 4px;
+    justify-content: center;
     transition:
       color 0.1s ease,
-      background 0.1s ease;
-    width: 100%;
+      background 0.1s ease,
+      border-color 0.1s ease;
     box-sizing: border-box;
   }
   .new-analysis-row:hover {
     color: var(--p-ink);
     background: var(--p-hover);
+    border-color: var(--p-border-s);
   }
   .new-icon {
     opacity: 0.5;

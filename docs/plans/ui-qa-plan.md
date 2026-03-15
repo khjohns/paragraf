@@ -27,14 +27,14 @@ Funn dokumenteres per view. Fiks gjøres umiddelbart etter hvert view — ikke s
 **Sprint:** 10
 
 **Sjekkliste:**
-- [ ] Layout: listevisning med detalj-panel. Eier-felt synlig, team-tab dimmet
-- [ ] Analysekort: tittel, status-badge, dato, problemstilling-preview
-- [ ] Status-badges bruker riktige semantiske farger per analyse-status
-- [ ] Opprett-knapp: «Kartlegg ny problemstilling» — tydelig primæraksjon
-- [ ] Fremdriftsindikator per analyse (7-stegs fra guidet-analyse doc)
-- [ ] Tom tilstand: meningsfull empty state
-- [ ] Hover/active states på listeelementene
-- [ ] Typografi: Inter UI, monospace for saksnumre/datoer
+- [x] Layout: listevisning med detalj-panel. Eier-felt synlig, team-tab dimmet
+- [x] Analysekort: tittel, status-badge, dato, problemstilling-preview
+- [x] Status-badges bruker riktige semantiske farger per analyse-status
+- [x] Opprett-knapp: «Kartlegg ny problemstilling» — tydelig primæraksjon
+- [x] Fremdriftsindikator per analyse (7-stegs fra guidet-analyse doc) — status vises via fase-label per rad
+- [x] Tom tilstand: meningsfull empty state
+- [x] Hover/active states på listeelementene
+- [x] Typografi: Inter UI, monospace for saksnumre/datoer
 
 **Audit-fokus:** Spacing-grid (4px), border-strategi (ingen skygger), badge-mønster (`2px 6px`, `3px radius`, `10px font`).
 
