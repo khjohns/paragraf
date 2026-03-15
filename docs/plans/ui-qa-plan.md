@@ -260,14 +260,15 @@ Disse gjelder alle views og sjekkes til slutt:
 For hvert view (1–10):
 
 ```
-1. Les mockup (der relevant) — noter avvik og potensielle mockup-forbedringer
+1. Les mockup (der relevant) — bruk som visuell referanse, ikke fasit
 2. Les implementert kode — audit mot system.md
 3. Kjør /interface-design:critique på komponentfilene
-4. Dokumenter funn (avvik, forbedringer, mockup-kritikk)
+4. Dokumenter funn
 5. Fiks implementasjonen
-6. Oppdater mockup hvis den var kilden til problemet
-7. Kjør /interface-design:audit for å verifisere fiks
+6. Kjør /interface-design:audit for å verifisere fiks
 ```
+
+Mockups oppdateres IKKE — de er referanser, ikke vedlikeholdt kode. Implementasjonen er sannheten.
 
 Tverrgående sjekker (11) gjøres etter alle views er gjennomgått.
 
@@ -277,6 +278,5 @@ Tverrgående sjekker (11) gjøres etter alle views er gjennomgått.
 
 Etter QA:
 - Alle views er auditert, kritisert og fikset
-- Mockups er oppdatert der de var kilden til avvik
 - `system.md` er oppdatert med eventuelle nye mønstre oppdaget under QA
 - Denne filen oppdateres med status per view (✓/✗) underveis
