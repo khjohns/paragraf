@@ -1,9 +1,11 @@
 import logging
 import os
 
+import anthropic
+
 from cases import get_case_detail
 from curation_cache import cache_curation, get_cached_curation, make_problem_hash
-from llm_utils import CLAUDE_MODEL, GEMINI_MODEL, call_claude_structured, parse_json_response
+from llm_utils import CLAUDE_MODEL, GEMINI_MODEL, LLMConfigError, call_claude_structured, parse_json_response
 
 logger = logging.getLogger(__name__)
 MAX_PARAGRAPHS_CHARS = 12000  # Truncate very long decisions
@@ -120,7 +122,7 @@ def _call_claude(user_prompt: str) -> dict | None:
             effort="medium",
             log_label="Curation",
         )
-    except Exception as e:
+    except (LLMConfigError, anthropic.APIError) as e:
         logger.error("Curation Claude call failed: %s", e)
         return None
 
@@ -200,6 +202,10 @@ def generate_curation(
         model_name = GEMINI_MODEL
         text = _call_gemini(user_prompt)
         curation = parse_json_response(text) if text else None
+        # Gemini doesn't guarantee schema — validate structure
+        if curation:
+            curation.setdefault("highlights", [])
+            curation.setdefault("summary_note", "")
 
     if not curation:
         return {
@@ -208,12 +214,6 @@ def generate_curation(
         }
 
     logger.info("Curation generated via %s for %s", provider, sak_nr)
-
-    # Validate structure
-    if "highlights" not in curation:
-        curation["highlights"] = []
-    if "summary_note" not in curation:
-        curation["summary_note"] = ""
 
     # Cache the result
     cache_curation(sak_nr, problem_hash, curation, model_name)

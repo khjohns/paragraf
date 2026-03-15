@@ -136,7 +136,6 @@ def generate_post_search(analysis_id: str) -> dict:
     gaps = ctx.get("gaps") or []
 
     # Load additional seed types for current-seeds display
-    from db import get_client
     client = get_client()
     all_seeds = (
         client.table("analysis_seeds")

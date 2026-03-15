@@ -7,7 +7,7 @@ import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from db import get_client
-from llm_utils import call_claude_structured, load_analysis_context
+from llm_utils import call_claude_structured, format_sub_problems, load_analysis_context
 
 logger = logging.getLogger(__name__)
 
@@ -167,7 +167,7 @@ def _build_user_message(
 ) -> str:
     """Build the user message for a screening call."""
     prov_str = ", ".join(provisions) if provisions else "Ingen spesifikke bestemmelser"
-    sub_str = "\n".join(f"  {i+1}. {sp}" for i, sp in enumerate(sub_problems)) if sub_problems else "  Ingen delspørsmål"
+    sub_str = format_sub_problems(sub_problems)
 
     return f"""<case>
 <sak_nr>{sak_nr}</sak_nr>
