@@ -184,5 +184,6 @@ Analyser dekningen og foreslå supplerende søk for å dekke hull i analysen."""
         system_prompt=POST_SEARCH_SYSTEM_PROMPT,
         user_message=user_message,
         schema=POST_SEARCH_SCHEMA,
+        effort="medium",
         log_label=f"Post-search for {analysis_id}",
     )

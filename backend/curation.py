@@ -3,7 +3,7 @@ import os
 
 from cases import get_case_detail
 from curation_cache import cache_curation, get_cached_curation, make_problem_hash
-from llm_utils import CLAUDE_MODEL, GEMINI_MODEL, parse_json_response
+from llm_utils import CLAUDE_MODEL, GEMINI_MODEL, call_claude_structured, parse_json_response
 
 logger = logging.getLogger(__name__)
 MAX_PARAGRAPHS_CHARS = 12000  # Truncate very long decisions
@@ -47,22 +47,25 @@ CURATION_SCHEMA = {
 SYSTEM_PROMPT = """\
 Du er en juridisk assistent for norsk anskaffelsesrett (KOFA-praksis).
 
-Du får nemndas vurdering og konklusjon fra en KOFA-avgjørelse — IKKE partenes anførsler eller sakens bakgrunn/faktum. Alt du leser er nemndas egen rettslige analyse.
+Du får nemndas vurdering og konklusjon fra en KOFA-avgjørelse — IKKE partenes \
+anførsler eller sakens bakgrunn/faktum. Alt du leser er nemndas egen rettslige analyse.
 
-Brukeren undersøker et konkret juridisk spørsmål (problemstilling) og bestemte lovbestemmelser.
+<instructions>
+<task>
+Identifiser avsnitt der nemnda fastslår rettssetninger, tolker bestemmelser, \
+eller trekker konklusjoner som er relevante for problemstillingen. Fokuser på \
+nemndas begrunnelse — ikke gjengivelse av partenes argumenter. Hvis nemnda \
+siterer eller drøfter de oppgitte seed-bestemmelsene, marker disse avsnittene.
+</task>
+</instructions>
 
-Din oppgave:
-1. Identifiser avsnitt der nemnda fastslår rettssetninger, tolker bestemmelser, eller trekker konklusjoner som er relevante for problemstillingen
-2. Fokuser på nemndas begrunnelse — ikke gjengivelse av partenes argumenter
-3. Hvis nemnda siterer eller drøfter de oppgitte seed-bestemmelsene, marker disse avsnittene
-
-Regler:
+<formatting_rules>
 - Marker MAKS 5 avsnitt (velg de viktigste)
 - start_char og end_char refererer til posisjoner i avsnittsteksten (0-indeksert)
 - Bruk hele setninger for markering (ikke klipp midt i en setning)
 - cross_references bare når nemnda eksplisitt viser til en annen KOFA-sak
 - Skriv alltid på norsk
-- Returner KUN JSON, ingen annen tekst"""
+</formatting_rules>"""
 
 
 CURATION_SECTIONS = {"vurdering", "konklusjon"}
@@ -106,22 +109,20 @@ def _build_user_prompt(
 
 
 
-def _call_claude(user_prompt: str) -> str | None:
-    """Call Anthropic Claude API. Returns raw text response."""
-    import anthropic
-
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
-    if not api_key:
+def _call_claude(user_prompt: str) -> dict | None:
+    """Call Anthropic Claude API with structured output. Returns parsed dict."""
+    try:
+        return call_claude_structured(
+            system_prompt=SYSTEM_PROMPT,
+            user_message=user_prompt,
+            schema=CURATION_SCHEMA,
+            max_tokens=2000,
+            effort="medium",
+            log_label="Curation",
+        )
+    except Exception as e:
+        logger.error("Curation Claude call failed: %s", e)
         return None
-
-    client = anthropic.Anthropic(api_key=api_key)
-    response = client.messages.create(
-        model=CLAUDE_MODEL,
-        max_tokens=2000,
-        system=SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": user_prompt}],
-    )
-    return response.content[0].text
 
 
 def _call_gemini(user_prompt: str) -> str | None:
@@ -194,26 +195,19 @@ def generate_curation(
     # Call LLM
     if provider == "claude":
         model_name = CLAUDE_MODEL
-        text = _call_claude(user_prompt)
+        curation = _call_claude(user_prompt)
     else:
         model_name = GEMINI_MODEL
         text = _call_gemini(user_prompt)
+        curation = parse_json_response(text) if text else None
 
-    if not text:
+    if not curation:
         return {
             "highlights": [],
             "summary_note": f"AI-kuratering feilet ({provider} — mangler API-nøkkel eller tom respons).",
         }
 
     logger.info("Curation generated via %s for %s", provider, sak_nr)
-
-    # Parse response
-    curation = parse_json_response(text)
-    if not curation:
-        return {
-            "highlights": [],
-            "summary_note": "Kunne ikke tolke AI-responsen.",
-        }
 
     # Validate structure
     if "highlights" not in curation:

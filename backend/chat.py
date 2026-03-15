@@ -163,6 +163,7 @@ def chat_stream(analysis_id: str, messages: list[dict]):
         with client.messages.stream(
             model=CLAUDE_MODEL,
             max_tokens=2000,
+            output_config={"effort": "medium"},
             system=[
                 {
                     "type": "text",
