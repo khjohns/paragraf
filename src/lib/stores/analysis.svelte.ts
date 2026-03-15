@@ -14,9 +14,20 @@ import type {
   EuScreeningResult,
   SynthesisResult,
   QAReport,
+  BatchStatus,
+  BatchType,
 } from '$lib/types/analysis';
 import type { SuggestedProvision } from '$lib/types/api';
-import { updateAnalysis, fetchDocuments, runQA, completeAnalysis } from '$lib/api/analyses';
+import {
+  updateAnalysis,
+  fetchDocuments,
+  completeAnalysis,
+  submitScreeningBatch,
+  submitEuScreeningBatch,
+  submitQaBatch,
+  pollBatchStatus,
+  fetchBatchResults,
+} from '$lib/api/analyses';
 import type { AnalysisDocuments } from '$lib/api/analyses';
 import { toastState } from './toast.svelte';
 import { browser } from '$app/environment';
@@ -66,6 +77,8 @@ class AnalysisState {
   qaReport = $state<QAReport | null>(null);
   /** Whether QA is loading */
   qaLoading = $state(false);
+  /** Active batch jobs: type → { batchId, status, pollTimer } */
+  batchJobs = $state<Record<string, { batchId: string; status: BatchStatus | null }>>({});
   analysis = $state<Analysis>({
     id: crypto.randomUUID(),
     problemStatement: '',
@@ -350,23 +363,159 @@ class AnalysisState {
     this.qaLoading = loading;
   }
 
-  /** Run QA on the synthesis note — shared by SynthesisView and QAPanel */
+  /** Run QA on the synthesis note — shared by SynthesisView and QAPanel.
+   * Uses Batch API for 50% cost savings. */
   async startQA() {
+    await this.startQaBatch();
+  }
+
+  // --- Batch API ---
+
+  /** Polling timers for active batch jobs */
+  private batchTimers: Record<string, ReturnType<typeof setInterval>> = {};
+
+  /** Start a batch screening job */
+  async startScreeningBatch(sakNrs: string[]) {
+    this.screeningStarted = true;
+    this.setStatus('screening');
+    try {
+      const { batch_id } = await submitScreeningBatch(this.analysis.id, sakNrs);
+      this.batchJobs['screening'] = { batchId: batch_id, status: null };
+      this.startPolling('screening', batch_id);
+      toastState.show(`Screening-batch sendt — ${sakNrs.length} saker`, 'success');
+    } catch (e) {
+      toastState.show('Kunne ikke starte batch-screening', 'error');
+      console.error('Batch screening failed:', e);
+    }
+  }
+
+  /** Start a batch EU screening job */
+  async startEuScreeningBatch(euCaseIds: string[] | null) {
+    this.euScreeningLoading = true;
+    try {
+      const { batch_id } = await submitEuScreeningBatch(this.analysis.id, euCaseIds);
+      this.batchJobs['eu_screening'] = { batchId: batch_id, status: null };
+      this.startPolling('eu_screening', batch_id);
+      toastState.show('EU-screening-batch sendt', 'success');
+    } catch (e) {
+      this.euScreeningLoading = false;
+      toastState.show('Kunne ikke starte EU batch-screening', 'error');
+      console.error('EU batch screening failed:', e);
+    }
+  }
+
+  /** Start a batch QA job */
+  async startQaBatch() {
     this.qaLoading = true;
     try {
-      const result = await runQA(this.analysis.id);
-      this.qaReport = result;
-      this.setStatus('qa');
-      toastState.show(
-        `QA fullført — ${result.total_flags} flagg`,
-        result.total_flags > 0 ? 'info' : 'success'
-      );
+      const { batch_id } = await submitQaBatch(this.analysis.id);
+      this.batchJobs['qa'] = { batchId: batch_id, status: null };
+      this.startPolling('qa', batch_id);
+      toastState.show('QA-batch sendt', 'success');
     } catch (e) {
-      toastState.show('QA feilet — prøv igjen', 'error');
-      console.error('QA failed:', e);
-    } finally {
       this.qaLoading = false;
+      toastState.show('Kunne ikke starte batch-QA', 'error');
+      console.error('Batch QA failed:', e);
     }
+  }
+
+  /** Start polling for a batch job */
+  private startPolling(batchType: string, batchId: string) {
+    // Clear existing timer if any
+    if (this.batchTimers[batchType]) {
+      clearInterval(this.batchTimers[batchType]);
+    }
+
+    this.batchTimers[batchType] = setInterval(async () => {
+      try {
+        const status = await pollBatchStatus(this.analysis.id, batchId);
+        const job = this.batchJobs[batchType];
+        if (job) job.status = status;
+
+        if (status.processing_status === 'ended') {
+          this.stopPolling(batchType);
+          await this.handleBatchComplete(batchType as BatchType, batchId);
+        }
+      } catch (e) {
+        console.error(`Polling error for ${batchType}:`, e);
+      }
+    }, 5000); // Poll every 5 seconds
+  }
+
+  /** Stop polling for a batch job */
+  private stopPolling(batchType: string) {
+    if (this.batchTimers[batchType]) {
+      clearInterval(this.batchTimers[batchType]);
+      delete this.batchTimers[batchType];
+    }
+  }
+
+  /** Handle batch completion — fetch and process results */
+  private async handleBatchComplete(batchType: BatchType, batchId: string) {
+    try {
+      if (batchType === 'screening') {
+        const data = (await fetchBatchResults(this.analysis.id, batchId, 'screening')) as {
+          results: ScreeningResult[];
+        };
+        for (const result of data.results) {
+          if (!result.error) {
+            this.addScreeningResult(result);
+          }
+        }
+        this.setStatus('screening_complete');
+        this.streamingSakNr = null;
+        toastState.show(
+          `Screening ferdig — ${data.results.filter((r) => !r.error).length} saker screenet`,
+          'success'
+        );
+      } else if (batchType === 'eu_screening') {
+        const data = (await fetchBatchResults(this.analysis.id, batchId, 'eu_screening')) as {
+          results: EuScreeningResult[];
+        };
+        for (const result of data.results) {
+          if (!result.error) {
+            this.addEuScreeningResult(result);
+          }
+        }
+        this.euScreeningLoading = false;
+        toastState.show(
+          `EU-screening ferdig — ${data.results.filter((r) => !r.error).length} dommer screenet`,
+          'success'
+        );
+      } else if (batchType === 'qa') {
+        const report = (await fetchBatchResults(this.analysis.id, batchId, 'qa')) as QAReport;
+        this.qaReport = report;
+        this.qaLoading = false;
+        this.setStatus('qa');
+        toastState.show(
+          `QA ferdig — ${report.total_flags} flagg`,
+          report.total_flags > 0 ? 'info' : 'success'
+        );
+      }
+    } catch (e) {
+      console.error(`Failed to fetch batch results for ${batchType}:`, e);
+      toastState.show(`Batch-feil: kunne ikke hente resultater for ${batchType}`, 'error');
+      if (batchType === 'eu_screening') this.euScreeningLoading = false;
+      if (batchType === 'qa') this.qaLoading = false;
+    } finally {
+      delete this.batchJobs[batchType];
+    }
+  }
+
+  /** Check if a batch job is active for the given type */
+  isBatchActive(batchType: string): boolean {
+    return !!this.batchJobs[batchType];
+  }
+
+  /** Get batch progress percentage */
+  getBatchProgress(batchType: string): number {
+    const job = this.batchJobs[batchType];
+    if (!job?.status) return 0;
+    const counts = job.status.request_counts;
+    const total =
+      counts.processing + counts.succeeded + counts.errored + counts.canceled + counts.expired;
+    if (total === 0) return 0;
+    return Math.round(((counts.succeeded + counts.errored) / total) * 100);
   }
 
   /** Mark analysis as complete */

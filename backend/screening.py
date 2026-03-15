@@ -7,7 +7,14 @@ import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from db import get_client
-from llm_utils import call_claude_structured, format_sub_problems, load_analysis_context
+from llm_utils import (
+    call_claude_structured,
+    format_sub_problems,
+    load_analysis_context,
+    build_batch_request,
+    submit_batch,
+    get_batch_results,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -299,3 +306,55 @@ def _persist_screening_result(analysis_id: str, sak_nr: str, result: dict):
             },
             on_conflict="analysis_id,source_case,source",
         ).execute()
+
+
+def screen_cases_batch(analysis_id: str, sak_nrs: list[str]) -> str:
+    """Submit screening for multiple cases as a single batch.
+
+    Returns the batch_id for polling. Results are persisted when retrieved
+    via process_screening_batch_results().
+    """
+    problem, sub_problems, provisions = _load_screening_context(analysis_id)
+
+    requests = []
+    for sak_nr in sak_nrs:
+        case_text = _fetch_case_text(sak_nr, ["vurdering"])
+        if not case_text:
+            logger.warning("No case text for %s — skipping in batch", sak_nr)
+            continue
+
+        user_message = _build_user_message(
+            sak_nr, case_text, problem, sub_problems, provisions
+        )
+        requests.append(
+            build_batch_request(
+                custom_id=sak_nr,
+                system_prompt=SCREENING_SYSTEM_PROMPT,
+                user_message=user_message,
+                schema=SCREENING_SCHEMA,
+                max_tokens=4000,
+                effort="high",
+            )
+        )
+
+    if not requests:
+        raise ScreeningError("Ingen saker med avgjørelsestekst å screene")
+
+    return submit_batch(requests, log_label=f"Screening batch ({len(requests)} saker)")
+
+
+def process_screening_batch_results(analysis_id: str, batch_id: str) -> list[dict]:
+    """Retrieve and persist results from a completed screening batch.
+
+    Returns list of screening result dicts (with sak_nr set).
+    """
+    raw_results = get_batch_results(batch_id)
+    results = []
+
+    for sak_nr, result in raw_results.items():
+        result["sak_nr"] = sak_nr
+        if "error" not in result:
+            _persist_screening_result(analysis_id, sak_nr, result)
+        results.append(result)
+
+    return results
