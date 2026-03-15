@@ -143,12 +143,25 @@ Paragraf bruker Claude API (claude-sonnet-4-6) i 9 backend-moduler for strukture
 | Alle andre | Nei | Enkelt-kall der brukeren venter på svar. |
 
 **Avveiing:**
-- **50% rabatt** er betydelig for screening av mange saker
-- **Men:** Paragraf bruker SSE-streaming for å vise resultater etter hvert som de er klare — dette er en kjerneopplevelse i brukergrensesnittet
-- Batch API returnerer alle resultater samlet etter at hele batchen er ferdig — ingen progressiv tilbakemelding
-- Typisk screeningjobb tar 1–3 minutter med parallellkjøring (3 workers). Batch API kan ta lengre tid.
+- **50% rabatt** er betydelig for screening av mange saker (typisk 10–30 kall per analyse)
+- Screening er en stor analysejobb — brukeren forventer ikke umiddelbar respons
+- Dagens SSE-streaming gir progressiv tilbakemelding, men dette er «nice to have», ikke kritisk
+- Batch API ferdigstiller typisk innen 1 time, ofte raskere — akseptabelt for en analysejobb
+- Prompt caching stacker med batch-rabatt: 50% batch + 90% cache-read = potensielt 95% besparelse
+- QA-modulens 3 parallelle kall er også en naturlig batch-kandidat
 
-**Beslutning:** **Ikke implementer nå.** Batch API passer bedre for offline/bakgrunnsjobber. Hvis vi senere får behov for bulk-re-screening (f.eks. ved endret problemstilling), er Batch API aktuelt. Dokumenter som fremtidig mulighet.
+**Implementeringsstrategi:**
+1. **Screening:** Erstatt `ThreadPoolExecutor` med batch-innsending. Poll for status, oppdater UI via polling eller push når ferdig.
+2. **QA:** Send 3 QA-kall som én batch (sitatverifisering, logikk, dekning).
+3. **EU-screening:** Samme mønster som KOFA-screening.
+4. **Frontend:** Endre fra SSE-streaming til en «jobb pågår»-status med polling. Vis resultater samlet når batch er ferdig.
+
+**UX-endring:**
+- Nåværende: Resultater tikker inn én etter én via SSE (1–3 min)
+- Ny: «Screening pågår…» → resultater vises samlet når ferdig (typisk <1 time, ofte minutter)
+- Progressbar basert på batch-status polling (`processing_status` har `request_counts`)
+
+**Beslutning:** **Implementer.** 50% kostnadsbesparelse på den tyngste API-bruken rettferdiggjør UX-endringen. Screening, EU-screening og QA er alle gode kandidater. Behold sanntids-SSE for chat (som er interaktiv).
 
 ---
 
@@ -252,11 +265,21 @@ Paragraf bruker Claude API (claude-sonnet-4-6) i 9 backend-moduler for strukture
 |---|---------|-----|---------|
 | 7 | Effort i streaming | `chat.py` | Legg til effort-parameter (krever sjekk av streaming API-støtte) |
 
+### Prioritet 4 — Batch API (middels risiko, høy kostnadsgevinst)
+
+| # | Handling | Fil | Endring |
+|---|---------|-----|---------|
+| 8 | Batch-hjelpefunksjon | `llm_utils.py` | `submit_batch()` og `poll_batch()` med `client.messages.batches` |
+| 9 | Batch-screening | `screening.py` | Erstatt `ThreadPoolExecutor` med batch-innsending |
+| 10 | Batch-QA | `qa.py` | Send 3 QA-kall som én batch |
+| 11 | Batch EU-screening | `eu_screening.py` | Samme mønster som KOFA-screening |
+| 12 | Backend polling-endepunkt | `app.py` | `GET /api/analyses/:id/batch-status` for frontend-polling |
+| 13 | Frontend jobb-status | `AnalysisState` + UI | «Screening pågår…» med progressbar, vis resultater samlet |
+
 ### Ikke prioritert nå
 
 | Funksjon | Begrunnelse |
 |----------|-------------|
-| Batch API | Inkompatibelt med SSE-streaming UX |
 | Extended thinking | Inkompatibelt med structured output |
 | PDF-støtte | Ingen brukstilfelle identifisert |
 | Vertex AI | Ingen compliance-krav identifisert |
@@ -270,6 +293,12 @@ Paragraf bruker Claude API (claude-sonnet-4-6) i 9 backend-moduler for strukture
 **Effort-fikser:**
 - `post_search.py` high→medium: ~20-30% færre output-tokens per kall
 - `chat.py` med medium: Raskere respons, noe færre tokens
+
+**Batch API (screening + QA + EU-screening):**
+- 50% rabatt på alle tokens — dette er den største kostnadsposten i appen
+- Typisk analyse: 15–25 screening-kall + 3 QA-kall + 5–10 EU-screening-kall
+- Estimert besparelse: ~50% av total Claude-kostnad per analyse
+- Stacker med prompt caching: potensielt 90–95% besparelse på cached+batched kall
 
 **Klient-konsolidering:**
 - Ingen direkte kostnadseffekt, men bedre connection pooling
@@ -287,6 +316,9 @@ Paragraf bruker Claude API (claude-sonnet-4-6) i 9 backend-moduler for strukture
 | Effort-endring påvirker kvalitet | Lav | Middels | `post_search` er forslag, ikke endelig analyse — medium er tilstrekkelig |
 | Curation-refaktorering bryter Gemini-path | Lav | Lav | Gemini-varianten er uavhengig (`_call_gemini`) og forblir uendret |
 | Scoping med `call_claude_structured` endrer timeout | Lav | Lav | `get_anthropic_client()` har 120s timeout — mer enn tilstrekkelig for scoping |
+| Batch API gir tregere brukeropplevelse | Middels | Middels | Progressbar + «jobb pågår»-UX. Brukeren forventer ikke umiddelbar screening — det er en analysejobb |
+| Batch-feil er vanskeligere å debugge | Lav | Middels | Logg `custom_id` per request. Håndter `errored`-status per request i batch-resultat |
+| Batch API validerer asynkront | Lav | Middels | Valider input lokalt før innsending. Håndter feilede enkeltforespørsler gracefully |
 
 ---
 
