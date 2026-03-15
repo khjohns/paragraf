@@ -12,6 +12,8 @@ from forarbeider import get_forarbeid_detail, get_forarbeid_section
 from analyses import list_analyses, get_analysis, get_analysis_with_seeds, create_analysis, update_analysis, upsert_seeds, update_candidate, persist_candidates, parse_seed_rows
 from scoping import generate_scope, ScopeError
 from screening import screen_cases, rescreen_case, ScreeningError
+from post_search import generate_post_search, PostSearchError
+from cross_propositions import generate_cross_propositions, CrossPropositionsError
 
 STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
 
@@ -253,6 +255,28 @@ def screen_analysis_route(analysis_id):
             "X-Accel-Buffering": "no",
         },
     )
+
+
+@app.route("/api/analyses/<analysis_id>/post-search", methods=["POST"])
+def post_search_route(analysis_id):
+    """Generate post-search suggestions based on screening results and gaps."""
+    try:
+        result = generate_post_search(analysis_id)
+        return jsonify(result)
+    except PostSearchError as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/analyses/<analysis_id>/cross-propositions", methods=["POST"])
+def cross_propositions_route(analysis_id):
+    """Analyze propositions across cases — thematic grouping, evolution, tensions."""
+    try:
+        result = generate_cross_propositions(analysis_id)
+        # Update analysis status
+        update_analysis(analysis_id, {"status": "post_search"})
+        return jsonify(result)
+    except CrossPropositionsError as e:
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route("/api/analyses/<analysis_id>/screen/<path:sak_nr>/rescreen", methods=["POST"])

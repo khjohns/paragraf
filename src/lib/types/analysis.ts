@@ -123,6 +123,56 @@ export type ScreeningAssignment = 'claude' | 'me';
 /** Category-level screening mode */
 export type ScreeningMode = 'claude' | 'me' | 'pick';
 
+/** Evolution type for a proposition instance */
+export type EvolutionType = 'established' | 'confirmed' | 'qualified' | 'consolidating';
+
+/** Evolution display config — shared between PropositionRegistry and Toolbar */
+export const EVOLUTION_CONFIG: Record<EvolutionType, { label: string; color: string; bg: string }> = {
+  established: { label: 'Etablert', color: 'var(--p-ink)', bg: 'rgba(26,24,20,0.06)' },
+  confirmed: { label: 'Bekreftet', color: 'var(--p-success)', bg: 'var(--p-success-bg)' },
+  qualified: { label: 'Presisert', color: 'var(--p-warn)', bg: 'var(--p-warn-bg)' },
+  consolidating: { label: 'Konsoliderende', color: 'var(--p-provision-accent)', bg: '#E8EEF0' },
+};
+
+/** A single instance where a proposition appears in a case */
+export interface PropositionInstance {
+  caseId: string;
+  paragraph: number;
+  date: string;
+  evolution: EvolutionType;
+  quote: string;
+  suggested?: boolean;
+}
+
+/** A proposition with its instances across cases */
+export interface Proposition {
+  id: string;
+  theme: string;
+  proposition: string;
+  instances: PropositionInstance[];
+  tension?: {
+    withId: string;
+    note: string;
+  };
+  confirmed?: boolean;
+  source?: 'ai_screening' | 'ai_cross' | 'user';
+}
+
+/** Post-search suggestion from Claude */
+export interface PostSearchSuggestion {
+  fts_terms: string[];
+  vector_queries: string[];
+  provisions: string[];
+  patterns: string[];
+  reasoning: string;
+}
+
+/** Cross-propositions result from Claude */
+export interface CrossPropositionsResult {
+  propositions: Proposition[];
+  themes: string[];
+}
+
 /** DB response shape — mapped to Analysis in loadFromDb */
 export interface AnalysisDbResponse {
   id: string;
