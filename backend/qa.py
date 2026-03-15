@@ -1,0 +1,444 @@
+"""Quality Assurance — Sprint 15.
+
+Three-part QA process:
+1. Citation verification — uses Citations API to verify quotes match source text
+2. Logical consistency — checks if conclusions follow from case law
+3. Coverage check — ensures all A-candidates are treated in the note
+"""
+import json
+import logging
+
+from db import get_client
+from llm_utils import (
+    CLAUDE_MODEL,
+    get_anthropic_client,
+    call_claude_structured,
+    load_analysis_context,
+    format_sub_problems,
+)
+
+logger = logging.getLogger(__name__)
+
+
+class QAError(Exception):
+    """Raised when QA fails."""
+
+
+# --- Schemas ---
+
+CITATION_QA_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "verified_quotes": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "sak_nr": {"type": "string"},
+                    "paragraph": {"type": "integer"},
+                    "quoted_text": {"type": "string", "description": "Sitatet fra screening"},
+                    "status": {
+                        "type": "string",
+                        "enum": ["verified", "truncated", "inaccurate", "not_found"],
+                    },
+                    "issue": {
+                        "type": ["string", "null"],
+                        "description": "Beskrivelse av problemet hvis status != verified",
+                    },
+                },
+                "required": ["sak_nr", "paragraph", "quoted_text", "status", "issue"],
+                "additionalProperties": False,
+            },
+        },
+        "summary": {
+            "type": "string",
+            "description": "Oppsummering av sitatverifiseringen",
+        },
+    },
+    "required": ["verified_quotes", "summary"],
+    "additionalProperties": False,
+}
+
+
+LOGIC_QA_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "flags": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "type": {
+                        "type": "string",
+                        "enum": [
+                            "argumentative_gap",
+                            "unsupported_conclusion",
+                            "analogy_not_flagged",
+                            "missing_nuance",
+                            "contradiction",
+                        ],
+                    },
+                    "location": {
+                        "type": "string",
+                        "description": "Hvor i notatet problemet finnes",
+                    },
+                    "description": {
+                        "type": "string",
+                        "description": "Beskrivelse av problemet",
+                    },
+                    "severity": {
+                        "type": "string",
+                        "enum": ["high", "medium", "low"],
+                    },
+                    "suggestion": {
+                        "type": "string",
+                        "description": "Forslag til utbedring",
+                    },
+                },
+                "required": ["type", "location", "description", "severity", "suggestion"],
+                "additionalProperties": False,
+            },
+        },
+        "summary": {
+            "type": "string",
+            "description": "Oppsummering av logisk konsistenssjekk",
+        },
+    },
+    "required": ["flags", "summary"],
+    "additionalProperties": False,
+}
+
+
+COVERAGE_QA_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "untreated_cases": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "sak_nr": {"type": "string"},
+                    "category": {"type": "string"},
+                    "proposition": {"type": "string"},
+                    "justified_omission": {"type": "boolean"},
+                    "reason": {
+                        "type": "string",
+                        "description": "Begrunnelse for om utelatelsen er rimelig",
+                    },
+                },
+                "required": ["sak_nr", "category", "proposition", "justified_omission", "reason"],
+                "additionalProperties": False,
+            },
+        },
+        "summary": {
+            "type": "string",
+            "description": "Oppsummering av dekningssjekken",
+        },
+    },
+    "required": ["untreated_cases", "summary"],
+    "additionalProperties": False,
+}
+
+
+# --- System prompts ---
+
+CITATION_QA_SYSTEM_PROMPT = """\
+Du er en juridisk kvalitetssikrer. Din oppgave er å verifisere sitater fra \
+KOFA-avgjørelser.
+
+<instructions>
+Du mottar sitater fra en rettslig analyse sammen med originalteksten de er \
+hentet fra. For hvert sitat, vurder:
+- **verified**: Sitatet er korrekt gjengitt
+- **truncated**: Sitatet er trunkert på en måte som fjerner kvalifikasjoner
+- **inaccurate**: Sitatet avviker vesentlig fra originalteksten
+- **not_found**: Sitatet finnes ikke i den oppgitte teksten
+
+Trunkering som fjerner «men»/«under forutsetning av»/«med mindre» er særlig \
+problematisk og skal flagges.
+</instructions>"""
+
+
+LOGIC_QA_SYSTEM_PROMPT = """\
+Du er en juridisk kvalitetssikrer. Din oppgave er å sjekke logisk konsistens \
+i et rettslig analysenotat.
+
+<instructions>
+Du mottar et notatutkast sammen med screeningresultatene det bygger på. Sjekk:
+1. Følger konklusjonene av den gjennomgåtte praksisen?
+2. Er det argumentative sprang — påstander uten dekning i kildene?
+3. Er analogier tydelig flagget som analogier (ikke direkte anvendelse)?
+4. Er vesentlige nyanser fra screening tatt med i notatet?
+5. Er det indre motsetninger i notatet?
+
+Flagg problemer med alvorlighetsgrad (high/medium/low) og konkret forslag \
+til utbedring.
+</instructions>"""
+
+
+COVERAGE_QA_SYSTEM_PROMPT = """\
+Du er en juridisk kvalitetssikrer. Din oppgave er å sjekke om alle viktige \
+saker er behandlet i et rettslig analysenotat.
+
+<instructions>
+Du mottar et notatutkast og en liste over screenede saker med kategori. Sjekk:
+1. Er alle A-kandidater behandlet eller nevnt i notatet?
+2. Er utelatelser av A-kandidater rimelig begrunnet?
+3. Er det B-kandidater som burde vært behandlet (f.eks. gullkandidater)?
+
+Merk: C-kandidater trenger ikke nødvendigvis behandling.
+</instructions>"""
+
+
+def _verify_citations_with_api(analysis_id: str, note_markdown: str) -> dict:
+    """Verify quotes using Citations API for machine verification.
+
+    Fetches the actual case text and sends it as a document for Claude to
+    cite against, enabling automatic verification.
+    """
+    client_db = get_client()
+
+    # Get screened candidates with quotes
+    candidates = (
+        client_db.table("analysis_candidates")
+        .select("sak_nr, category, ai_screening")
+        .eq("analysis_id", analysis_id)
+        .not_.is_("ai_screening", "null")
+        .order("category")
+        .execute()
+        .data
+    ) or []
+
+    # Collect quotes and their source cases
+    quotes_to_verify = []
+    source_cases = set()
+    for c in candidates:
+        screening = c.get("ai_screening", {})
+        for q in screening.get("quotes", []):
+            quotes_to_verify.append({
+                "sak_nr": c["sak_nr"],
+                "paragraph": q.get("p", 0),
+                "text": q.get("text", ""),
+            })
+            source_cases.add(c["sak_nr"])
+
+    if not quotes_to_verify:
+        return {"verified_quotes": [], "summary": "Ingen sitater å verifisere."}
+
+    # Fetch source texts for cases with quotes (limit to important cases)
+    # Fetch only A and B category cases to manage token budget
+    important_cases = [c["sak_nr"] for c in candidates if c.get("category") in ("A", "B")]
+    cases_to_fetch = [s for s in source_cases if s in important_cases][:8]
+
+    source_texts = {}
+    for sak_nr in cases_to_fetch:
+        rows = (
+            client_db.table("kofa_decision_text")
+            .select("paragraph_number, text")
+            .eq("sak_nr", sak_nr)
+            .eq("section", "vurdering")
+            .order("paragraph_number")
+            .execute()
+            .data
+        ) or []
+        if rows:
+            source_texts[sak_nr] = "\n\n".join(
+                f"[{r['paragraph_number']}] {r['text']}" for r in rows
+            )
+
+    if not source_texts:
+        return {"verified_quotes": [], "summary": "Kunne ikke hente kildetekster."}
+
+    # Build content blocks with source documents for Citations API
+    content_blocks = []
+    for sak_nr, text in source_texts.items():
+        content_blocks.append({
+            "type": "document",
+            "source": {
+                "type": "content",
+                "content": text,
+            },
+            "title": f"Avgjørelsestekst {sak_nr}",
+            "citations": {"enabled": True},
+        })
+
+    # Add the quotes to verify as text
+    quotes_text = "\n".join(
+        f"- {q['sak_nr']} §{q['paragraph']}: «{q['text']}»"
+        for q in quotes_to_verify
+        if q["sak_nr"] in source_texts
+    )
+    content_blocks.append({
+        "type": "text",
+        "text": f"""Verifiser følgende sitater mot kildetekstene over.
+
+<sitater_å_verifisere>
+{quotes_text}
+</sitater_å_verifisere>
+
+For hvert sitat: sjekk om det finnes ordrett i kildeteksten, om det er trunkert \
+(fjerner kvalifikasjoner), eller om det avviker. Returner strukturert resultat.""",
+    })
+
+    # Call Claude with Citations API enabled
+    anthropic_client = get_anthropic_client()
+    response = anthropic_client.messages.create(
+        model=CLAUDE_MODEL,
+        max_tokens=4000,
+        output_config={
+            "format": {
+                "type": "json_schema",
+                "schema": CITATION_QA_SCHEMA,
+            },
+            "effort": "medium",
+        },
+        system=[
+            {
+                "type": "text",
+                "text": CITATION_QA_SYSTEM_PROMPT,
+                "cache_control": {"type": "ephemeral"},
+            }
+        ],
+        messages=[{"role": "user", "content": content_blocks}],
+    )
+
+    text = response.content[0].text
+    logger.info(
+        "Citation QA: %d input tokens (%d cached), %d output tokens",
+        response.usage.input_tokens,
+        getattr(response.usage, "cache_read_input_tokens", 0),
+        response.usage.output_tokens,
+    )
+
+    return json.loads(text)
+
+
+def _check_logical_consistency(note_markdown: str, screening_summary: str) -> dict:
+    """Check logical consistency of the note against screening results."""
+    user_message = f"""<notat>
+{note_markdown}
+</notat>
+
+<screeningresultater>
+{screening_summary}
+</screeningresultater>
+
+Sjekk notatets logiske konsistens mot screeningresultatene. Flagg problemer."""
+
+    return call_claude_structured(
+        system_prompt=LOGIC_QA_SYSTEM_PROMPT,
+        user_message=user_message,
+        schema=LOGIC_QA_SCHEMA,
+        max_tokens=4000,
+        effort="medium",
+        log_label="Logic QA",
+    )
+
+
+def _check_coverage(note_markdown: str, candidates_summary: str) -> dict:
+    """Check if all important cases are covered in the note."""
+    user_message = f"""<notat>
+{note_markdown}
+</notat>
+
+<kandidater>
+{candidates_summary}
+</kandidater>
+
+Sjekk om alle viktige saker (spesielt A-kandidater) er behandlet i notatet."""
+
+    return call_claude_structured(
+        system_prompt=COVERAGE_QA_SYSTEM_PROMPT,
+        user_message=user_message,
+        schema=COVERAGE_QA_SCHEMA,
+        max_tokens=4000,
+        effort="medium",
+        log_label="Coverage QA",
+    )
+
+
+def _compress_candidates_for_qa(candidates: list[dict]) -> str:
+    """Compress candidates into a concise summary for QA."""
+    parts = []
+    for c in candidates:
+        s = c.get("ai_screening", {})
+        star = " ★" if s.get("star") else ""
+        parts.append(
+            f"- {c['sak_nr']} (kat. {c.get('category', '?')}){star}: "
+            f"{s.get('proposition', '—')} "
+            f"[Relevans: {s.get('relevance', '?')}]"
+        )
+    return "\n".join(parts)
+
+
+def run_qa(analysis_id: str) -> dict:
+    """Run full QA on the synthesis note.
+
+    Performs three checks:
+    1. Citation verification (with Citations API)
+    2. Logical consistency
+    3. Coverage check
+
+    Returns combined QA report. Persists report in analysis_documents.
+    """
+    client = get_client()
+
+    # Load the synthesis note
+    doc = (
+        client.table("analysis_documents")
+        .select("content")
+        .eq("analysis_id", analysis_id)
+        .eq("doc_type", "note")
+        .limit(1)
+        .execute()
+        .data
+    )
+    if not doc:
+        raise QAError("Ingen syntese-notat funnet — kjør syntese først")
+
+    note_markdown = doc[0]["content"]
+
+    # Load screened candidates
+    candidates = (
+        client.table("analysis_candidates")
+        .select("sak_nr, category, ai_screening")
+        .eq("analysis_id", analysis_id)
+        .not_.is_("ai_screening", "null")
+        .order("category")
+        .execute()
+        .data
+    ) or []
+
+    candidates_summary = _compress_candidates_for_qa(candidates)
+
+    # Run 3 QA checks
+    logger.info("Starting QA for analysis %s", analysis_id)
+
+    citation_result = _verify_citations_with_api(analysis_id, note_markdown)
+    logic_result = _check_logical_consistency(note_markdown, candidates_summary)
+    coverage_result = _check_coverage(note_markdown, candidates_summary)
+
+    # Combine results
+    report = {
+        "citation_verification": citation_result,
+        "logical_consistency": logic_result,
+        "coverage": coverage_result,
+        "total_flags": (
+            len([q for q in citation_result.get("verified_quotes", []) if q.get("status") != "verified"])
+            + len(logic_result.get("flags", []))
+            + len([c for c in coverage_result.get("untreated_cases", []) if not c.get("justified_omission")])
+        ),
+    }
+
+    # Persist QA report
+    client.table("analysis_documents").upsert(
+        {
+            "analysis_id": analysis_id,
+            "doc_type": "qa_report",
+            "content": json.dumps(report, ensure_ascii=False),
+            "version": 1,
+        },
+        on_conflict="analysis_id,doc_type",
+    ).execute()
+
+    return report

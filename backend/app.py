@@ -14,6 +14,9 @@ from scoping import generate_scope, ScopeError
 from screening import screen_cases, rescreen_case, ScreeningError
 from post_search import generate_post_search, PostSearchError
 from cross_propositions import generate_cross_propositions, CrossPropositionsError
+from eu_screening import identify_eu_cases, screen_eu_cases, EuScreeningError
+from synthesis import generate_synthesis, update_synthesis, SynthesisError
+from qa import run_qa, QAError
 
 STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
 
@@ -289,6 +292,77 @@ def rescreen_case_route(analysis_id, sak_nr):
         result = rescreen_case(analysis_id, sak_nr, sections)
         return jsonify(result)
     except ScreeningError as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/analyses/<analysis_id>/eu-cases", methods=["GET"])
+def eu_cases_for_analysis(analysis_id):
+    """Identify EU cases referenced by screened KOFA cases in this analysis."""
+    try:
+        result = identify_eu_cases(analysis_id)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/analyses/<analysis_id>/eu-screen", methods=["POST"])
+def eu_screen_route(analysis_id):
+    """Screen EU cases with Claude AI. Streams results via SSE."""
+    body = request.get_json() or {}
+    eu_case_ids = body.get("eu_case_ids")
+    max_parallel = body.get("max_parallel", 3)
+
+    def generate():
+        try:
+            for eu_case_id, result in screen_eu_cases(analysis_id, eu_case_ids, max_parallel):
+                event_data = json.dumps(result, ensure_ascii=False)
+                yield f"data: {event_data}\n\n"
+        except EuScreeningError as e:
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+        yield f"data: {json.dumps({'done': True})}\n\n"
+
+    return Response(
+        generate(),
+        mimetype="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+@app.route("/api/analyses/<analysis_id>/synthesize", methods=["POST"])
+def synthesize_route(analysis_id):
+    """Generate a legal analysis note from screening results."""
+    try:
+        update_analysis(analysis_id, {"status": "synthesis"})
+        result = generate_synthesis(analysis_id)
+        return jsonify(result)
+    except SynthesisError as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/analyses/<analysis_id>/synthesis", methods=["PATCH"])
+def update_synthesis_route(analysis_id):
+    """Update the synthesis note (user edits)."""
+    body = request.get_json()
+    if not body or "content" not in body:
+        return jsonify({"error": "content required"}), 400
+    try:
+        result = update_synthesis(analysis_id, body["content"])
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/analyses/<analysis_id>/qa", methods=["POST"])
+def qa_route(analysis_id):
+    """Run quality assurance on the synthesis note."""
+    try:
+        update_analysis(analysis_id, {"status": "qa"})
+        result = run_qa(analysis_id)
+        return jsonify(result)
+    except QAError as e:
         return jsonify({"error": str(e)}), 500
 
 
