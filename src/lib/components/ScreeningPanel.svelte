@@ -70,7 +70,7 @@
       (error) => {
         analysisState.setStreamingSakNr(null);
         console.error('Screening error:', error);
-      },
+      }
     );
   }
 
@@ -83,9 +83,7 @@
 
 <div class="screening-panel">
   <div class="panel-label">Arbeidsfordeling</div>
-  <div class="panel-desc">
-    Velg hvem som screener per kategori, eller juster per sak i listen.
-  </div>
+  <div class="panel-desc">Velg hvem som screener per kategori, eller juster per sak i listen.</div>
 
   {#each ['A', 'B', 'C'] as cat}
     {@const count = stats.catCounts[cat as keyof typeof stats.catCounts]}
@@ -103,11 +101,7 @@
         {#if done > 0}
           <div class="cat-progress">
             <div class="progress-track">
-              <div
-                class="progress-fill"
-                class:complete={pct === 100}
-                style:width="{pct}%"
-              ></div>
+              <div class="progress-fill" class:complete={pct === 100} style:width="{pct}%"></div>
             </div>
             <span class="progress-text">{done}/{count}</span>
           </div>
@@ -200,7 +194,9 @@
     font-weight: 500;
     color: var(--p-ink);
   }
-  .spacer { flex: 1; }
+  .spacer {
+    flex: 1;
+  }
 
   .cat-progress {
     display: flex;
@@ -330,6 +326,4 @@
     animation: spin 0.8s linear infinite;
     flex-shrink: 0;
   }
-
-
 </style>

@@ -63,7 +63,14 @@
     <!-- Empty state -->
     <div class="empty-state">
       <div class="empty-icon">
-        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--p-ink4)" stroke-width="1.5">
+        <svg
+          width="32"
+          height="32"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="var(--p-ink4)"
+          stroke-width="1.5"
+        >
           <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" />
           <path d="M14 2v6h6" />
           <path d="M16 13H8" />
@@ -73,14 +80,10 @@
       </div>
       <div class="empty-title">Ingen syntese ennå</div>
       <div class="empty-desc">
-        Generer et notatutkast basert på screeningresultater og rettssetningsregisteret.
-        Claude organiserer materialet systematisk — du fyller inn vurderinger.
+        Generer et notatutkast basert på screeningresultater og rettssetningsregisteret. Claude
+        organiserer materialet systematisk — du fyller inn vurderinger.
       </div>
-      <button
-        class="generate-btn"
-        onclick={generateNote}
-        disabled={analysisState.synthesisLoading}
-      >
+      <button class="generate-btn" onclick={generateNote} disabled={analysisState.synthesisLoading}>
         {#if analysisState.synthesisLoading}
           <span class="spinner"></span>
           Genererer notat…
@@ -101,17 +104,21 @@
           </button>
         </div>
       </div>
-      <textarea
-        class="edit-area"
-        bind:value={editContent}
-      ></textarea>
+      <textarea class="edit-area" bind:value={editContent}></textarea>
     </div>
   {:else}
     <!-- Display mode -->
     <div class="display-mode">
       <div class="note-toolbar">
         <button class="note-action" onclick={startEditing}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
             <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
           </svg>
           Rediger
@@ -121,7 +128,14 @@
           onclick={generateNote}
           disabled={analysisState.synthesisLoading}
         >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
             <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
             <path d="M3 3v5h5" />
             <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />
@@ -133,12 +147,20 @@
 
       {#if lawyerSections.length > 0}
         <div class="lawyer-notice">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
             <path d="M12 9v4" />
             <path d="M12 17h.01" />
             <circle cx="12" cy="12" r="10" />
           </svg>
-          {lawyerSections.length} {lawyerSections.length === 1 ? 'seksjon' : 'seksjoner'} krever din vurdering
+          {lawyerSections.length}
+          {lawyerSections.length === 1 ? 'seksjon' : 'seksjoner'} krever din vurdering
         </div>
       {/if}
 
@@ -183,8 +205,14 @@
           {#if !analysisState.qaReport}
             <div class="workflow-step">
               <div class="workflow-label">Neste steg: Kvalitetssikring</div>
-              <div class="workflow-desc">Verifiser sitater, sjekk logikk og dekning mot kildene.</div>
-              <button class="workflow-btn" onclick={() => analysisState.startQA()} disabled={analysisState.qaLoading}>
+              <div class="workflow-desc">
+                Verifiser sitater, sjekk logikk og dekning mot kildene.
+              </div>
+              <button
+                class="workflow-btn"
+                onclick={() => analysisState.startQA()}
+                disabled={analysisState.qaLoading}
+              >
                 {#if analysisState.qaLoading}
                   <span class="spinner"></span>
                   Kjører QA…
@@ -197,10 +225,20 @@
             <div class="workflow-step">
               <div class="qa-inline-summary" class:clean={analysisState.qaReport.total_flags === 0}>
                 <span class="qa-inline-count">{analysisState.qaReport.total_flags}</span>
-                <span>{analysisState.qaReport.total_flags === 0 ? 'Ingen problemer funnet' : analysisState.qaReport.total_flags === 1 ? 'problem funnet' : 'problemer funnet'}</span>
+                <span
+                  >{analysisState.qaReport.total_flags === 0
+                    ? 'Ingen problemer funnet'
+                    : analysisState.qaReport.total_flags === 1
+                      ? 'problem funnet'
+                      : 'problemer funnet'}</span
+                >
               </div>
               <div class="workflow-actions">
-                <button class="workflow-btn secondary" onclick={() => analysisState.startQA()} disabled={analysisState.qaLoading}>
+                <button
+                  class="workflow-btn secondary"
+                  onclick={() => analysisState.startQA()}
+                  disabled={analysisState.qaLoading}
+                >
                   {analysisState.qaLoading ? 'Kjører…' : 'Kjør QA på nytt'}
                 </button>
                 {#if analysisState.analysis.status !== 'complete'}
@@ -238,7 +276,9 @@
     text-align: center;
     gap: 12px;
   }
-  .empty-icon { opacity: 0.4; }
+  .empty-icon {
+    opacity: 0.4;
+  }
   .empty-title {
     font-size: 16px;
     font-weight: 600;
@@ -264,14 +304,19 @@
     align-items: center;
     gap: 8px;
   }
-  .generate-btn:hover { opacity: 0.85; }
-  .generate-btn:disabled { opacity: 0.5; cursor: default; }
+  .generate-btn:hover {
+    opacity: 0.85;
+  }
+  .generate-btn:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
 
   .spinner {
     width: 12px;
     height: 12px;
     border-radius: 50%;
-    border: 2px solid rgba(255,255,255,0.3);
+    border: 2px solid rgba(255, 255, 255, 0.3);
     border-top-color: white;
     animation: spin 0.8s linear infinite;
   }
@@ -301,7 +346,10 @@
     background: var(--p-hover);
     color: var(--p-ink);
   }
-  .note-action:disabled { opacity: 0.4; cursor: default; }
+  .note-action:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
 
   /* Lawyer notice */
   .lawyer-notice {
@@ -393,8 +441,8 @@
   .tension-item {
     padding: 8px 10px;
     border-radius: 5px;
-    background: var(--p-tension-bg, rgba(166,61,61,0.04));
-    border: 1px solid var(--p-tension-border, rgba(166,61,61,0.1));
+    background: var(--p-tension-bg, rgba(166, 61, 61, 0.04));
+    border: 1px solid var(--p-tension-border, rgba(166, 61, 61, 0.1));
     margin-bottom: 6px;
   }
   .tension-desc {
@@ -444,13 +492,20 @@
     color: var(--p-ink3);
     border: 1px solid var(--p-border);
   }
-  .edit-btn.cancel:hover { background: var(--p-hover); }
+  .edit-btn.cancel:hover {
+    background: var(--p-hover);
+  }
   .edit-btn.save {
     background: var(--p-ink);
     color: var(--p-panel);
   }
-  .edit-btn.save:hover { opacity: 0.85; }
-  .edit-btn:disabled { opacity: 0.4; cursor: default; }
+  .edit-btn.save:hover {
+    opacity: 0.85;
+  }
+  .edit-btn:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
   .edit-area {
     flex: 1;
     min-height: 500px;
@@ -508,8 +563,13 @@
     align-items: center;
     gap: 8px;
   }
-  .workflow-btn:hover { opacity: 0.85; }
-  .workflow-btn:disabled { opacity: 0.5; cursor: default; }
+  .workflow-btn:hover {
+    opacity: 0.85;
+  }
+  .workflow-btn:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
   .workflow-btn.secondary {
     background: transparent;
     color: var(--p-ink3);
@@ -554,6 +614,4 @@
     font-size: 13px;
     font-weight: 600;
   }
-
-
 </style>

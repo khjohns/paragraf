@@ -1,5 +1,20 @@
 import type { GraphNode, GraphEdge, GapPair } from '$lib/types/graph';
-import type { Analysis, AnalysisStatus, Seeds, IterationEntry, AnalysisDbResponse, AnalysisCandidate, ScreeningResult, ScreeningAssignment, ScreeningMode, Proposition, PostSearchSuggestion, EuScreeningResult, SynthesisResult, QAReport } from '$lib/types/analysis';
+import type {
+  Analysis,
+  AnalysisStatus,
+  Seeds,
+  IterationEntry,
+  AnalysisDbResponse,
+  AnalysisCandidate,
+  ScreeningResult,
+  ScreeningAssignment,
+  ScreeningMode,
+  Proposition,
+  PostSearchSuggestion,
+  EuScreeningResult,
+  SynthesisResult,
+  QAReport,
+} from '$lib/types/analysis';
 import type { SuggestedProvision } from '$lib/types/api';
 import { updateAnalysis, fetchDocuments, runQA, completeAnalysis } from '$lib/api/analyses';
 import type { AnalysisDocuments } from '$lib/api/analyses';
@@ -66,15 +81,15 @@ class AnalysisState {
   /** Whether the analysis is in a screening-relevant phase */
   isScreeningPhase = $derived(
     this.analysis.status === 'screening' ||
-    this.analysis.status === 'screening_complete' ||
-    this.analysis.status === 'candidates_ready'
+      this.analysis.status === 'screening_complete' ||
+      this.analysis.status === 'candidates_ready'
   );
 
   /** Whether the analysis is in a post-synthesis phase (synthesis done or later) */
   isPostSynthesisPhase = $derived(
     this.analysis.status === 'synthesis' ||
-    this.analysis.status === 'qa' ||
-    this.analysis.status === 'complete'
+      this.analysis.status === 'qa' ||
+      this.analysis.status === 'complete'
   );
 
   /** The DB analysis ID — set when loading a workspace */
@@ -269,7 +284,7 @@ class AnalysisState {
 
   /** Toggle confirmed state on a proposition */
   togglePropositionConfirmed(id: string) {
-    const prop = this.propositions.find(p => p.id === id);
+    const prop = this.propositions.find((p) => p.id === id);
     if (prop) prop.confirmed = !prop.confirmed;
   }
 
@@ -337,7 +352,10 @@ class AnalysisState {
       const result = await runQA(this.analysis.id);
       this.qaReport = result;
       this.setStatus('qa');
-      toastState.show(`QA fullført — ${result.total_flags} flagg`, result.total_flags > 0 ? 'info' : 'success');
+      toastState.show(
+        `QA fullført — ${result.total_flags} flagg`,
+        result.total_flags > 0 ? 'info' : 'success'
+      );
     } catch (e) {
       toastState.show('QA feilet — prøv igjen', 'error');
       console.error('QA failed:', e);

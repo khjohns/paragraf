@@ -1,7 +1,10 @@
 <script lang="ts">
   import type { ScreeningResult } from '$lib/types/analysis';
 
-  let { result, onRescreen }: {
+  let {
+    result,
+    onRescreen,
+  }: {
     result: ScreeningResult;
     onRescreen?: () => void;
   } = $props();
@@ -28,10 +31,12 @@
 
   <!-- Faktum + Vurdering -->
   <div class="text-block">
-    <strong>Faktum:</strong> {result.factum}
+    <strong>Faktum:</strong>
+    {result.factum}
   </div>
   <div class="text-block">
-    <strong>Vurdering:</strong> {result.assessment}
+    <strong>Vurdering:</strong>
+    {result.assessment}
   </div>
 
   <!-- Nøkkelsitater — expandable -->
@@ -54,9 +59,7 @@
   <!-- Nyanser — expandable -->
   {#if result.nuances}
     <details class="nuances-details">
-      <summary class="nuances-summary">
-        Nyanser og forbehold
-      </summary>
+      <summary class="nuances-summary"> Nyanser og forbehold </summary>
       <div class="nuances-text">{result.nuances}</div>
     </details>
   {/if}
@@ -64,9 +67,7 @@
   <!-- Actions -->
   <div class="card-actions">
     {#if onRescreen}
-      <button class="action-btn" onclick={onRescreen}>
-        Re-screen med mer kontekst
-      </button>
+      <button class="action-btn" onclick={onRescreen}> Re-screen med mer kontekst </button>
     {/if}
   </div>
 </div>
@@ -106,7 +107,9 @@
     font-weight: 600;
     color: var(--p-warn);
   }
-  .spacer { flex: 1; }
+  .spacer {
+    flex: 1;
+  }
   .relevance {
     font-size: 10px;
     color: var(--p-ink4);
