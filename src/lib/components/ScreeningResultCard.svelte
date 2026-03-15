@@ -74,33 +74,33 @@
 
 <style>
   .screening-card {
-    margin-top: 6px;
-    padding: 12px 14px;
-    border-radius: 5px;
-    border-left: 3px solid var(--p-ai-border);
-    background: rgba(139, 105, 20, 0.03);
+    margin-top: 8px;
+    padding: 12px;
+    border-radius: var(--radius-md);
+    border-left: 3px solid var(--p-ai-border-subtle);
+    background: var(--p-ai-bg);
   }
 
   .card-header {
     display: flex;
     align-items: center;
-    gap: 5px;
+    gap: 4px;
     margin-bottom: 8px;
     flex-wrap: wrap;
   }
   .ai-badge {
     font-size: 9px;
     font-weight: 700;
-    padding: 1px 5px;
+    padding: 2px 6px;
     border-radius: 3px;
     background: var(--p-highlight);
-    border: 1px solid var(--p-ai-border);
-    color: var(--p-kofa);
+    border: 1px solid var(--p-ai-border-subtle);
+    color: var(--p-ai-text);
   }
   .ai-label {
     font-size: 10px;
     font-weight: 600;
-    color: var(--p-kofa);
+    color: var(--p-ai-text);
   }
   .star-badge {
     font-size: 10px;
@@ -121,18 +121,18 @@
   /* Rettssetning */
   .proposition-block {
     padding: 8px 12px;
-    border-radius: 4px;
-    margin-bottom: 10px;
+    border-radius: var(--radius-md);
+    margin-bottom: 8px;
     background: var(--p-highlight);
-    border-left: 2px solid var(--p-kofa-bg, rgba(139, 105, 20, 0.15));
+    border-left: 2px solid var(--p-kofa-border);
   }
   .proposition-label {
     font-size: 10px;
     font-weight: 600;
-    color: var(--p-kofa);
-    letter-spacing: 0.04em;
+    color: var(--p-ai-text);
+    letter-spacing: 0.06em;
     text-transform: uppercase;
-    margin-bottom: 3px;
+    margin-bottom: 4px;
   }
   .proposition-text {
     font-size: 13px;
@@ -155,8 +155,8 @@
 
   /* Quotes */
   .quotes-details {
-    margin-top: 6px;
-    margin-bottom: 6px;
+    margin-top: 8px;
+    margin-bottom: 8px;
   }
   .quotes-summary {
     font-size: 11px;
@@ -167,14 +167,14 @@
     user-select: none;
   }
   .quotes-list {
-    padding-top: 6px;
+    padding-top: 8px;
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 8px;
   }
   .quote-item {
-    padding: 6px 10px;
-    border-radius: 4px;
+    padding: 8px 12px;
+    border-radius: var(--radius-md);
     background: var(--p-surface);
     border: 1px solid var(--p-border);
     font-size: 12px;
@@ -185,14 +185,14 @@
     font-family: var(--font-data);
     font-size: 10px;
     font-weight: 600;
-    color: var(--p-kofa);
-    margin-right: 6px;
+    color: var(--p-kofa-accent);
+    margin-right: 8px;
     cursor: pointer;
   }
 
   /* Nuances */
   .nuances-details {
-    margin-bottom: 6px;
+    margin-bottom: 8px;
   }
   .nuances-summary {
     font-size: 11px;
@@ -214,12 +214,12 @@
   .card-actions {
     margin-top: 8px;
     display: flex;
-    gap: 6px;
+    gap: 8px;
   }
   .action-btn {
     all: unset;
-    padding: 4px 10px;
-    border-radius: 4px;
+    padding: 4px 8px;
+    border-radius: var(--radius-md);
     font-size: 10px;
     font-weight: 500;
     background: transparent;

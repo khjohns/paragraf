@@ -144,43 +144,53 @@ Funn dokumenteres per view. Fiks gjøres umiddelbart etter hvert view — ikke s
 
 ---
 
-### 5. Screening-delegering
+### 5. Screening-delegering ✓
 
 **Komponenter:** `ScreeningPanel.svelte`
 **Mockup:** `paragraf-screening-concept.jsx`
 **Sprint:** 13
 
 **Sjekkliste:**
-- [ ] To-kolonne layout: venstre (280px) delegerings-kontroller, høyre saksliste gruppert A/B/C
-- [ ] Kategorikontroller: tre knapper per gruppe (Claude screener / Jeg leser / Velg per sak)
-- [ ] Per-sak toggle: AI | Person — kompakt to-delt
-- [ ] Automatisk bytte til «Velg per sak» ved individuell override
-- [ ] Streaming-visning: pulserende bakgrunn, spinner, «Leser 2024/2019…»
-- [ ] Fremdrift: «8 av 12 screenet (3 Claude, 2 deg, 3 gjenstår)»
-- [ ] Feilhåndtering per sak: «screening feilet» med retry
-- [ ] Star-markering for gullkandidater
+- [x] To-kolonne layout: venstre (280px) delegerings-kontroller, høyre saksliste gruppert A/B/C
+- [x] Kategorikontroller: tre knapper per gruppe (Claude screener / Jeg leser / Velg per sak)
+- [x] Per-sak toggle: AI | Person — kompakt to-delt
+- [x] Automatisk bytte til «Velg per sak» ved individuell override
+- [x] Streaming-visning: pulserende bakgrunn, spinner, «Leser 2024/2019…»
+- [x] Fremdrift: «8 av 12 screenet (3 Claude, 2 deg, 3 gjenstår)»
+- [x] Feilhåndtering per sak: «screening feilet» med retry
+- [x] Star-markering for gullkandidater
 
-**Audit-fokus:** Toggle-kontroller følger control-token-mønsteret. Kategori-knapper har tydelige states (active, hover, disabled).
-
-**Mockup-kritikk:** Vurder om delegeringsmodellen er visuelt klar — tre valg per kategori + per-sak toggle kan være mye. Er hierarkiet tydelig nok?
+**Audit-funn (fikset):**
+- `--p-kofa` (2 steder) → `--p-kofa-accent` (udefinert token)
+- Panel-label letter-spacing → 0.06em, cat-control radius → token
+- Mode-btn padding 6px → 4px, radius → token
+- Start-btn padding 9px → 8px, radius → token
+- Batch indicator: border `--p-ai-border` → `--p-ai-border-subtle`, color → `--p-ai-text`
+- Spinner border `--p-ai-border` → `--p-border-m`
 
 ---
 
-### 6. Screening-resultater
+### 6. Screening-resultater ✓
 
 **Komponenter:** `ScreeningResultCard.svelte`, `NodeRow.svelte` (ekspandert tilstand)
 **Mockup:** `paragraf-screening-concept.jsx`
 **Sprint:** 13
 
 **Sjekkliste:**
-- [ ] Ekspanderbar under saksraden i listen
-- [ ] Visuelt hierarki: rettssetning øverst (gulmarkert bakgrunn), faktum + vurdering, nøkkelsitater (kollaperbare, hvit boks, avsnittsnummer som klikkbar monospace-lenke), nyanser (kollaperbare, kursiv)
-- [ ] Handlinger: «Les hele avgjørelsen», «Re-screen med mer kontekst»
-- [ ] Screening-status badges: Screenet (AI-markert gullbrun), Lest (grønn hake), Begge
-- [ ] AI-tillitsgrense konsistent: alt screening-innhold har gullbrun markering
-- [ ] Rettssetninger visuelt løftet vs. resten
+- [x] Ekspanderbar under saksraden i listen
+- [x] Visuelt hierarki: rettssetning øverst (gulmarkert bakgrunn), faktum + vurdering, nøkkelsitater (kollaperbare, hvit boks, avsnittsnummer som klikkbar monospace-lenke), nyanser (kollaperbare, kursiv)
+- [x] Handlinger: «Les hele avgjørelsen», «Re-screen med mer kontekst»
+- [x] Screening-status badges: Screenet (AI-markert gullbrun), Lest (grønn hake), Begge
+- [x] AI-tillitsgrense konsistent: alt screening-innhold har gullbrun markering
+- [x] Rettssetninger visuelt løftet vs. resten
 
-**Audit-fokus:** Sitater i hvit boks — bruker de `surface` bakgrunn? Avsnittsnumre i monospace? Badge for «Screenet» følger AI-accent-tokenet.
+**Audit-funn (fikset):**
+- Card border-left `--p-ai-border` → `--p-ai-border-subtle`, bg hardkodet → `var(--p-ai-bg)`
+- AI badge: padding → badge-mønster, border → `--p-ai-border-subtle`, color → `--p-ai-text`
+- `--p-kofa` (4 steder) → `--p-kofa-accent` / `--p-ai-text`
+- Proposition label letter-spacing → 0.06em, margin-bottom 3px → 4px
+- All off-grid spacing (6px, 10px, 14px) → snappet til 4px-grid
+- All border-radius → tokens
 
 ---
 
