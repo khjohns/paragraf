@@ -453,7 +453,7 @@
     width: 32px;
     height: 1px;
     background: var(--p-border-m);
-    margin: 0 10px;
+    margin: 0 8px;
   }
   .step-connector.done {
     background: var(--p-ink);
@@ -477,7 +477,7 @@
     font-weight: 700;
     color: var(--p-ink);
     letter-spacing: -0.02em;
-    margin: 0 0 6px;
+    margin: 0 0 4px;
   }
   .phase-desc {
     font-size: 13px;
@@ -486,8 +486,8 @@
   }
   .problem-textarea {
     width: 100%;
-    padding: 14px 16px;
-    border-radius: 8px;
+    padding: 12px 16px;
+    border-radius: var(--radius-lg);
     border: 1px solid var(--p-border-m);
     background: var(--p-surface);
     font-size: 14px;
@@ -500,7 +500,7 @@
     transition: border-color 0.15s ease;
   }
   .problem-textarea:focus {
-    border-color: var(--p-ai-border);
+    border-color: var(--p-border-s);
   }
   .input-actions {
     display: flex;
@@ -512,11 +512,11 @@
   .error-message {
     margin-top: 8px;
     padding: 8px 12px;
-    border-radius: 5px;
-    background: rgba(180, 60, 60, 0.06);
-    border: 1px solid rgba(180, 60, 60, 0.15);
+    border-radius: var(--radius-md);
+    background: var(--p-danger-bg);
+    border: 1px solid rgba(166, 61, 61, 0.15);
     font-size: 12px;
-    color: #8b3030;
+    color: var(--p-danger);
   }
 
   /* Loading phase */
@@ -540,7 +540,7 @@
     font-size: 15px;
     font-weight: 600;
     color: var(--p-ink);
-    margin-bottom: 6px;
+    margin-bottom: 4px;
   }
   .loading-desc {
     font-size: 13px;
@@ -566,7 +566,7 @@
     align-items: center;
     gap: 8px;
     padding: 8px 12px;
-    border-radius: 5px;
+    border-radius: var(--radius-md);
     background: var(--p-surface);
     border: 1px solid var(--p-border);
     font-size: 12px;
@@ -576,7 +576,7 @@
     height: 12px;
     border-radius: 50%;
     border: 1.5px solid var(--p-border-m);
-    border-top-color: var(--p-kofa);
+    border-top-color: var(--p-kofa-accent);
     animation: spin 0.8s linear infinite;
     flex-shrink: 0;
   }
@@ -610,8 +610,8 @@
     padding: 2px 6px;
     border-radius: 3px;
     background: var(--p-highlight);
-    border: 1px solid rgba(166, 139, 91, 0.2);
-    color: var(--p-ai-border);
+    border: 1px solid var(--p-ai-border-subtle);
+    color: var(--p-ai-text);
   }
   .ai-note {
     font-size: 12px;
@@ -632,9 +632,8 @@
     font-size: 10px;
     font-weight: 600;
     color: var(--p-ink3);
-    letter-spacing: 0.05em;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
-    margin-bottom: 6px;
   }
   .field-note {
     font-size: 10px;
@@ -667,9 +666,9 @@
   }
   .edit-textarea {
     width: 100%;
-    padding: 8px 10px;
-    border-radius: 5px;
-    border: 1px solid var(--p-ai-border);
+    padding: 8px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--p-border-s);
     background: var(--p-input);
     font-size: 13px;
     line-height: 1.55;
@@ -723,10 +722,10 @@
 
   /* Provisions */
   .provision-row {
-    padding: 10px 12px;
-    border-radius: 6px;
+    padding: 8px 12px;
+    border-radius: var(--radius-lg);
     border: 1px solid var(--p-border);
-    margin-bottom: 6px;
+    margin-bottom: 8px;
   }
   .provision-row.primary {
     background: var(--p-surface);
@@ -736,7 +735,7 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    margin-bottom: 6px;
+    margin-bottom: 4px;
     flex-wrap: wrap;
   }
   .verify-badge {
@@ -758,7 +757,7 @@
     font-family: var(--font-data);
     font-size: 12.5px;
     font-weight: 700;
-    color: var(--p-provision);
+    color: var(--p-provision-accent);
   }
   .prov-label {
     font-size: 12px;
@@ -767,10 +766,10 @@
   .prov-primary-badge {
     font-size: 9px;
     font-weight: 600;
-    padding: 1px 5px;
+    padding: 2px 6px;
     border-radius: 3px;
     background: var(--p-provision-bg);
-    color: var(--p-provision);
+    color: var(--p-provision-accent);
   }
   .prov-unverified {
     font-size: 10px;
@@ -797,20 +796,20 @@
   .ai-note-block {
     margin-top: 8px;
     padding: 8px 12px;
-    border-radius: 5px;
-    border-left: 3px solid rgba(166, 139, 91, 0.2);
-    background: rgba(139, 105, 20, 0.03);
+    border-radius: var(--radius-md);
+    border-left: 3px solid var(--p-ai-border-subtle);
+    background: var(--p-ai-bg);
   }
   .ai-note-header {
     display: flex;
     align-items: center;
-    gap: 5px;
+    gap: 4px;
     margin-bottom: 4px;
   }
   .ai-note-title {
     font-size: 10px;
     font-weight: 600;
-    color: var(--p-ai-border);
+    color: var(--p-ai-text);
   }
   .ai-note-text {
     font-size: 12px;
@@ -865,18 +864,18 @@
     font-size: 11px;
     color: var(--p-ink4);
     cursor: pointer;
-    padding: 6px 0;
+    padding: 8px 0;
     user-select: none;
     display: flex;
     align-items: center;
-    gap: 5px;
+    gap: 4px;
   }
   .reasoning-content {
-    padding: 10px 12px;
+    padding: 8px 12px;
     margin-top: 4px;
-    border-radius: 5px;
-    background: rgba(139, 105, 20, 0.03);
-    border-left: 3px solid rgba(166, 139, 91, 0.2);
+    border-radius: var(--radius-md);
+    background: var(--p-ai-bg);
+    border-left: 3px solid var(--p-ai-border-subtle);
     font-size: 12.5px;
     line-height: 1.6;
     color: var(--p-ink2);
@@ -886,7 +885,7 @@
   .proposal-actions {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
     padding: 16px 0;
     border-top: 1px solid var(--p-border);
   }
@@ -898,8 +897,8 @@
   }
 
   .btn-primary {
-    padding: 10px 24px;
-    border-radius: 6px;
+    padding: 8px 20px;
+    border-radius: var(--radius-lg);
     background: var(--p-ink);
     color: var(--p-panel);
     border: none;
@@ -908,7 +907,7 @@
     cursor: pointer;
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
     transition: opacity 0.12s ease;
   }
   .btn-primary:hover {
@@ -919,8 +918,8 @@
     cursor: default;
   }
   .btn-secondary {
-    padding: 10px 16px;
-    border-radius: 6px;
+    padding: 8px 16px;
+    border-radius: var(--radius-lg);
     background: transparent;
     color: var(--p-ink2);
     border: 1px solid var(--p-border-m);
