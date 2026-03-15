@@ -371,19 +371,13 @@ def _compress_candidates_for_qa(candidates: list[dict]) -> str:
     return "\n".join(parts)
 
 
-def run_qa(analysis_id: str) -> dict:
-    """Run full QA on the synthesis note.
+def _load_qa_inputs(analysis_id: str) -> tuple[str, list[dict], str]:
+    """Load synthesis note and screened candidates for QA.
 
-    Performs three checks:
-    1. Citation verification (with Citations API)
-    2. Logical consistency
-    3. Coverage check
-
-    Returns combined QA report. Persists report in analysis_documents.
+    Returns (note_markdown, candidates, candidates_summary).
     """
     client = get_client()
 
-    # Load the synthesis note
     doc = (
         client.table("analysis_documents")
         .select("content")
@@ -398,7 +392,6 @@ def run_qa(analysis_id: str) -> dict:
 
     note_markdown = doc[0]["content"]
 
-    # Load screened candidates
     candidates = (
         client.table("analysis_candidates")
         .select("sak_nr, category, ai_screening")
@@ -409,21 +402,16 @@ def run_qa(analysis_id: str) -> dict:
         .data
     ) or []
 
-    candidates_summary = _compress_candidates_for_qa(candidates)
+    return note_markdown, candidates, _compress_candidates_for_qa(candidates)
 
-    # Run 3 QA checks in parallel (all are independent LLM calls)
-    logger.info("Starting QA for analysis %s", analysis_id)
 
-    with ThreadPoolExecutor(max_workers=3) as executor:
-        citation_future = executor.submit(_verify_citations_with_api, candidates, note_markdown)
-        logic_future = executor.submit(_check_logical_consistency, note_markdown, candidates_summary)
-        coverage_future = executor.submit(_check_coverage, note_markdown, candidates_summary)
-
-        citation_result = citation_future.result()
-        logic_result = logic_future.result()
-        coverage_result = coverage_future.result()
-
-    # Combine results
+def _build_and_persist_qa_report(
+    analysis_id: str,
+    citation_result: dict,
+    logic_result: dict,
+    coverage_result: dict,
+) -> dict:
+    """Assemble QA report from sub-results, persist, and return."""
     report = {
         "citation_verification": citation_result,
         "logical_consistency": logic_result,
@@ -435,7 +423,7 @@ def run_qa(analysis_id: str) -> dict:
         ),
     }
 
-    # Persist QA report
+    client = get_client()
     client.table("analysis_documents").upsert(
         {
             "analysis_id": analysis_id,
@@ -447,6 +435,34 @@ def run_qa(analysis_id: str) -> dict:
     ).execute()
 
     return report
+
+
+def run_qa(analysis_id: str) -> dict:
+    """Run full QA on the synthesis note.
+
+    Performs three checks in parallel:
+    1. Citation verification (with Citations API)
+    2. Logical consistency
+    3. Coverage check
+
+    Returns combined QA report. Persists report in analysis_documents.
+    """
+    note_markdown, candidates, candidates_summary = _load_qa_inputs(analysis_id)
+
+    logger.info("Starting QA for analysis %s", analysis_id)
+
+    with ThreadPoolExecutor(max_workers=3) as executor:
+        citation_future = executor.submit(_verify_citations_with_api, candidates, note_markdown)
+        logic_future = executor.submit(_check_logical_consistency, note_markdown, candidates_summary)
+        coverage_future = executor.submit(_check_coverage, note_markdown, candidates_summary)
+
+        citation_result = citation_future.result()
+        logic_result = logic_future.result()
+        coverage_result = coverage_future.result()
+
+    return _build_and_persist_qa_report(
+        analysis_id, citation_result, logic_result, coverage_result
+    )
 
 
 def _build_citation_batch_request(candidates: list[dict], note_markdown: str) -> dict | None:
@@ -534,35 +550,7 @@ def submit_qa_batch(analysis_id: str) -> str:
 
     Returns batch_id for polling.
     """
-    client = get_client()
-
-    # Load synthesis note
-    doc = (
-        client.table("analysis_documents")
-        .select("content")
-        .eq("analysis_id", analysis_id)
-        .eq("doc_type", DOC_TYPE_NOTE)
-        .limit(1)
-        .execute()
-        .data
-    )
-    if not doc:
-        raise QAError("Ingen syntese-notat funnet — kjør syntese først")
-
-    note_markdown = doc[0]["content"]
-
-    # Load screened candidates
-    candidates = (
-        client.table("analysis_candidates")
-        .select("sak_nr, category, ai_screening")
-        .eq("analysis_id", analysis_id)
-        .not_.is_("ai_screening", "null")
-        .order("category")
-        .execute()
-        .data
-    ) or []
-
-    candidates_summary = _compress_candidates_for_qa(candidates)
+    note_markdown, candidates, candidates_summary = _load_qa_inputs(analysis_id)
 
     # Build batch requests
     requests = []
@@ -636,27 +624,6 @@ def process_qa_batch_results(analysis_id: str, batch_id: str) -> dict:
     logic_result = raw_results.get("logic_qa", {"flags": [], "summary": "Batch-feil"})
     coverage_result = raw_results.get("coverage_qa", {"untreated_cases": [], "summary": "Batch-feil"})
 
-    report = {
-        "citation_verification": citation_result,
-        "logical_consistency": logic_result,
-        "coverage": coverage_result,
-        "total_flags": (
-            len([q for q in citation_result.get("verified_quotes", []) if q.get("status") != "verified"])
-            + len(logic_result.get("flags", []))
-            + len([c for c in coverage_result.get("untreated_cases", []) if not c.get("justified_omission")])
-        ),
-    }
-
-    # Persist QA report
-    client = get_client()
-    client.table("analysis_documents").upsert(
-        {
-            "analysis_id": analysis_id,
-            "doc_type": DOC_TYPE_QA_REPORT,
-            "content": json.dumps(report, ensure_ascii=False),
-            "version": 1,
-        },
-        on_conflict="analysis_id,doc_type",
-    ).execute()
-
-    return report
+    return _build_and_persist_qa_report(
+        analysis_id, citation_result, logic_result, coverage_result
+    )

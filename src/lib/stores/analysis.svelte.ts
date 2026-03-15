@@ -47,7 +47,7 @@ class AnalysisState {
   screeningAssignments = $state<Record<string, ScreeningAssignment>>({});
   /** Category-level screening mode */
   screeningModes = $state<Record<string, ScreeningMode>>({ A: 'claude', B: 'claude', C: 'pick' });
-  /** Currently streaming sak_nr (being screened by Claude) */
+  /** Currently active sak_nr (for per-case UI indicator) */
   streamingSakNr = $state<string | null>(null);
   /** Whether screening has been started */
   screeningStarted = $state(false);
@@ -77,8 +77,10 @@ class AnalysisState {
   qaReport = $state<QAReport | null>(null);
   /** Whether QA is loading */
   qaLoading = $state(false);
-  /** Active batch jobs: type → { batchId, status, pollTimer } */
-  batchJobs = $state<Record<string, { batchId: string; status: BatchStatus | null }>>({});
+  /** Active batch jobs: type → { batchId, status } */
+  batchJobs = $state<Partial<Record<BatchType, { batchId: string; status: BatchStatus | null }>>>(
+    {}
+  );
   analysis = $state<Analysis>({
     id: crypto.randomUUID(),
     problemStatement: '',
@@ -272,7 +274,7 @@ class AnalysisState {
     this.screeningModes[category] = mode;
   }
 
-  /** Add a screening result (from SSE stream) */
+  /** Add a screening result */
   addScreeningResult(result: ScreeningResult) {
     this.screeningResults[result.sak_nr] = result;
     this.screeningStatus[`kofa:${result.sak_nr}`] = 'ai_screened';
@@ -318,7 +320,7 @@ class AnalysisState {
 
   // --- EU Screening ---
 
-  /** Add an EU screening result (from SSE stream) */
+  /** Add an EU screening result */
   addEuScreeningResult(result: EuScreeningResult) {
     this.euScreeningResults[result.eu_case_id] = result;
   }
@@ -372,7 +374,9 @@ class AnalysisState {
   // --- Batch API ---
 
   /** Polling timers for active batch jobs */
-  private batchTimers: Record<string, ReturnType<typeof setInterval>> = {};
+  private batchTimers: Partial<Record<BatchType, ReturnType<typeof setTimeout>>> = {};
+  /** Guard against overlapping poll requests */
+  private pollingInFlight: Partial<Record<BatchType, boolean>> = {};
 
   /** Start a batch screening job */
   async startScreeningBatch(sakNrs: string[]) {
@@ -419,14 +423,13 @@ class AnalysisState {
     }
   }
 
-  /** Start polling for a batch job */
-  private startPolling(batchType: string, batchId: string) {
-    // Clear existing timer if any
-    if (this.batchTimers[batchType]) {
-      clearInterval(this.batchTimers[batchType]);
-    }
+  /** Start polling for a batch job using recursive setTimeout to avoid overlapping requests */
+  private startPolling(batchType: BatchType, batchId: string) {
+    this.stopPolling(batchType);
 
-    this.batchTimers[batchType] = setInterval(async () => {
+    const poll = async () => {
+      if (this.pollingInFlight[batchType]) return;
+      this.pollingInFlight[batchType] = true;
       try {
         const status = await pollBatchStatus(this.analysis.id, batchId);
         const job = this.batchJobs[batchType];
@@ -434,20 +437,36 @@ class AnalysisState {
 
         if (status.processing_status === 'ended') {
           this.stopPolling(batchType);
-          await this.handleBatchComplete(batchType as BatchType, batchId);
+          await this.handleBatchComplete(batchType, batchId);
+          return;
         }
       } catch (e) {
         console.error(`Polling error for ${batchType}:`, e);
+      } finally {
+        this.pollingInFlight[batchType] = false;
       }
-    }, 5000); // Poll every 5 seconds
+      // Schedule next poll
+      this.batchTimers[batchType] = setTimeout(poll, 5000);
+    };
+
+    this.batchTimers[batchType] = setTimeout(poll, 5000);
   }
 
   /** Stop polling for a batch job */
-  private stopPolling(batchType: string) {
+  private stopPolling(batchType: BatchType) {
     if (this.batchTimers[batchType]) {
-      clearInterval(this.batchTimers[batchType]);
+      clearTimeout(this.batchTimers[batchType]);
       delete this.batchTimers[batchType];
     }
+    delete this.pollingInFlight[batchType];
+  }
+
+  /** Stop all active batch polling (called on analysis switch) */
+  stopAllPolling() {
+    for (const batchType of Object.keys(this.batchTimers) as BatchType[]) {
+      this.stopPolling(batchType);
+    }
+    this.batchJobs = {};
   }
 
   /** Handle batch completion — fetch and process results */
@@ -463,7 +482,6 @@ class AnalysisState {
           }
         }
         this.setStatus('screening_complete');
-        this.streamingSakNr = null;
         toastState.show(
           `Screening ferdig — ${data.results.filter((r) => !r.error).length} saker screenet`,
           'success'
@@ -503,12 +521,12 @@ class AnalysisState {
   }
 
   /** Check if a batch job is active for the given type */
-  isBatchActive(batchType: string): boolean {
+  isBatchActive(batchType: BatchType): boolean {
     return !!this.batchJobs[batchType];
   }
 
   /** Get batch progress percentage */
-  getBatchProgress(batchType: string): number {
+  getBatchProgress(batchType: BatchType): number {
     const job = this.batchJobs[batchType];
     if (!job?.status) return 0;
     const counts = job.status.request_counts;
@@ -574,6 +592,9 @@ class AnalysisState {
       createdAt: data.created_at,
       updatedAt: data.updated_at,
     };
+
+    // Stop any active batch polling from previous analysis
+    this.stopAllPolling();
 
     // Reset Sprint 15 state to avoid stale data from previous analysis
     this.euScreeningResults = {};

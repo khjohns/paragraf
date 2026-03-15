@@ -308,6 +308,32 @@ def _persist_screening_result(analysis_id: str, sak_nr: str, result: dict):
         ).execute()
 
 
+def _fetch_case_texts_batch(sak_nrs: list[str], sections: list[str] | None = None) -> dict[str, str]:
+    """Fetch decision texts for multiple cases in a single DB query.
+
+    Returns dict mapping sak_nr → formatted text. Cases with no text are omitted.
+    """
+    client = get_client()
+    q = (
+        client.table("kofa_decision_text")
+        .select("sak_nr, paragraph_number, section, text")
+        .in_("sak_nr", sak_nrs)
+        .order("paragraph_number")
+    )
+    if sections:
+        q = q.in_("section", sections)
+    rows = q.execute().data or []
+
+    texts: dict[str, list[str]] = {}
+    for r in rows:
+        sak_nr = r["sak_nr"]
+        if sak_nr not in texts:
+            texts[sak_nr] = []
+        texts[sak_nr].append(f"[{r['paragraph_number']}] {r['text']}")
+
+    return {sak_nr: "\n\n".join(parts) for sak_nr, parts in texts.items()}
+
+
 def screen_cases_batch(analysis_id: str, sak_nrs: list[str]) -> str:
     """Submit screening for multiple cases as a single batch.
 
@@ -316,9 +342,12 @@ def screen_cases_batch(analysis_id: str, sak_nrs: list[str]) -> str:
     """
     problem, sub_problems, provisions = _load_screening_context(analysis_id)
 
+    # Fetch all case texts in a single DB query
+    case_texts = _fetch_case_texts_batch(sak_nrs, ["vurdering"])
+
     requests = []
     for sak_nr in sak_nrs:
-        case_text = _fetch_case_text(sak_nr, ["vurdering"])
+        case_text = case_texts.get(sak_nr)
         if not case_text:
             logger.warning("No case text for %s — skipping in batch", sak_nr)
             continue

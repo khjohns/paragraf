@@ -429,7 +429,9 @@ def batch_status_route(analysis_id, batch_id):
 def batch_results_route(analysis_id, batch_id):
     """Retrieve and process batch results. Body must include batch_type."""
     body = request.get_json() or {}
-    batch_type = body.get("batch_type", "screening")
+    batch_type = body.get("batch_type")
+    if not batch_type:
+        return jsonify({"error": "batch_type required"}), 400
 
     try:
         if batch_type == "screening":
