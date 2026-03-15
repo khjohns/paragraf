@@ -174,7 +174,7 @@
     color: var(--p-ink);
     line-height: 1.3;
     letter-spacing: -0.01em;
-    margin-bottom: 4px;
+    margin-bottom: 6px;
   }
   .detail-problem {
     font-size: 12px;
@@ -217,7 +217,7 @@
     color: var(--p-ink4);
     letter-spacing: 0.05em;
     text-transform: uppercase;
-    margin-bottom: 8px;
+    margin-bottom: 6px;
   }
 
   .provisions-list {
@@ -252,11 +252,10 @@
   .cat-badge {
     font-size: 10px;
     font-weight: 600;
-    padding: 0 4px;
-    border-radius: 4px;
+    padding: 2px 6px;
+    border-radius: 3px;
     min-width: 20px;
     text-align: center;
-    line-height: 18px;
   }
   .cat-badge.cat-a {
     background: rgba(26, 24, 20, 0.08);
@@ -297,7 +296,7 @@
   .ai-suggestion {
     padding: 8px 12px;
     border-radius: 4px;
-    background: var(--p-warn-bg);
+    background: var(--p-highlight);
     border-left: 3px solid rgba(139, 105, 20, 0.2);
     display: flex;
     align-items: flex-start;
@@ -306,13 +305,12 @@
   .ai-badge {
     font-size: 9px;
     font-weight: 700;
-    padding: 0 4px;
-    border-radius: 4px;
+    padding: 2px 5px;
+    border-radius: 3px;
     background: var(--p-surface);
     border: 1px solid rgba(139, 105, 20, 0.2);
     color: var(--p-kofa-accent);
     flex-shrink: 0;
-    line-height: 16px;
   }
   .ai-text {
     font-size: 12px;
