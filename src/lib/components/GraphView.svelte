@@ -159,11 +159,11 @@
   }
 
   // Wheel zoom: must register with { passive: false } to allow preventDefault
-  let svgEl: SVGSVGElement;
+  let svgEl = $state<SVGSVGElement | undefined>();
   onMount(() => {
     if (!svgEl) return;
     svgEl.addEventListener('wheel', handleWheel, { passive: false });
-    return () => svgEl.removeEventListener('wheel', handleWheel);
+    return () => svgEl!.removeEventListener('wheel', handleWheel);
   });
 
   // Tooltip state

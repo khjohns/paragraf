@@ -19,6 +19,7 @@ import type { SuggestedProvision } from '$lib/types/api';
 import { updateAnalysis, fetchDocuments, runQA, completeAnalysis } from '$lib/api/analyses';
 import type { AnalysisDocuments } from '$lib/api/analyses';
 import { toastState } from './toast.svelte';
+import { browser } from '$app/environment';
 
 const STORAGE_KEY = 'paragraf-analysis';
 
@@ -228,6 +229,10 @@ class AnalysisState {
 
   toggleFilterIteration(iteration: number) {
     this.filterIteration = this.filterIteration === iteration ? null : iteration;
+  }
+
+  clearFilterIteration() {
+    this.filterIteration = null;
   }
 
   // --- Screening ---
@@ -544,7 +549,7 @@ class AnalysisState {
 export const analysisState = new AnalysisState();
 
 // Flush pending saves on tab close
-if (typeof window !== 'undefined') {
+if (browser) {
   window.addEventListener('beforeunload', () => {
     analysisState.save();
     // Also flush pending DB save (best-effort, fire-and-forget)

@@ -191,19 +191,26 @@
             <div class="mapping-label">Bestemmelsespar — interseksjoner</div>
             {#each gaps as gap}
               {@const isGap = gap.count === 0}
-              <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-              <div
-                class="gap-row"
-                class:is-gap={isGap}
-                onclick={isGap && gap.id1 && gap.id2
-                  ? () => analysisState.addSeedsFromGap(gap.id1!, gap.id2!)
-                  : undefined}
-              >
-                <span class="gap-prov">{gap.provision1}</span>
-                <span class="gap-sep">∩</span>
-                <span class="gap-prov">{gap.provision2}</span>
-                <span class="gap-value" class:zero={isGap}>{isGap ? '∅' : gap.count}</span>
-              </div>
+              {#if isGap && gap.id1 && gap.id2}
+                {@const id1 = gap.id1}
+                {@const id2 = gap.id2}
+                <button
+                  class="gap-row is-gap"
+                  onclick={() => analysisState.addSeedsFromGap(id1, id2)}
+                >
+                  <span class="gap-prov">{gap.provision1}</span>
+                  <span class="gap-sep">∩</span>
+                  <span class="gap-prov">{gap.provision2}</span>
+                  <span class="gap-value zero">∅</span>
+                </button>
+              {:else}
+                <div class="gap-row">
+                  <span class="gap-prov">{gap.provision1}</span>
+                  <span class="gap-sep">∩</span>
+                  <span class="gap-prov">{gap.provision2}</span>
+                  <span class="gap-value">{gap.count}</span>
+                </div>
+              {/if}
             {/each}
             {#if zeroGaps.length > 0}
               <div class="gap-note">
@@ -255,7 +262,7 @@
             {#if analysisState.filterIteration !== null}
               <div class="filter-active-notice">
                 Viser kun runde {analysisState.filterIteration}
-                <button class="clear-filter" onclick={() => (analysisState.filterIteration = null)}
+                <button class="clear-filter" onclick={() => analysisState.clearFilterIteration()}
                   >Vis alle</button
                 >
               </div>
@@ -474,6 +481,7 @@
   }
 
   .gap-row {
+    all: unset;
     display: flex;
     align-items: center;
     gap: 5px;
@@ -481,6 +489,8 @@
     border-radius: 4px;
     margin-bottom: 2px;
     border: 1px solid transparent;
+    width: 100%;
+    box-sizing: border-box;
   }
   .gap-row.is-gap {
     background: var(--p-gap-bg);
@@ -515,16 +525,6 @@
     line-height: 1.4;
     color: var(--p-gap);
     font-style: italic;
-  }
-
-  .iter-info {
-    padding: 7px 10px;
-    border-radius: 4px;
-    background: var(--p-success-bg);
-    border: 1px solid rgba(61, 122, 74, 0.1);
-    font-size: 11px;
-    color: var(--p-success);
-    line-height: 1.4;
   }
 
   .round-row {

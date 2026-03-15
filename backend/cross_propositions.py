@@ -201,6 +201,7 @@ over tid, og identifiser spenninger mellom rettssetninger."""
         user_message=user_message,
         schema=CROSS_PROPOSITIONS_SCHEMA,
         max_tokens=8000,
+        effort="high",
         log_label=f"Cross-propositions for {analysis_id}",
     )
 

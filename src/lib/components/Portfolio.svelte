@@ -82,7 +82,7 @@
         class="search-input"
       />
       {#if search}
-        <button class="search-clear" onclick={() => (search = '')}>
+        <button class="search-clear" aria-label="Tøm søk" onclick={() => (search = '')}>
           <svg width="10" height="10" viewBox="0 0 10 10">
             <path
               d="M2.5 2.5L7.5 7.5M7.5 2.5L2.5 7.5"

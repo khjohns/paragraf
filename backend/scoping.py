@@ -1,12 +1,8 @@
 """Scoping endpoint — Claude-assisted problem definition (Sprint 11)."""
-import json
 import logging
-import os
-
-import anthropic
 
 from db import get_client
-from llm_utils import CLAUDE_MODEL
+from llm_utils import call_claude_structured
 from provisions import _ALIAS_TO_DOK_ID
 
 logger = logging.getLogger(__name__)
@@ -187,50 +183,21 @@ def _verify_provisions(provisions: list[dict]) -> list[dict]:
 def generate_scope(problem: str) -> dict:
     """Send problem to Claude, return structured scoping result with verified provisions.
 
-    Uses structured outputs (output_config.format) for guaranteed valid JSON,
-    medium effort for cost/quality balance, and prompt caching for the system prompt.
+    Uses call_claude_structured for structured outputs, prompt caching,
+    and medium effort for cost/quality balance.
 
-    Raises ScopeError on failure (missing API key, empty problem, bad response).
+    Raises ScopeError on failure (empty problem, bad response).
     """
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
-    if not api_key:
-        raise ScopeError("ANTHROPIC_API_KEY ikke konfigurert")
-
     if not problem.strip():
         raise ScopeError("Problemstilling mangler")
 
-    client = anthropic.Anthropic(api_key=api_key, timeout=60.0)
-    response = client.messages.create(
-        model=CLAUDE_MODEL,
-        max_tokens=4000,
-        # Structured output — guarantees valid JSON matching SCOPING_SCHEMA
-        output_config={
-            "format": {
-                "type": "json_schema",
-                "schema": SCOPING_SCHEMA,
-            },
-            "effort": "medium",
-        },
-        # Prompt caching on system prompt — 90% savings on subsequent calls
-        system=[
-            {
-                "type": "text",
-                "text": SCOPING_SYSTEM_PROMPT,
-                "cache_control": {"type": "ephemeral"},
-            }
-        ],
-        messages=[{"role": "user", "content": problem}],
+    result = call_claude_structured(
+        system_prompt=SCOPING_SYSTEM_PROMPT,
+        user_message=problem,
+        schema=SCOPING_SCHEMA,
+        effort="medium",
+        log_label="Scoping",
     )
-    text = response.content[0].text
-    logger.info(
-        "Scoping: %d input tokens (%d cached), %d output tokens",
-        response.usage.input_tokens,
-        getattr(response.usage, "cache_read_input_tokens", 0),
-        response.usage.output_tokens,
-    )
-
-    # Structured output guarantees valid JSON — no regex fallback needed
-    result = json.loads(text)
 
     # Verify provisions against DB
     if "provisions" in result:
