@@ -21,6 +21,23 @@ from qa import run_qa, QAError
 STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
 
 app = Flask(__name__)
+
+
+def sse_response(generator_fn, error_class):
+    """Create an SSE Response from a generator that yields (id, result) tuples."""
+    def generate():
+        try:
+            for _id, result in generator_fn():
+                yield f"data: {json.dumps(result, ensure_ascii=False)}\n\n"
+        except error_class as e:
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+        yield f"data: {json.dumps({'done': True})}\n\n"
+
+    return Response(
+        generate(),
+        mimetype="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 CORS(app)
 
 
@@ -240,23 +257,9 @@ def screen_analysis_route(analysis_id):
     # Update analysis status
     update_analysis(analysis_id, {"status": "screening"})
 
-    def generate():
-        try:
-            for sak_nr, result in screen_cases(analysis_id, sak_nrs, max_parallel):
-                event_data = json.dumps(result, ensure_ascii=False)
-                yield f"data: {event_data}\n\n"
-        except ScreeningError as e:
-            yield f"data: {json.dumps({'error': str(e)})}\n\n"
-        # Send done event
-        yield f"data: {json.dumps({'done': True})}\n\n"
-
-    return Response(
-        generate(),
-        mimetype="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "X-Accel-Buffering": "no",
-        },
+    return sse_response(
+        lambda: screen_cases(analysis_id, sak_nrs, max_parallel),
+        ScreeningError,
     )
 
 
@@ -312,22 +315,9 @@ def eu_screen_route(analysis_id):
     eu_case_ids = body.get("eu_case_ids")
     max_parallel = body.get("max_parallel", 3)
 
-    def generate():
-        try:
-            for eu_case_id, result in screen_eu_cases(analysis_id, eu_case_ids, max_parallel):
-                event_data = json.dumps(result, ensure_ascii=False)
-                yield f"data: {event_data}\n\n"
-        except EuScreeningError as e:
-            yield f"data: {json.dumps({'error': str(e)})}\n\n"
-        yield f"data: {json.dumps({'done': True})}\n\n"
-
-    return Response(
-        generate(),
-        mimetype="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "X-Accel-Buffering": "no",
-        },
+    return sse_response(
+        lambda: screen_eu_cases(analysis_id, eu_case_ids, max_parallel),
+        EuScreeningError,
     )
 
 

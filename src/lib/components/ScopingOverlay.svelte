@@ -502,7 +502,7 @@
     border-top-color: var(--p-ai-border);
     animation: spin 1s linear infinite;
   }
-  @keyframes spin { to { transform: rotate(360deg); } }
+
   .loading-title {
     font-size: 15px;
     font-weight: 600;

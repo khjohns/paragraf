@@ -10,6 +10,7 @@ import logging
 from concurrent.futures import ThreadPoolExecutor
 
 from db import get_client
+from synthesis import DOC_TYPE_NOTE, DOC_TYPE_QA_REPORT
 from llm_utils import (
     CLAUDE_MODEL,
     get_anthropic_client,
@@ -384,7 +385,7 @@ def run_qa(analysis_id: str) -> dict:
         client.table("analysis_documents")
         .select("content")
         .eq("analysis_id", analysis_id)
-        .eq("doc_type", "note")
+        .eq("doc_type", DOC_TYPE_NOTE)
         .limit(1)
         .execute()
         .data
@@ -435,7 +436,7 @@ def run_qa(analysis_id: str) -> dict:
     client.table("analysis_documents").upsert(
         {
             "analysis_id": analysis_id,
-            "doc_type": "qa_report",
+            "doc_type": DOC_TYPE_QA_REPORT,
             "content": json.dumps(report, ensure_ascii=False),
             "version": 1,
         },

@@ -15,6 +15,9 @@ from llm_utils import (
 
 logger = logging.getLogger(__name__)
 
+DOC_TYPE_NOTE = "note"
+DOC_TYPE_QA_REPORT = "qa_report"
+
 
 class SynthesisError(Exception):
     """Raised when synthesis fails."""
@@ -351,7 +354,7 @@ vurderinger med [JURISTENS VURDERING]."""
     client.table("analysis_documents").upsert(
         {
             "analysis_id": analysis_id,
-            "doc_type": "note",
+            "doc_type": DOC_TYPE_NOTE,
             "content": markdown,
             "version": 1,
         },
@@ -391,7 +394,7 @@ def update_synthesis(analysis_id: str, markdown: str) -> dict:
         client.table("analysis_documents")
         .select("version")
         .eq("analysis_id", analysis_id)
-        .eq("doc_type", "note")
+        .eq("doc_type", DOC_TYPE_NOTE)
         .limit(1)
         .execute()
         .data
@@ -401,7 +404,7 @@ def update_synthesis(analysis_id: str, markdown: str) -> dict:
     client.table("analysis_documents").upsert(
         {
             "analysis_id": analysis_id,
-            "doc_type": "note",
+            "doc_type": DOC_TYPE_NOTE,
             "content": markdown,
             "version": version,
         },

@@ -7,6 +7,12 @@
   let editContent = $state('');
   let saving = $state(false);
 
+  /** Escape HTML, then render **bold** markdown safely */
+  function renderBold(text: string): string {
+    const escaped = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    return escaped.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+  }
+
   let hasNote = $derived(!!analysisState.synthesisResult || !!analysisState.synthesisMarkdown);
   let lawyerSections = $derived(
     analysisState.synthesisResult?.sections.filter((s) => s.requires_lawyer_input) ?? []
@@ -144,7 +150,7 @@
           {:else if line.startsWith('### ')}
             <h3>{line.slice(4)}</h3>
           {:else if line.startsWith('- **')}
-            <p class="list-bold">{@html line.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')}</p>
+            <p class="list-bold">{@html renderBold(line)}</p>
           {:else if line.startsWith('- ')}
             <p class="list-item">{line.slice(2)}</p>
           {:else if line.includes('[JURISTENS VURDERING')}
@@ -152,7 +158,7 @@
               {line}
             </div>
           {:else if line.trim()}
-            <p>{@html line.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')}</p>
+            <p>{@html renderBold(line)}</p>
           {:else}
             <div class="spacer"></div>
           {/if}
@@ -424,5 +430,5 @@
     border-color: var(--p-border-s);
   }
 
-  @keyframes spin { to { transform: rotate(360deg); } }
+
 </style>
