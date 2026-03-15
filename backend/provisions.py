@@ -1,4 +1,5 @@
 from db import get_client
+from traversal import _section_filter
 
 # Alias → lovdata dok_id mapping (for section lookup in lovdata_sections)
 # kofa_law_references uses aliases, lovdata_sections uses full IDs
@@ -26,6 +27,62 @@ def _resolve_dok_id(alias: str) -> str:
     return _ALIAS_TO_DOK_ID.get(alias, alias)
 
 
+def _walk_structure_path(client, structure_id: str) -> list[str]:
+    """Walk up the lovdata_structure parent chain, return titles root-first."""
+    path = []
+    current_id = structure_id
+    visited = set()
+    while current_id and current_id not in visited:
+        visited.add(current_id)
+        struct = (
+            client.table("lovdata_structure")
+            .select("id, title, parent_id")
+            .eq("id", current_id)
+            .limit(1)
+            .execute()
+            .data or [None]
+        )[0]
+        if not struct:
+            break
+        path.append(struct["title"])
+        current_id = struct.get("parent_id")
+    path.reverse()
+    return path
+
+
+def _fetch_referencing_cases(client, law_name: str, section_id: str) -> tuple[int, list[dict]]:
+    """Count referencing cases and return top 10 with metadata."""
+    query = client.table("kofa_law_references").select("sak_nr", count="exact").eq("law_name", law_name)
+    query = _section_filter(query, "law_section", section_id)
+    ref_result = query.limit(30).execute()
+
+    total = ref_result.count or 0
+    if total == 0:
+        return 0, []
+
+    ref_sak_nrs = list({r["sak_nr"] for r in (ref_result.data or [])})[:10]
+    if not ref_sak_nrs:
+        return total, []
+
+    case_result = (
+        client.table("kofa_cases")
+        .select("sak_nr, saken_gjelder, avsluttet, avgjoerelse")
+        .in_("sak_nr", ref_sak_nrs)
+        .order("avsluttet", desc=True)
+        .execute()
+    )
+    top_cases = [
+        {
+            "sak_nr": c["sak_nr"],
+            "saken_gjelder": c.get("saken_gjelder") or "",
+            "avsluttet": str(c["avsluttet"]) if c.get("avsluttet") else None,
+            "avgjoerelse": c.get("avgjoerelse") or "",
+        }
+        for c in (case_result.data or [])
+    ]
+    return total, top_cases
+
+
 def get_provision_detail(dok_id: str, section_id: str) -> dict | None:
     """Fetch provision detail: content, structure path, referencing cases.
 
@@ -38,80 +95,28 @@ def get_provision_detail(dok_id: str, section_id: str) -> dict | None:
     lovdata_id = _resolve_dok_id(dok_id)
 
     # 1. Section content
-    section_result = (
+    section = (
         client.table("lovdata_sections")
         .select("dok_id, section_id, title, content, structure_id")
         .eq("dok_id", lovdata_id)
         .eq("section_id", section_id)
         .limit(1)
         .execute()
-    )
-    section = (section_result.data or [None])[0]
+        .data or [None]
+    )[0]
 
     if not section:
         return None
 
     # 2. Structure path (walk up parent_id chain)
-    structure_path = []
-    if section.get("structure_id"):
-        current_id = section["structure_id"]
-        visited = set()
-        while current_id and current_id not in visited:
-            visited.add(current_id)
-            struct_result = (
-                client.table("lovdata_structure")
-                .select("id, title, parent_id, structure_type")
-                .eq("id", current_id)
-                .limit(1)
-                .execute()
-            )
-            struct = (struct_result.data or [None])[0]
-            if not struct:
-                break
-            structure_path.append(struct["title"])
-            current_id = struct.get("parent_id")
-        structure_path.reverse()
-
-    # 3. Count distinct referencing cases
-    ref_count_result = (
-        client.table("kofa_law_references")
-        .select("sak_nr", count="exact")
-        .eq("law_name", alias)
-        .or_(f"law_section.eq.{section_id},law_section.like.{section_id} %")
-        .limit(0)
-        .execute()
+    structure_path = (
+        _walk_structure_path(client, section["structure_id"])
+        if section.get("structure_id")
+        else []
     )
-    referencing_cases = ref_count_result.count or 0
 
-    # 4. Top 10 referencing cases with metadata (separate query, limited)
-    top_cases = []
-    if referencing_cases > 0:
-        ref_result = (
-            client.table("kofa_law_references")
-            .select("sak_nr")
-            .eq("law_name", alias)
-            .or_(f"law_section.eq.{section_id},law_section.like.{section_id} %")
-            .limit(30)
-            .execute()
-        )
-        ref_sak_nrs = list({r["sak_nr"] for r in (ref_result.data or [])})[:10]
-        if ref_sak_nrs:
-            case_result = (
-                client.table("kofa_cases")
-                .select("sak_nr, saken_gjelder, avsluttet, avgjoerelse")
-                .in_("sak_nr", ref_sak_nrs)
-                .order("avsluttet", desc=True)
-                .execute()
-            )
-            top_cases = [
-                {
-                    "sak_nr": c["sak_nr"],
-                    "saken_gjelder": c.get("saken_gjelder") or "",
-                    "avsluttet": str(c["avsluttet"]) if c.get("avsluttet") else None,
-                    "avgjoerelse": c.get("avgjoerelse") or "",
-                }
-                for c in (case_result.data or [])
-            ]
+    # 3. Referencing cases
+    referencing_cases, top_cases = _fetch_referencing_cases(client, alias, section_id)
 
     return {
         "dok_id": dok_id,
