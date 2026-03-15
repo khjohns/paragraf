@@ -40,7 +40,7 @@
     z-index: 100;
     background: var(--p-surface);
     border: 1px solid var(--p-border);
-    border-radius: 6px;
+    border-radius: var(--radius-lg);
     padding: 8px 10px;
     font-size: 11px;
     font-family: var(--font-ui);

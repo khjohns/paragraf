@@ -168,7 +168,7 @@
     font-size: 10px;
     font-weight: 600;
     color: var(--p-ink3);
-    letter-spacing: 0.05em;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
   }
   .field-hint {
@@ -179,7 +179,7 @@
   /* Vector search textarea */
   .vector-field {
     font-size: 0.8125rem;
-    font-family: var(--font-body);
+    font-family: var(--font-ui);
     line-height: 1.5;
     padding: var(--spacing-2);
     background: var(--p-input);
@@ -219,7 +219,7 @@
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    padding: 4px 10px;
+    padding: 4px 8px;
     border-radius: var(--radius-sm);
     font-size: 0.8125rem;
   }

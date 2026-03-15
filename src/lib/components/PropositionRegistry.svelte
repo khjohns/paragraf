@@ -295,7 +295,7 @@
     align-items: center;
     gap: 6px;
     padding: 8px 16px;
-    border-radius: 6px;
+    border-radius: var(--radius-lg);
     background: var(--p-ink);
     color: var(--p-panel);
     font-size: 13px;
@@ -346,7 +346,7 @@
   .theme-name {
     font-size: 11px;
     font-weight: 700;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
     color: var(--p-ink3);
   }
@@ -370,7 +370,7 @@
   /* Proposition card */
   .prop-card {
     background: var(--p-surface);
-    border-radius: 6px;
+    border-radius: var(--radius-lg);
     border: 1px solid var(--p-border);
     overflow: hidden;
   }
@@ -420,7 +420,7 @@
     padding: 1px 5px;
     border-radius: 3px;
     background: var(--p-highlight);
-    border: 1px solid rgba(166, 139, 91, 0.2);
+    border: 1px solid var(--p-ai-border-subtle);
     color: var(--p-ai-text);
   }
 
@@ -494,7 +494,7 @@
     line-height: 1.65;
     color: var(--p-ink);
     padding: 8px 12px;
-    border-radius: 4px;
+    border-radius: var(--radius-md);
     background: var(--p-highlight);
     border-left: 3px solid var(--p-kofa-bg);
   }
@@ -503,7 +503,7 @@
   .tension-connector {
     margin: 2px 0 10px;
     padding: 8px 12px;
-    border-radius: 5px;
+    border-radius: var(--radius-md);
     background: var(--p-tension-bg);
     border-left: 3px solid var(--p-tension-border);
     display: flex;

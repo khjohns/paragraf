@@ -141,7 +141,7 @@
     font-size: 10px;
     font-weight: 600;
     color: var(--p-ink3);
-    letter-spacing: 0.05em;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
     margin-bottom: 2px;
   }
@@ -153,8 +153,8 @@
   }
 
   .cat-control {
-    padding: 10px 12px;
-    border-radius: 6px;
+    padding: 12px 12px;
+    border-radius: var(--radius-lg);
     background: var(--p-surface);
     border: 1px solid var(--p-border);
   }
@@ -208,8 +208,8 @@
   .mode-btn {
     all: unset;
     flex: 1;
-    padding: 6px 8px;
-    border-radius: 4px;
+    padding: 4px 8px;
+    border-radius: var(--radius-md);
     font-size: 11px;
     font-weight: 500;
     cursor: pointer;
@@ -252,7 +252,7 @@
     font-weight: 600;
   }
   .summary-val.ai {
-    color: var(--p-kofa);
+    color: var(--p-kofa-accent);
   }
   .summary-val.me {
     color: var(--p-success);
@@ -262,8 +262,8 @@
     all: unset;
     margin-top: 4px;
     width: 100%;
-    padding: 9px 12px;
-    border-radius: 5px;
+    padding: 8px 12px;
+    border-radius: var(--radius-md);
     background: var(--p-ink);
     color: var(--p-panel);
     font-size: 12px;
@@ -283,20 +283,20 @@
 
   .batch-indicator {
     margin-top: 4px;
-    padding: 8px 10px;
-    border-radius: 5px;
+    padding: 8px 12px;
+    border-radius: var(--radius-md);
     background: var(--p-highlight);
-    border: 1px solid var(--p-ai-border);
+    border: 1px solid var(--p-ai-border-subtle);
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 8px;
   }
   .batch-header {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
     font-size: 11px;
-    color: var(--p-kofa);
+    color: var(--p-ai-text);
     font-weight: 500;
   }
   .batch-pct {
@@ -311,8 +311,8 @@
     width: 8px;
     height: 8px;
     border-radius: 50%;
-    border: 1.5px solid var(--p-ai-border);
-    border-top-color: var(--p-kofa);
+    border: 1.5px solid var(--p-border-m);
+    border-top-color: var(--p-kofa-accent);
     animation: spin 0.8s linear infinite;
     flex-shrink: 0;
   }

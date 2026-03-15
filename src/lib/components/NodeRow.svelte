@@ -262,7 +262,7 @@
     cursor: pointer;
     display: flex;
     width: 100%;
-    padding: 11px 16px;
+    padding: 12px 16px;
     border-left: 3px solid transparent;
     transition: background 0.12s ease;
     box-sizing: border-box;
@@ -279,15 +279,15 @@
 
   .row-main {
     display: flex;
-    gap: 10px;
+    gap: 8px;
     align-items: flex-start;
     width: 100%;
   }
 
   .checkbox {
-    width: 15px;
-    height: 15px;
-    min-width: 15px;
+    width: 16px;
+    height: 16px;
+    min-width: 16px;
     border-radius: var(--radius-sm);
     border: 1.5px solid var(--p-border-s);
     display: flex;
@@ -319,7 +319,7 @@
   .row-line1 {
     display: flex;
     align-items: center;
-    gap: 5px;
+    gap: 4px;
     flex-wrap: wrap;
     overflow: hidden;
   }
@@ -353,18 +353,18 @@
     font-weight: 600;
     color: var(--p-success);
     background: var(--p-success-bg);
-    padding: 1px 5px;
+    padding: 2px 6px;
     border-radius: 8px;
     flex-shrink: 0;
   }
   .screening-badge {
     font-size: 9px;
     font-weight: 600;
-    padding: 1px 5px;
+    padding: 2px 6px;
     border-radius: 3px;
-    background: var(--p-highlight, #fbf5e8);
-    border: 1px solid var(--p-ai-border);
-    color: var(--p-kofa, #8b6914);
+    background: var(--p-highlight);
+    border: 1px solid var(--p-ai-border-subtle);
+    color: var(--p-kofa-accent);
     flex-shrink: 0;
   }
   .screening-read {
@@ -386,16 +386,16 @@
   .row-line2 {
     display: flex;
     align-items: center;
-    gap: 7px;
+    gap: 8px;
     font-size: 11px;
     color: var(--p-ink3);
-    margin-top: 3px;
+    margin-top: 4px;
     flex-wrap: wrap;
   }
 
   .outcome-badge {
     font-weight: 600;
-    padding: 1px 5px;
+    padding: 2px 6px;
     border-radius: var(--radius-sm);
     font-size: 10px;
   }
@@ -467,7 +467,7 @@
     color: var(--p-ink4);
   }
   .assign-btn.assign-ai.active .assign-label {
-    color: var(--p-kofa);
+    color: var(--p-kofa-accent);
   }
   .assign-btn.assign-me {
     color: var(--p-ink4);
@@ -487,7 +487,7 @@
     height: 8px;
     border-radius: 50%;
     border: 1.5px solid var(--p-border-m);
-    border-top-color: var(--p-kofa);
+    border-top-color: var(--p-kofa-accent);
     animation: spin 0.8s linear infinite;
   }
 
@@ -500,6 +500,6 @@
 
   /* Screening expanded */
   .screening-expanded {
-    padding: 0 16px 10px 60px;
+    padding: 0 16px 12px 60px;
   }
 </style>

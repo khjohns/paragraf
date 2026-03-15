@@ -568,7 +568,7 @@
     color: var(--p-ink2);
     background: var(--p-surface);
     border: 1px solid var(--p-border);
-    border-radius: 4px;
+    border-radius: var(--radius-md);
     cursor: pointer;
     transition: all 0.15s ease;
   }
@@ -589,7 +589,7 @@
     gap: 4px;
     background: var(--p-panel);
     border: 1px solid var(--p-border);
-    border-radius: 6px;
+    border-radius: var(--radius-lg);
     padding: 4px 6px;
   }
   .zoom-btn {
@@ -601,7 +601,7 @@
     padding: 0;
     background: none;
     border: 1px solid transparent;
-    border-radius: 4px;
+    border-radius: var(--radius-md);
     color: var(--p-ink3);
     cursor: pointer;
     font-family: var(--font-data);

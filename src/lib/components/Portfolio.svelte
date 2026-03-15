@@ -185,7 +185,7 @@
     align-items: center;
     gap: 8px;
     padding: 4px 12px;
-    border-radius: 4px;
+    border-radius: var(--radius-md);
     background: var(--p-input);
     border: 1px solid var(--p-border);
     flex: 0 1 220px;
@@ -237,7 +237,7 @@
     align-items: center;
     gap: 4px;
     padding: 4px 8px;
-    border-radius: 4px;
+    border-radius: var(--radius-md);
     font-size: 10px;
     font-weight: 500;
     cursor: pointer;
@@ -396,7 +396,7 @@
     font-size: 12px;
     font-weight: 600;
     border: 1px dashed var(--p-border-m);
-    border-radius: 4px;
+    border-radius: var(--radius-md);
     justify-content: center;
     transition:
       color 0.1s ease,

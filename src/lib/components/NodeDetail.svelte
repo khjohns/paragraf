@@ -199,7 +199,7 @@
 
   /* Header */
   .detail-header {
-    padding: 14px 16px;
+    padding: 12px 16px;
     border-bottom: 1px solid var(--p-border);
     flex-shrink: 0;
   }
@@ -207,12 +207,12 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 6px;
+    margin-bottom: 4px;
   }
   .header-type {
     display: flex;
     align-items: center;
-    gap: 5px;
+    gap: 4px;
   }
   .type-label {
     font-size: 11px;
@@ -240,7 +240,7 @@
     align-items: center;
     gap: 4px;
     flex-wrap: wrap;
-    margin-bottom: 6px;
+    margin-bottom: 4px;
     font-size: 11px;
     line-height: 1.3;
   }
@@ -270,7 +270,7 @@
     font-size: 15px;
     font-weight: 700;
     color: var(--p-ink);
-    margin-bottom: 3px;
+    margin-bottom: 4px;
   }
   .node-subtitle {
     font-size: 13px;
@@ -315,8 +315,8 @@
   .outcome-badge {
     font-size: 11px;
     font-weight: 600;
-    padding: 2px 7px;
-    border-radius: 4px;
+    padding: 2px 6px;
+    border-radius: var(--radius-md);
   }
   .outcome-badge.brudd {
     background: var(--p-warn-bg);
@@ -330,8 +330,8 @@
   /* Tab bar — matches view-switcher pattern */
   .tab-bar {
     display: flex;
-    margin-top: 10px;
-    border-radius: 5px;
+    margin-top: 8px;
+    border-radius: var(--radius-md);
     border: 1px solid var(--p-border-m);
     overflow: hidden;
   }

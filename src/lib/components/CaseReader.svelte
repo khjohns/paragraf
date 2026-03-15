@@ -331,7 +331,7 @@
     padding: 2px 8px;
     border-radius: 10px;
     background: var(--p-highlight);
-    color: var(--p-ai-border);
+    color: var(--p-ai-text);
     border: 1px solid var(--p-highlight-strong);
   }
   .pill:hover {
@@ -419,7 +419,7 @@
   .ai-crossref {
     all: unset;
     cursor: pointer;
-    color: var(--p-ai-border);
+    color: var(--p-ai-text);
     font-weight: 500;
     font-size: 0.75rem;
   }

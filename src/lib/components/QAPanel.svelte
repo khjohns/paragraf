@@ -178,7 +178,7 @@
     all: unset;
     width: 100%;
     padding: 9px 12px;
-    border-radius: 5px;
+    border-radius: var(--radius-md);
     background: var(--p-ink);
     color: var(--p-panel);
     font-size: 12px;
@@ -204,7 +204,7 @@
     align-items: center;
     gap: 6px;
     padding: 8px 10px;
-    border-radius: 5px;
+    border-radius: var(--radius-md);
     background: var(--p-warn-bg);
     border: 1px solid rgba(166, 123, 46, 0.12);
     font-size: 12px;
@@ -229,7 +229,7 @@
     align-items: center;
     gap: 6px;
     padding: 7px 10px;
-    border-radius: 5px;
+    border-radius: var(--radius-md);
     background: var(--p-surface);
     border: 1px solid var(--p-border);
     width: 100%;
@@ -280,7 +280,7 @@
     line-height: 1.45;
     padding: 4px 8px;
     background: var(--p-hover);
-    border-radius: 4px;
+    border-radius: var(--radius-md);
     margin-bottom: 2px;
   }
   .section-ok {
@@ -292,7 +292,7 @@
 
   .flag-item {
     padding: 8px 10px;
-    border-radius: 4px;
+    border-radius: var(--radius-md);
     background: var(--p-surface);
     border: 1px solid var(--p-border);
     border-left: 3px solid var(--p-warn);
@@ -359,7 +359,7 @@
     cursor: pointer;
     width: 100%;
     padding: 6px 12px;
-    border-radius: 4px;
+    border-radius: var(--radius-md);
     border: 1px dashed var(--p-border-m);
     font-size: 11px;
     font-weight: 500;

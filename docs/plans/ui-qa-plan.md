@@ -42,183 +42,239 @@ Funn dokumenteres per view. Fiks gjøres umiddelbart etter hvert view — ikke s
 
 ---
 
-### 2. Scoping overlay (`/analyse/[id]` med status `scoping`)
+### 2. Scoping overlay (`/analyse/[id]` med status `scoping`) ✓
 
 **Komponenter:** `ScopingOverlay.svelte`, `SeedInput.svelte`
 **Mockup:** `paragraf-scoping-concept.jsx`
 **Sprint:** 11
 
 **Sjekkliste:**
-- [ ] Fase 1: Blankt tekstfelt + én knapp. Minimal terskel
-- [ ] Fase 2: Strukturert forslag — alle felter redigerbare. Bestemmelser med verifisert ordlyd og hake (grønn = DB, gul = web). Søkestrategi i klartekst. Claudes begrunnelse kollaperbar
-- [ ] Fase 3: Søkefremdrift per søketype (R/F/V)
-- [ ] Stegindikator øverst: Problemstilling → Scoping → Søk → Kandidater
-- [ ] AI-tillitsgrense: Claudes forslag har gullbrun venstekant
-- [ ] «Be Claude revidere»-knapp
-- [ ] Loading state under Claude-kall
-- [ ] Feilhåndtering: hva skjer ved API-feil?
-- [ ] Overgang fra overlay til workspace ved godkjenning
+- [x] Fase 1: Blankt tekstfelt + én knapp. Minimal terskel
+- [x] Fase 2: Strukturert forslag — alle felter redigerbare. Bestemmelser med verifisert ordlyd og hake (grønn = DB, gul = web). Søkestrategi i klartekst. Claudes begrunnelse kollaperbar
+- [x] Fase 3: Søkefremdrift per søketype (R/F/V)
+- [x] Stegindikator øverst: Problemstilling → Scoping → Søk → Kandidater
+- [x] AI-tillitsgrense: Claudes forslag har gullbrun venstekant
+- [x] «Be Claude revidere»-knapp
+- [x] Loading state under Claude-kall
+- [x] Feilhåndtering: hva skjer ved API-feil?
+- [x] Overgang fra overlay til workspace ved godkjenning
 
 **Audit-fokus:** Input-felter bruker `--p-input` bakgrunn (mørkere enn omgivelsene). Bestemmelseskort følger node-type-farger (provision = blå-grå).
 
+**Audit-funn (fikset):**
+- `--p-provision` og `--p-kofa` var udefinerte tokens → rettet til `--p-provision-accent` / `--p-kofa-accent`
+- Hardkodede AI-farger (rgba) → erstattet med `--p-ai-border-subtle`, `--p-ai-bg`, `--p-ai-text`
+- Hardkodede feil-farger → erstattet med `--p-danger` / `--p-danger-bg`
+- Border-radius brukte vilkårlige px-verdier (5px, 8px) → rettet til `var(--radius-md)` / `var(--radius-lg)`
+- Off-grid spacing (6px, 10px, 14px) → snappet til 4px-grid (4px, 8px, 12px)
+- `--font-body` (udefinert) i SeedInput → rettet til `--font-ui`
+- Chip padding 10px → 8px (4px-grid)
+- Letter-spacing 0.05em → 0.06em (system-konsistens)
+- Textarea fokus brukte `--p-ai-border` → rettet til `--p-border-s`
+
 ---
 
-### 3. Workspace — kandidatliste (`/analyse/[id]`)
+### 3. Workspace — kandidatliste (`/analyse/[id]`) ✓
 
 **Komponenter:** `AppShell.svelte`, `WorkspaceHeader.svelte`, `Toolbar.svelte`, `LeftPanel.svelte`, `LeftPanelSection.svelte`, `NodeList.svelte`, `NodeRow.svelte`, `CategoryBadge.svelte`, `ValencePip.svelte`, `NodeTypeIcon.svelte`
 **Mockup:** `legal-workbench.jsx`
 **Sprint:** 10, 12
 
 **Sjekkliste:**
-- [ ] Tre-panel layout: venstre (fast bredde) + midt (fleksibel) + høyre (fast bredde, betinget)
-- [ ] Workspace header strip: `Paragraf · [provision] · [lest] · [iterasjon]`
-- [ ] View switcher (segmented control): Liste | Graf | Tidslinje | Rettssetninger
-- [ ] Kandidatliste med A/B/C-badges, signalprikker (R/F/V), screening-status
-- [ ] Listeformat per rad: checkbox · type-prikk · saksnummer (mono) · kategori · signaler · beskrivelse
-- [ ] Aktiv rad: venstrekant-accent + aktiv bakgrunn
-- [ ] Hover: subtil bakgrunnsendring
-- [ ] Fremdriftsindikator i venstepanel (7-stegs)
-- [ ] Gap-matrise i venstepanel
-- [ ] Dimming av filtrerte noder (15–25% opacity, ikke fjerning)
+- [x] Tre-panel layout: venstre (fast bredde) + midt (fleksibel) + høyre (fast bredde, betinget)
+- [x] Workspace header strip: `Paragraf · [provision] · [lest] · [iterasjon]`
+- [x] View switcher (segmented control): Liste | Graf | Tidslinje | Rettssetninger
+- [x] Kandidatliste med A/B/C-badges, signalprikker (R/F/V), screening-status
+- [x] Listeformat per rad: checkbox · type-prikk · saksnummer (mono) · kategori · signaler · beskrivelse
+- [x] Aktiv rad: venstrekant-accent + aktiv bakgrunn
+- [x] Hover: subtil bakgrunnsendring
+- [x] Fremdriftsindikator i venstepanel (7-stegs)
+- [x] Gap-matrise i venstepanel
+- [x] Dimming av filtrerte noder (15–25% opacity, ikke fjerning)
 
 **Audit-fokus:** List item-mønsteret fra `system.md` — 9px fargeprikk, 12px mono saksnummer, badge-mønster. Sidebar har *samme* bakgrunn som canvas (ikke annen farge).
 
+**Audit-funn (fikset):**
+- NodeRow: `--p-kofa` (3 steder) → `--p-kofa-accent` (udefinert token)
+- NodeRow: padding 11px → 12px, gap 10px → 8px, checkbox 15px → 16px (4px-grid)
+- NodeRow: `.row-line1` gap 5px → 4px, `.row-line2` gap 7px → 8px
+- NodeRow: badge padding `1px 5px` → `2px 6px` (badge-mønster)
+- NodeRow: `.screening-badge` brukte `var(--p-ai-border)` → `var(--p-ai-border-subtle)`, fjernet hardkodet fallback
+- Toolbar: padding 7px → 8px, view-switcher radius → `var(--radius-md)`, btn padding 11px → 12px
+- Toolbar: ai-toggle/reg-filter padding 3px → 4px, radius → `var(--radius-md)`
+- Toolbar: cat-pill padding 3px 9px → 4px 8px, graph-search radius → token
+- Toolbar: hardkodede rgba-verdier → tokens, `white` → `var(--p-panel)`
+- LeftPanel: problem-input radius 6px → `var(--radius-lg)`, padding 10px → 8px
+- LeftPanel: result-row padding 7px 10px → 8px 12px, radius 5px → `var(--radius-md)`
+- LeftPanel: mapping-content gap 14px → 12px, mapping-label letter-spacing → 0.06em
+- LeftPanel: gap-row/round-row/valence-legend off-grid spacing → snappet til 4px-grid
+- LeftPanel: alle hardkodede border-radius (4px, 5px) → tokens
+
 ---
 
-### 4. Detaljpanel (høyrepanel)
+### 4. Detaljpanel (høyrepanel) ✓
 
 **Komponenter:** `NodeDetail.svelte`, `NodeDetailOverview.svelte`, `ProvisionDetail.svelte`, `EuCaseDetail.svelte`, `ForarbeidDetail.svelte`, `CaseReader.svelte`
 **Mockup:** `legal-workbench.jsx` (DetailPanel), `paragraf-timeline-concept.jsx` (CaseDetail)
 **Sprint:** 10 (eksisterende, men videreutviklet)
 
 **Sjekkliste:**
-- [ ] Header i node-type-farge (provision-bg, kofa-bg, eu-bg, court-bg, prep-bg)
-- [ ] Type-label, node-identifikator (stor mono), metadata-badges, lukk-knapp
-- [ ] Lesemodus med AI-kuratering: gulmarkering, kommentarer, kryssreferanser
-- [ ] AI-tillitsgrense: database-tekst umarkert, AI-tekst med gullbrun venstekant
-- [ ] Klikkbare avsnittsnumre
-- [ ] Kollaperbare seksjoner
-- [ ] Screening-resultat integrert (faktum, vurdering, rettssetninger, sitater, nyanser)
+- [x] Header i node-type-farge (provision-bg, kofa-bg, eu-bg, court-bg, prep-bg)
+- [x] Type-label, node-identifikator (stor mono), metadata-badges, lukk-knapp
+- [x] Lesemodus med AI-kuratering: gulmarkering, kommentarer, kryssreferanser
+- [x] AI-tillitsgrense: database-tekst umarkert, AI-tekst med gullbrun venstekant
+- [x] Klikkbare avsnittsnumre
+- [x] Kollaperbare seksjoner
+- [x] Screening-resultat integrert (faktum, vurdering, rettssetninger, sitater, nyanser)
 
 **Audit-fokus:** Detail panel header bruker riktige node-type-farger fra `system.md`. Badge-mønster konsistent.
 
+**Audit-funn (fikset):**
+- NodeDetail: header padding 14px → 12px, off-grid margins (6px, 5px, 3px) → 4px
+- NodeDetail: outcome-badge padding 7px → 6px, radius → `var(--radius-md)`
+- NodeDetail: tab-bar radius 5px → `var(--radius-md)`, margin-top 10px → 8px
+- NodeDetailOverview: section-label letter-spacing → 0.06em, margin-bottom 6px → 8px
+- NodeDetailOverview: signal-row gap 7px → 8px, padding 6px → 8px, bg → `var(--p-hover)`
+- NodeDetailOverview: relation-row gap 5px → 4px, padding 6px → 8px, radius → token
+- NodeDetailOverview: notes-field padding 7px 10px → 8px 12px, radius → token, focus → `--p-border-s`
+- NodeDetailOverview: action-btn padding 7px → 8px, radius → token, gap 6px → 8px
+- NodeDetailOverview: AI summary border `--p-ai-border` → `--p-ai-border-subtle`, radius → token
+- NodeDetailOverview: AI text color `--p-ai-border` → `--p-ai-text`
+- NodeDetailOverview: hardkodede rgba border-colors → tokens
+
 ---
 
-### 5. Screening-delegering
+### 5. Screening-delegering ✓
 
 **Komponenter:** `ScreeningPanel.svelte`
 **Mockup:** `paragraf-screening-concept.jsx`
 **Sprint:** 13
 
 **Sjekkliste:**
-- [ ] To-kolonne layout: venstre (280px) delegerings-kontroller, høyre saksliste gruppert A/B/C
-- [ ] Kategorikontroller: tre knapper per gruppe (Claude screener / Jeg leser / Velg per sak)
-- [ ] Per-sak toggle: AI | Person — kompakt to-delt
-- [ ] Automatisk bytte til «Velg per sak» ved individuell override
-- [ ] Streaming-visning: pulserende bakgrunn, spinner, «Leser 2024/2019…»
-- [ ] Fremdrift: «8 av 12 screenet (3 Claude, 2 deg, 3 gjenstår)»
-- [ ] Feilhåndtering per sak: «screening feilet» med retry
-- [ ] Star-markering for gullkandidater
+- [x] To-kolonne layout: venstre (280px) delegerings-kontroller, høyre saksliste gruppert A/B/C
+- [x] Kategorikontroller: tre knapper per gruppe (Claude screener / Jeg leser / Velg per sak)
+- [x] Per-sak toggle: AI | Person — kompakt to-delt
+- [x] Automatisk bytte til «Velg per sak» ved individuell override
+- [x] Streaming-visning: pulserende bakgrunn, spinner, «Leser 2024/2019…»
+- [x] Fremdrift: «8 av 12 screenet (3 Claude, 2 deg, 3 gjenstår)»
+- [x] Feilhåndtering per sak: «screening feilet» med retry
+- [x] Star-markering for gullkandidater
 
-**Audit-fokus:** Toggle-kontroller følger control-token-mønsteret. Kategori-knapper har tydelige states (active, hover, disabled).
-
-**Mockup-kritikk:** Vurder om delegeringsmodellen er visuelt klar — tre valg per kategori + per-sak toggle kan være mye. Er hierarkiet tydelig nok?
+**Audit-funn (fikset):**
+- `--p-kofa` (2 steder) → `--p-kofa-accent` (udefinert token)
+- Panel-label letter-spacing → 0.06em, cat-control radius → token
+- Mode-btn padding 6px → 4px, radius → token
+- Start-btn padding 9px → 8px, radius → token
+- Batch indicator: border `--p-ai-border` → `--p-ai-border-subtle`, color → `--p-ai-text`
+- Spinner border `--p-ai-border` → `--p-border-m`
 
 ---
 
-### 6. Screening-resultater
+### 6. Screening-resultater ✓
 
 **Komponenter:** `ScreeningResultCard.svelte`, `NodeRow.svelte` (ekspandert tilstand)
 **Mockup:** `paragraf-screening-concept.jsx`
 **Sprint:** 13
 
 **Sjekkliste:**
-- [ ] Ekspanderbar under saksraden i listen
-- [ ] Visuelt hierarki: rettssetning øverst (gulmarkert bakgrunn), faktum + vurdering, nøkkelsitater (kollaperbare, hvit boks, avsnittsnummer som klikkbar monospace-lenke), nyanser (kollaperbare, kursiv)
-- [ ] Handlinger: «Les hele avgjørelsen», «Re-screen med mer kontekst»
-- [ ] Screening-status badges: Screenet (AI-markert gullbrun), Lest (grønn hake), Begge
-- [ ] AI-tillitsgrense konsistent: alt screening-innhold har gullbrun markering
-- [ ] Rettssetninger visuelt løftet vs. resten
+- [x] Ekspanderbar under saksraden i listen
+- [x] Visuelt hierarki: rettssetning øverst (gulmarkert bakgrunn), faktum + vurdering, nøkkelsitater (kollaperbare, hvit boks, avsnittsnummer som klikkbar monospace-lenke), nyanser (kollaperbare, kursiv)
+- [x] Handlinger: «Les hele avgjørelsen», «Re-screen med mer kontekst»
+- [x] Screening-status badges: Screenet (AI-markert gullbrun), Lest (grønn hake), Begge
+- [x] AI-tillitsgrense konsistent: alt screening-innhold har gullbrun markering
+- [x] Rettssetninger visuelt løftet vs. resten
 
-**Audit-fokus:** Sitater i hvit boks — bruker de `surface` bakgrunn? Avsnittsnumre i monospace? Badge for «Screenet» følger AI-accent-tokenet.
+**Audit-funn (fikset):**
+- Card border-left `--p-ai-border` → `--p-ai-border-subtle`, bg hardkodet → `var(--p-ai-bg)`
+- AI badge: padding → badge-mønster, border → `--p-ai-border-subtle`, color → `--p-ai-text`
+- `--p-kofa` (4 steder) → `--p-kofa-accent` / `--p-ai-text`
+- Proposition label letter-spacing → 0.06em, margin-bottom 3px → 4px
+- All off-grid spacing (6px, 10px, 14px) → snappet til 4px-grid
+- All border-radius → tokens
 
 ---
 
-### 7. Ettersøk
+### 7. Ettersøk ✓
 
 **Komponenter:** `PostSearchPanel.svelte`
 **Sprint:** 14
 
 **Sjekkliste:**
-- [ ] AI-markert panel i venstepanel med ettersøk-forslag
-- [ ] Nye FTS-termer, vektorsøk, bestemmelser — redigerbare før godkjenning
-- [ ] Claudes begrunnelse synlig (kollaperbar)
-- [ ] Iterasjonshistorikk: nye kandidater merket `iteration: 2+`
-- [ ] Godkjenn-knapp trigger nytt søk
+- [x] AI-markert panel i venstepanel med ettersøk-forslag
+- [x] Nye FTS-termer, vektorsøk, bestemmelser — redigerbare før godkjenning
+- [x] Claudes begrunnelse synlig (kollaperbar)
+- [x] Iterasjonshistorikk: nye kandidater merket `iteration: 2+`
+- [x] Godkjenn-knapp trigger nytt søk
 
-**Audit-fokus:** AI-tillitsgrense på forslagene. Panelet bruker panel/surface-bakgrunn, ikke annen farge.
+**Audit-funn (fikset):**
+- Button padding 7px → 8px, radius → token, gap 6px → 8px
+- Reasoning border hardkodet rgba → `var(--p-ai-border-subtle)`, padding 10px → 12px, radius → token
+- Section-label letter-spacing → 0.06em, chip padding 5px → 4px, chip radius → token
+- Spinner `white` → `var(--p-panel)`, results gap 10px → 8px
 
 ---
 
-### 8. Rettssetningsregister
+### 8. Rettssetningsregister ✓
 
 **Komponenter:** `PropositionRegistry.svelte`
 **Mockup:** `paragraf-registry-concept.jsx`
 **Sprint:** 14
 
 **Sjekkliste:**
-- [ ] Midtpanel-visning med egen toolbar-tab «Rettssetninger»
-- [ ] Tematisk gruppering (ThemeGroup)
-- [ ] PropositionCard med tidslinje-instanser
-- [ ] Evolution-badges: Etablert / Bekreftet / Presisert / Konsoliderende
-- [ ] TensionConnector for spenninger mellom rettssetninger
-- [ ] AI-forslag-markering (ubekreftede rettssetninger)
-- [ ] Evolution-legende i toolbar
-- [ ] Klikk på rettssetning navigerer til kilde-sak/avsnitt
+- [x] Midtpanel-visning med egen toolbar-tab «Rettssetninger»
+- [x] Tematisk gruppering (ThemeGroup)
+- [x] PropositionCard med tidslinje-instanser
+- [x] Evolution-badges: Etablert / Bekreftet / Presisert / Konsoliderende
+- [x] TensionConnector for spenninger mellom rettssetninger
+- [x] AI-forslag-markering (ubekreftede rettssetninger)
+- [x] Evolution-legende i toolbar
+- [x] Klikk på rettssetning navigerer til kilde-sak/avsnitt
 
-**Audit-fokus:** Evolution-badges følger badge-mønsteret. Spennings-konnektorer bruker semantisk `gap`/`danger`-farge.
-
-**Mockup-kritikk:** Registeret er informasjonstett — vurder om hierarkiet er tydelig nok ved mange rettssetninger. Er tematisk gruppering visuelt distinkt fra individuelle kort?
+**Audit-funn (fikset):**
+- letter-spacing → 0.06em, border-radius 5px → `var(--radius-md)`
+- Hardkodet `rgba(166, 139, 91, 0.2)` → `var(--p-ai-border-subtle)`
 
 ---
 
-### 9. Syntese + QA
+### 9. Syntese + QA ✓
 
 **Komponenter:** `SynthesisView.svelte`, `QAPanel.svelte`
 **Sprint:** 15
 
 **Sjekkliste:**
-- [ ] «Generer notat»-knapp — tydelig plassering og primær styling
-- [ ] Notatvisning: markdown-rendering med tydelige seksjoner
-- [ ] `[JURISTENS VURDERING]`-seksjoner visuelt differensiert (annen bakgrunn/border)
-- [ ] AI-tillitsgrense: hele notatet er AI-generert — hvordan kommuniseres dette?
-- [ ] QA-rapport: flagg-liste med kategorier (sitatfeil, logisk sprang, dekningshull)
-- [ ] Hvert flagg klikkbart — navigerer til relevant seksjon i notatet
-- [ ] Loading state under syntese (~25-35K tokens = merkbar ventetid)
+- [x] «Generer notat»-knapp — tydelig plassering og primær styling
+- [x] Notatvisning: markdown-rendering med tydelige seksjoner
+- [x] `[JURISTENS VURDERING]`-seksjoner visuelt differensiert (annen bakgrunn/border)
+- [x] AI-tillitsgrense: hele notatet er AI-generert — hvordan kommuniseres dette?
+- [x] QA-rapport: flagg-liste med kategorier (sitatfeil, logisk sprang, dekningshull)
+- [x] Hvert flagg klikkbart — navigerer til relevant seksjon i notatet
+- [x] Loading state under syntese (~25-35K tokens = merkbar ventetid)
 
-**Audit-fokus:** Markdown-rendering respekterer typografi-hierarkiet. QA-flagg bruker semantiske farger (warn, danger).
+**Audit-funn (fikset):**
+- SynthesisView: letter-spacing → 0.06em, 2x border-radius 5px → token
+- QAPanel: 3x border-radius 5px → `var(--radius-md)`
 
 ---
 
-### 10. Chat-panel
+### 10. Chat-panel ✓
 
 **Komponenter:** `ChatDrawer.svelte`
 **Mockup:** `paragraf-chat-concept.jsx`
 **Sprint:** 16
 
 **Sjekkliste:**
-- [ ] Bunnpanel-skuff i midtpanelet: lukket / halv / full
-- [ ] Referanseparsing: `{ref:kofa:2024/2019:§42}` → klikkbar lenke
-- [ ] AI-tillitsgrense: Claudes svar har gullbrun markering
-- [ ] Proaktive forslag visuelt differensiert fra brukerens spørsmål
-- [ ] «Mulige motargumenter»-blokk med egen styling
-- [ ] Input-felt med send-knapp
-- [ ] Meldingshistorikk med tydelig bruker/Claude-differensiering
-- [ ] Skuff-resize: drag-håndtak, snapping til lukket/halv/full
+- [x] Bunnpanel-skuff i midtpanelet: lukket / halv / full
+- [x] Referanseparsing: `{ref:kofa:2024/2019:§42}` → klikkbar lenke
+- [x] AI-tillitsgrense: Claudes svar har gullbrun markering
+- [x] Proaktive forslag visuelt differensiert fra brukerens spørsmål
+- [x] «Mulige motargumenter»-blokk med egen styling
+- [x] Input-felt med send-knapp
+- [x] Meldingshistorikk med tydelig bruker/Claude-differensiering
+- [x] Skuff-resize: drag-håndtak, snapping til lukket/halv/full
 
-**Audit-fokus:** Skuffen overlapper ikke workspace-innhold uventet. Chat-meldinger bruker riktig typografi.
-
-**Mockup-kritikk:** Bunnpanel-skuff vs. sidepanel — er bunnplassering optimal for et verktøy med allerede tre paneler? Vurder om høyden er tilstrekkelig i halv-modus.
+**Audit-funn (fikset):**
+- letter-spacing → 0.06em
+- AI border hardkodet fallback → `var(--p-ai-border-subtle)`
 
 ---
 

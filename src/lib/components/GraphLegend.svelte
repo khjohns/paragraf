@@ -148,7 +148,7 @@
     right: 10px;
     background: var(--p-panel);
     border: 1px solid var(--p-border);
-    border-radius: 6px;
+    border-radius: var(--radius-lg);
     padding: 6px 10px;
     font-size: 10px;
     color: var(--p-ink2);
@@ -176,7 +176,7 @@
     font-weight: 600;
     color: var(--p-ink3);
     text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.06em;
     font-size: 9px;
     margin-bottom: 4px;
   }
