@@ -12,6 +12,7 @@ from llm_utils import (
     get_anthropic_client,
     load_analysis_context,
     format_sub_problems,
+    log_usage,
 )
 
 logger = logging.getLogger(__name__)
@@ -185,13 +186,7 @@ def chat_stream(analysis_id: str, messages: list[dict]):
             for text in stream.text_stream:
                 yield "chunk", {"text": text}
 
-            # Log token usage
             response = stream.get_final_message()
-            logger.info(
-                "Chat: %d input tokens (%d cached), %d output tokens",
-                response.usage.input_tokens,
-                getattr(response.usage, "cache_read_input_tokens", 0),
-                response.usage.output_tokens,
-            )
+            log_usage(response.usage, CLAUDE_MODEL, "Chat")
     except Exception as e:
         raise ChatError(f"Claude-feil: {e}")
