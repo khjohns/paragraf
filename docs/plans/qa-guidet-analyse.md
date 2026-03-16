@@ -43,7 +43,7 @@ Verifisert OK (ingen endring nødvendig):
 - TanStack Query: Bruker korrekt thunk-syntaks konsekvent
 - Store-mutasjon: Alle tilstandsendringer går via metoder (etter clearFilterIteration-fix)
 
-### Fase 3: Anthropic API-optimalisering — ✅ Fullført (P1–P3)
+### Fase 3: Anthropic API-optimalisering — ✅ Fullført (ADR-001 P1–P3)
 
 **ADR:** Se `docs/adr/001-anthropic-api-optimalisering.md` for fullstendig evaluering.
 
@@ -56,6 +56,22 @@ Gjennomførte endringer (prioritet 1–3):
 
 **Gjenstående (prioritet 4 — Batch API):**
 Se ADR for implementeringsstrategi. Krever backend+frontend-endringer for å erstatte SSE-streaming med batch+polling.
+
+### Fase 3 (forts.): ADR-002 og ADR-003 — ✅ Fullført (P0–P2/P3)
+
+**ADR:** Se `docs/adr/002-haiku-citation-qa-og-batch-oppdeling.md` og `docs/adr/003-pipeline-forbedringer.md`.
+
+Gjennomførte endringer:
+- **ADR-002 P0**: Citations API-bugfiks i `qa.py` — fjernet `json_schema` (inkompatibelt med Citations API → 400-feil)
+- **ADR-002 P1**: QA-oppgaver (sitatverifisering, logikk, dekning) byttet til Haiku (~83% besparelse)
+- **ADR-002 P2**: Curation byttet til Haiku — dead `CLAUDE_MODEL`-imports fjernet
+- **ADR-003 P0**: Effort-kompatibilitet — `build_output_config()` sender ikke `effort` til Haiku
+- **ADR-003 P1**: Token-logging med prisberegning — `log_usage()`, `CostTracker`, `MODEL_PRICING` i `llm_utils.py`; logging aktivert i `app.py`
+- **ADR-003 P2**: Robusthet — retry, try/except i eu_screening/synthesis/cross_props, dedup DB-queries
+- **ADR-003 P3**: Ytelse — parallell chat-kontekst-lasting, `llm_cache.py` for synthesis/cross_props/post_search/qa
+
+**Gjenstående (ADR-002 P3):**
+Eval-sett for scoping/post-search (Haiku vs Sonnet). Lav prioritet.
 
 ---
 
@@ -132,6 +148,7 @@ Se ADR for implementeringsstrategi. Krever backend+frontend-endringer for å ers
 
 | Prioritet | Oppgave | Krav |
 |-----------|---------|------|
-| **1** | Batch API-implementering (ADR P4) | Backend + frontend-endringer |
-| **2** | Fase 3.4 — Token-budsjett-verifisering | Kjørende backend |
-| **3** | Fase 4–6 — Funksjonell gjennomgang | Kjørende backend + DB |
+| **1** | Fase 3.4 — Token-budsjett-verifisering | Backend kjører lokalt (logging aktivert) |
+| **2** | Fase 4–6 — Funksjonell gjennomgang | Backend + DB kjører lokalt |
+| **3** | ADR-002 P3 — Eval scoping/post-search (Haiku) | 20 testtilfeller med fasit |
+| **4** | ADR-001 P4 — Batch API for screening/EU-screening | Backend + frontend-endringer |

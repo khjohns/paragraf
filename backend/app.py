@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 
 from flask import Flask, Response, jsonify, request, send_from_directory
@@ -19,6 +20,8 @@ from synthesis import generate_synthesis, update_synthesis, SynthesisError
 from qa import run_qa, submit_qa_batch, process_qa_batch_results, QAError
 from llm_utils import poll_batch_status
 from chat import chat_stream, ChatError
+
+logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 
 STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
 

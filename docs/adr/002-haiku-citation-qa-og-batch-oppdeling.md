@@ -1,7 +1,7 @@
 # ADR-002: Haiku-agenter for sitatverifisering og batch-oppdeling av deterministiske oppgaver
 
 **Dato:** 2026-03-16
-**Status:** Foreslått
+**Status:** Implementert (P0–P2 fullført; P3 — eval for scoping/post-search — gjenstår)
 **Kontekst:** Oppfølging av ADR-001, seksjon 4 (Citations API) og seksjon 5 (Batch API)
 
 ---

@@ -1,7 +1,7 @@
 # ADR-003: Pipeline-forbedringer — token-logging, effort-kompatibilitet og operasjonell robusthet
 
 **Dato:** 2026-03-16
-**Status:** Foreslått
+**Status:** Implementert (P0–P3 fullført)
 **Kontekst:** Oppfølging av ADR-001 og ADR-002, med fokus på operasjonelle forbedringer
 
 ---
