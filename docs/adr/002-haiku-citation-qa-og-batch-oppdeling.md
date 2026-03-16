@@ -159,8 +159,8 @@ Curation (`generate_curation`) identifiserer relevante avsnitt og markerer dem. 
 **Egenskaper**:
 - Input: Avsnitt fra én sak + problemstilling
 - Output: Max 5 highlights med posisjon og relevansbeskrivelse
-- Allerede `effort="medium"`
 - Resultater caches i `curation_cache` → feil kan korrigeres ved re-kjøring
+- **NB**: Haiku støtter ikke `effort`-parameteren — se ADR-003 seksjon 1
 
 **Anbefaling**: Bytt til Haiku med structured output + batch for curation.
 
@@ -179,7 +179,7 @@ Scoping transformerer en uformell problemstilling til strukturert forskningsplan
 
 Post-search identifiserer gap i screening-dekningen og foreslår nye søk.
 
-**For**: Allerede `effort="medium"`. Mønstergjenkjenning i gap-matrise.
+**For**: Mønstergjenkjenning i gap-matrise.
 **Mot**: Dårlige søkeforslag betyr tapt dekning — men brukeren kan alltid legge til egne søk.
 
 **Anbefaling**: Lavere risiko enn scoping. Kan testes sammen med scoping-eval.
@@ -210,9 +210,10 @@ response = anthropic_client.messages.create(
 )
 ```
 
-### Problem
+### Problemer
 
-Kombinerer `output_config.format: json_schema` med `citations: {"enabled": True}` på document-blokker. Returnerer 400 ved kjøring.
+1. Kombinerer `output_config.format: json_schema` med `citations: {"enabled": True}` på document-blokker → **400-feil**
+2. Sender `effort: "medium"` — må fjernes hvis vi bytter til Haiku (som ikke støtter effort, se [ADR-003](003-pipeline-forbedringer.md))
 
 ### Anbefalt fix
 
@@ -222,8 +223,7 @@ Fjern `output_config.format` og parse citation-blokker direkte fra responsen:
 response = anthropic_client.messages.create(
     model=HAIKU_MODEL,  # Bytt til Haiku
     max_tokens=4000,
-    # Kun effort, ingen format (inkompatibelt med citations)
-    output_config={"effort": "medium"},
+    # Ingen format (inkompatibelt med citations), ingen effort (Haiku støtter ikke effort)
     system=[...],
     messages=[{"role": "user", "content": content_blocks}],
 )
