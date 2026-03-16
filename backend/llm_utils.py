@@ -117,14 +117,18 @@ def log_usage(usage, model: str, label: str, is_batch: bool = False) -> float:
     parts = model.split("-")
     short_name = parts[1] if len(parts) > 1 else model
 
+    thinking_tokens = getattr(usage, "thinking_tokens", 0) or 0
+    thinking_suffix = f" ({thinking_tokens} thinking)" if thinking_tokens > 0 else ""
+
     logger.info(
-        "%s [%s]: %d input (%d cache-write, %d cache-read), %d output — $%.4f",
+        "%s [%s]: %d input (%d cache-write, %d cache-read), %d output%s — $%.4f",
         label,
         short_name,
         usage.input_tokens,
         cache_creation,
         cache_read,
         usage.output_tokens,
+        thinking_suffix,
         cost,
     )
     return cost
@@ -176,7 +180,7 @@ def call_claude_structured(
     Returns the parsed JSON response.
     """
     client = get_anthropic_client()
-    response = client.messages.create(
+    kwargs = dict(
         model=model,
         max_tokens=max_tokens,
         output_config=build_output_config(schema=schema, effort=effort, model=model),
@@ -189,8 +193,18 @@ def call_claude_structured(
         ],
         messages=[{"role": "user", "content": user_message}],
     )
+    if _supports_effort(model):
+        kwargs["thinking"] = {"type": "adaptive"}
 
-    text = response.content[0].text
+    response = client.messages.create(**kwargs)
+
+    # With adaptive thinking, response may contain thinking blocks before text
+    text = ""
+    for block in response.content:
+        if block.type == "text":
+            text = block.text
+            break
+
     log_usage(response.usage, model, log_label)
 
     return json.loads(text)
