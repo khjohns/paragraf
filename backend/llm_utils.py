@@ -60,7 +60,7 @@ def _supports_effort(model: str) -> bool:
     return any(model.startswith(p) for p in _EFFORT_SUPPORTED_PREFIXES)
 
 
-def _build_output_config(
+def build_output_config(
     schema: dict | None = None,
     effort: str | None = "high",
     model: str = CLAUDE_MODEL,
@@ -78,9 +78,15 @@ def _build_output_config(
     return config
 
 
-def _calculate_cost(usage, model: str, is_batch: bool = False) -> float:
-    """Calculate USD cost from API usage object."""
-    pricing = MODEL_PRICING.get(model, MODEL_PRICING[CLAUDE_MODEL])
+_DEFAULT_PRICING = MODEL_PRICING["claude-sonnet-4-6"]
+
+
+def _calculate_cost(usage, model: str, is_batch: bool = False) -> tuple[float, int, int]:
+    """Calculate USD cost from API usage object.
+
+    Returns (cost_usd, cache_creation_tokens, cache_read_tokens).
+    """
+    pricing = MODEL_PRICING.get(model, _DEFAULT_PRICING)
 
     input_price = pricing["batch_input"] if is_batch else pricing["input"]
     output_price = pricing["batch_output"] if is_batch else pricing["output"]
@@ -92,19 +98,18 @@ def _calculate_cost(usage, model: str, is_batch: bool = False) -> float:
 
     # cache_read is included in input_tokens — bill separately at cache rate
     base_input = input_tokens - cache_read
-    return (
+    cost = (
         base_input * input_price / 1_000_000
         + output_tokens * output_price / 1_000_000
         + cache_creation * pricing["cache_write"] / 1_000_000
         + cache_read * pricing["cache_read"] / 1_000_000
     )
+    return cost, cache_creation, cache_read
 
 
 def log_usage(usage, model: str, label: str, is_batch: bool = False) -> float:
     """Log token usage with cost breakdown. Returns cost in USD."""
-    cache_creation = getattr(usage, "cache_creation_input_tokens", 0) or 0
-    cache_read = getattr(usage, "cache_read_input_tokens", 0) or 0
-    cost = _calculate_cost(usage, model, is_batch)
+    cost, cache_creation, cache_read = _calculate_cost(usage, model, is_batch)
 
     # Extract short model name: "claude-sonnet-4-6" → "sonnet"
     parts = model.split("-")
@@ -130,6 +135,7 @@ class CostTracker:
         self.entries: list[dict] = []
 
     def add(self, label: str, model: str, usage, is_batch: bool = False) -> float:
+        """Log usage and track cost. Returns cost in USD."""
         cost = log_usage(usage, model, label, is_batch)
         self.entries.append({
             "label": label,
@@ -171,7 +177,7 @@ def call_claude_structured(
     response = client.messages.create(
         model=model,
         max_tokens=max_tokens,
-        output_config=_build_output_config(schema=schema, effort=effort, model=model),
+        output_config=build_output_config(schema=schema, effort=effort, model=model),
         system=[
             {
                 "type": "text",
@@ -265,7 +271,7 @@ def build_batch_request(
         "params": {
             "model": model,
             "max_tokens": max_tokens,
-            "output_config": _build_output_config(schema=schema, effort=effort, model=model),
+            "output_config": build_output_config(schema=schema, effort=effort, model=model),
             "system": [
                 {
                     "type": "text",

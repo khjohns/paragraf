@@ -9,6 +9,7 @@ import logging
 from db import get_client
 from llm_utils import (
     CLAUDE_MODEL,
+    build_output_config,
     get_anthropic_client,
     load_analysis_context,
     format_sub_problems,
@@ -173,7 +174,7 @@ def chat_stream(analysis_id: str, messages: list[dict]):
         with client.messages.stream(
             model=CLAUDE_MODEL,
             max_tokens=2000,
-            output_config={"effort": "medium"},
+            output_config=build_output_config(effort="medium", model=CLAUDE_MODEL),
             system=[
                 {
                     "type": "text",

@@ -147,6 +147,9 @@ COVERAGE_QA_SCHEMA = {
 }
 
 
+# Pre-formatted schema for citation QA prompt (Citations API is incompatible with json_schema)
+_CITATION_QA_SCHEMA_JSON = json.dumps(CITATION_QA_SCHEMA, ensure_ascii=False, indent=2)
+
 # --- System prompts ---
 
 CITATION_QA_SYSTEM_PROMPT = """\
@@ -295,7 +298,7 @@ For hvert sitat: sjekk om det finnes ordrett i kildeteksten, om det er trunkert 
                 "type": "text",
                 "text": CITATION_QA_SYSTEM_PROMPT
                 + "\n\nReturner resultatet som JSON med dette formatet:\n"
-                + json.dumps(CITATION_QA_SCHEMA, ensure_ascii=False, indent=2),
+                + _CITATION_QA_SCHEMA_JSON,
                 "cache_control": {"type": "ephemeral"},
             }
         ],
