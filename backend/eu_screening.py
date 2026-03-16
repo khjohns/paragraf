@@ -284,7 +284,6 @@ def screen_single_eu_case(
             user_message=user_message,
             schema=EU_SCREENING_SCHEMA,
             max_tokens=4000,
-            effort="high",
             log_label=f"EU screening {eu_case['eu_case_id']}",
         )
     except Exception as e:
@@ -383,12 +382,11 @@ def screen_eu_cases_batch(
         user_message = _build_eu_user_message(ec, problem, sub_problems, provisions)
         requests.append(
             build_batch_request(
-                custom_id=ec["eu_case_id"],
+                custom_id=ec["eu_case_id"].replace("/", "_"),
                 system_prompt=EU_SCREENING_SYSTEM_PROMPT,
                 user_message=user_message,
                 schema=EU_SCREENING_SCHEMA,
                 max_tokens=4000,
-                effort="high",
             )
         )
 

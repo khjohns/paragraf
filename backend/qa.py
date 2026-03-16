@@ -302,7 +302,6 @@ Sjekk notatets logiske konsistens mot screeningresultatene. Flagg problemer."""
         user_message=user_message,
         schema=LOGIC_QA_SCHEMA,
         max_tokens=4000,
-        effort="medium",
         model=HAIKU_MODEL,
         log_label="Logic QA",
     )
@@ -325,7 +324,6 @@ Sjekk om alle viktige saker (spesielt A-kandidater) er behandlet i notatet."""
         user_message=user_message,
         schema=COVERAGE_QA_SCHEMA,
         max_tokens=4000,
-        effort="medium",
         model=HAIKU_MODEL,
         log_label="Coverage QA",
     )
@@ -525,7 +523,6 @@ For hvert sitat: sjekk om det finnes ordrett i kildeteksten, om det er trunkert 
         user_message=user_message,
         schema=CITATION_QA_SCHEMA,
         max_tokens=4000,
-        effort="medium",
         model=HAIKU_MODEL,
     )
 
@@ -552,7 +549,6 @@ def submit_qa_batch(analysis_id: str) -> str:
             user_message="Ingen sitater å verifisere. Returner tomt resultat.",
             schema=CITATION_QA_SCHEMA,
             max_tokens=1000,
-            effort="medium",
             model=HAIKU_MODEL,
         ))
 
@@ -573,7 +569,6 @@ Sjekk notatets logiske konsistens mot screeningresultatene. Flagg problemer."""
         user_message=logic_message,
         schema=LOGIC_QA_SCHEMA,
         max_tokens=4000,
-        effort="medium",
         model=HAIKU_MODEL,
     ))
 
@@ -594,7 +589,6 @@ Sjekk om alle viktige saker (spesielt A-kandidater) er behandlet i notatet."""
         user_message=coverage_message,
         schema=COVERAGE_QA_SCHEMA,
         max_tokens=4000,
-        effort="medium",
         model=HAIKU_MODEL,
     ))
 

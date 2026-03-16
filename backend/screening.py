@@ -370,12 +370,11 @@ def screen_cases_batch(analysis_id: str, sak_nrs: list[str]) -> str:
         )
         requests.append(
             build_batch_request(
-                custom_id=sak_nr,
+                custom_id=sak_nr.replace("/", "_"),
                 system_prompt=SCREENING_SYSTEM_PROMPT,
                 user_message=user_message,
                 schema=SCREENING_SCHEMA,
                 max_tokens=4000,
-                effort="high",
             )
         )
 

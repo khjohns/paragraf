@@ -258,13 +258,11 @@ def build_batch_request(
     user_message: str,
     schema: dict,
     max_tokens: int = 4000,
-    effort: str = "high",
     model: str = CLAUDE_MODEL,
 ) -> dict:
     """Build a single request for the Message Batches API.
 
-    Args:
-        model: Model to use. Effort is automatically omitted for unsupported models.
+    Note: effort is not passed — the Batch API does not support it.
 
     Returns a dict with custom_id and params matching the batch request format.
     """
@@ -273,7 +271,7 @@ def build_batch_request(
         "params": {
             "model": model,
             "max_tokens": max_tokens,
-            "output_config": build_output_config(schema=schema, effort=effort, model=model),
+            "output_config": build_output_config(schema=schema, effort=None, model=model),
             "system": [
                 {
                     "type": "text",

@@ -22,6 +22,7 @@ from llm_utils import poll_batch_status
 from chat import chat_stream, ChatError
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
+logger = logging.getLogger(__name__)
 
 STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
 
@@ -388,6 +389,7 @@ def screen_batch_route(analysis_id):
     except ScreeningError as e:
         return jsonify({"error": str(e)}), 500
     except Exception as e:
+        logger.exception("screen-batch failed")
         return jsonify({"error": str(e)}), 500
 
 
