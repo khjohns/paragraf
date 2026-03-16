@@ -5,6 +5,8 @@ Streams responses via SSE. Uses capsule compression for context.
 """
 import json
 import logging
+import os
+from concurrent.futures import ThreadPoolExecutor
 
 from db import get_client
 from llm_utils import (
@@ -21,6 +23,10 @@ logger = logging.getLogger(__name__)
 
 class ChatError(Exception):
     """Raised when chat fails."""
+
+
+# Max chars for synthesis note truncation in chat context
+CHAT_SYNTHESIS_TRUNCATE = int(os.environ.get("CHAT_SYNTHESIS_TRUNCATE", "3000"))
 
 
 def _parse_screening(raw) -> dict | None:
@@ -52,40 +58,54 @@ def _format_candidate_line(c: dict) -> str:
 
 
 def _load_chat_context(analysis_id: str) -> str:
-    """Build a context summary for the chat system prompt."""
+    """Build a context summary for the chat system prompt.
+
+    Loads candidates, propositions, and synthesis note in parallel.
+    """
     ctx = load_analysis_context(analysis_id, extra_columns=["gaps"])
 
-    # Load screened candidates (compact summaries)
-    client = get_client()
-    candidates = (
-        client.table("analysis_candidates")
-        .select("sak_nr, category, ai_screening, user_notes, is_delimitation")
-        .eq("analysis_id", analysis_id)
-        .order("category")
-        .execute()
-        .data
-    ) or []
+    def _fetch_candidates():
+        client = get_client()
+        return (
+            client.table("analysis_candidates")
+            .select("sak_nr, category, ai_screening, user_notes, is_delimitation")
+            .eq("analysis_id", analysis_id)
+            .order("category")
+            .execute()
+            .data
+        ) or []
 
-    # Load propositions
-    propositions = (
-        client.table("analysis_propositions")
-        .select("proposition_text, theme, source_case, evolution_type, tension_with_id")
-        .eq("analysis_id", analysis_id)
-        .execute()
-        .data
-    ) or []
+    def _fetch_propositions():
+        client = get_client()
+        return (
+            client.table("analysis_propositions")
+            .select("proposition_text, theme, source_case, evolution_type, tension_with_id")
+            .eq("analysis_id", analysis_id)
+            .execute()
+            .data
+        ) or []
 
-    # Load synthesis note if exists
-    doc = (
-        client.table("analysis_documents")
-        .select("content")
-        .eq("analysis_id", analysis_id)
-        .eq("doc_type", "note")
-        .limit(1)
-        .execute()
-        .data
-    )
-    synthesis_note = doc[0]["content"] if doc else None
+    def _fetch_synthesis_note():
+        client = get_client()
+        doc = (
+            client.table("analysis_documents")
+            .select("content")
+            .eq("analysis_id", analysis_id)
+            .eq("doc_type", "note")
+            .limit(1)
+            .execute()
+            .data
+        )
+        return doc[0]["content"] if doc else None
+
+    with ThreadPoolExecutor(max_workers=3) as executor:
+        candidates_future = executor.submit(_fetch_candidates)
+        propositions_future = executor.submit(_fetch_propositions)
+        note_future = executor.submit(_fetch_synthesis_note)
+
+        candidates = candidates_future.result()
+        propositions = propositions_future.result()
+        synthesis_note = note_future.result()
 
     # Build context string
     parts = []
@@ -119,9 +139,8 @@ def _load_chat_context(analysis_id: str) -> str:
 
     # Synthesis note
     if synthesis_note:
-        # Truncate to ~3000 chars to stay within budget
-        note_preview = synthesis_note[:3000]
-        if len(synthesis_note) > 3000:
+        note_preview = synthesis_note[:CHAT_SYNTHESIS_TRUNCATE]
+        if len(synthesis_note) > CHAT_SYNTHESIS_TRUNCATE:
             note_preview += "\n[… trunkert]"
         parts.append(f"<synthesis_note>\n{note_preview}\n</synthesis_note>")
 

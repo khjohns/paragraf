@@ -6,6 +6,7 @@ evolution analysis, and tension identification across cases.
 import logging
 
 from db import get_client
+from llm_cache import get_cached, set_cached, make_cross_props_hash
 from llm_utils import load_analysis_context, call_claude_structured, format_sub_problems
 
 logger = logging.getLogger(__name__)
@@ -163,6 +164,12 @@ def generate_cross_propositions(analysis_id: str) -> dict:
     if not candidates:
         raise CrossPropositionsError("Ingen screende saker å analysere")
 
+    # Check output cache
+    content_hash = make_cross_props_hash(problem, candidates)
+    cached = get_cached(analysis_id, "cross_propositions", content_hash)
+    if cached:
+        return cached
+
     # Build detailed input with propositions and quotes
     case_parts = []
     for c in candidates:
@@ -196,18 +203,23 @@ def generate_cross_propositions(analysis_id: str) -> dict:
 Analyser rettssetningene tverrgående. Grupper tematisk, spor utvikling \
 over tid, og identifiser spenninger mellom rettssetninger."""
 
-    result = call_claude_structured(
-        system_prompt=CROSS_PROPOSITIONS_SYSTEM_PROMPT,
-        user_message=user_message,
-        schema=CROSS_PROPOSITIONS_SCHEMA,
-        max_tokens=8000,
-        effort="high",
-        log_label=f"Cross-propositions for {analysis_id}",
-    )
+    try:
+        result = call_claude_structured(
+            system_prompt=CROSS_PROPOSITIONS_SYSTEM_PROMPT,
+            user_message=user_message,
+            schema=CROSS_PROPOSITIONS_SCHEMA,
+            max_tokens=8000,
+            effort="high",
+            log_label=f"Cross-propositions for {analysis_id}",
+        )
+    except Exception as e:
+        logger.error("Cross-propositions LLM-kall feilet for analyse %s: %s", analysis_id, e)
+        raise CrossPropositionsError(f"LLM-kall feilet under kryssanalyse: {e}") from e
 
     # Persist propositions to DB
     _persist_cross_propositions(analysis_id, result)
 
+    set_cached(analysis_id, "cross_propositions", content_hash, result)
     return result
 
 

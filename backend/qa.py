@@ -7,6 +7,7 @@ Three-part QA process:
 """
 import json
 import logging
+import os
 from concurrent.futures import ThreadPoolExecutor
 
 from db import get_client
@@ -29,6 +30,10 @@ logger = logging.getLogger(__name__)
 
 class QAError(Exception):
     """Raised when QA fails."""
+
+
+# Max number of cases to verify citations for (A+B categories)
+MAX_CITATION_CASES = int(os.environ.get("MAX_CITATION_CASES", "8"))
 
 
 # --- Schemas ---
@@ -207,49 +212,10 @@ def _verify_citations_with_api(candidates: list[dict], note_markdown: str) -> di
     Fetches the actual case text and sends it as a document for Claude to
     cite against, enabling automatic verification.
     """
-    client_db = get_client()
-
-    # Collect quotes and their source cases
-    quotes_to_verify = []
-    source_cases = set()
-    for c in candidates:
-        screening = c.get("ai_screening", {})
-        for q in screening.get("quotes", []):
-            quotes_to_verify.append({
-                "sak_nr": c["sak_nr"],
-                "paragraph": q.get("p", 0),
-                "text": q.get("text", ""),
-            })
-            source_cases.add(c["sak_nr"])
+    quotes_to_verify, source_texts = _fetch_source_texts(candidates)
 
     if not quotes_to_verify:
         return {"verified_quotes": [], "summary": "Ingen sitater å verifisere."}
-
-    # Fetch source texts for cases with quotes (limit to important cases)
-    # Fetch only A and B category cases to manage token budget
-    important_cases = [c["sak_nr"] for c in candidates if c.get("category") in ("A", "B")]
-    cases_to_fetch = [s for s in source_cases if s in important_cases][:8]
-
-    # Batch fetch all case texts in a single query
-    all_rows = (
-        client_db.table("kofa_decision_text")
-        .select("sak_nr, paragraph_number, text")
-        .in_("sak_nr", cases_to_fetch)
-        .eq("section", "vurdering")
-        .order("paragraph_number")
-        .execute()
-        .data
-    ) or []
-
-    # Group by sak_nr
-    source_texts: dict[str, str] = {}
-    for row in all_rows:
-        sak_nr = row["sak_nr"]
-        line = f"[{row['paragraph_number']}] {row['text']}"
-        if sak_nr in source_texts:
-            source_texts[sak_nr] += f"\n\n{line}"
-        else:
-            source_texts[sak_nr] = line
 
     if not source_texts:
         return {"verified_quotes": [], "summary": "Kunne ikke hente kildetekster."}
@@ -471,14 +437,12 @@ def run_qa(analysis_id: str) -> dict:
     )
 
 
-def _build_citation_batch_request(candidates: list[dict], note_markdown: str) -> dict | None:
-    """Build a batch request for citation verification.
+def _fetch_source_texts(candidates: list[dict]) -> tuple[list[dict], dict[str, str]]:
+    """Fetch source texts for citation verification.
 
-    Uses structured output (not Citations API) for batch compatibility.
-    Returns None if no quotes to verify.
+    Returns (quotes_to_verify, source_texts) where source_texts maps sak_nr → text.
+    Shared by both real-time and batch citation verification.
     """
-    client_db = get_client()
-
     quotes_to_verify = []
     source_cases = set()
     for c in candidates:
@@ -492,11 +456,12 @@ def _build_citation_batch_request(candidates: list[dict], note_markdown: str) ->
             source_cases.add(c["sak_nr"])
 
     if not quotes_to_verify:
-        return None
+        return [], {}
 
     important_cases = [c["sak_nr"] for c in candidates if c.get("category") in ("A", "B")]
-    cases_to_fetch = [s for s in source_cases if s in important_cases][:8]
+    cases_to_fetch = [s for s in source_cases if s in important_cases][:MAX_CITATION_CASES]
 
+    client_db = get_client()
     all_rows = (
         client_db.table("kofa_decision_text")
         .select("sak_nr, paragraph_number, text")
@@ -516,7 +481,18 @@ def _build_citation_batch_request(candidates: list[dict], note_markdown: str) ->
         else:
             source_texts[sak_nr] = line
 
-    if not source_texts:
+    return quotes_to_verify, source_texts
+
+
+def _build_citation_batch_request(candidates: list[dict], note_markdown: str) -> dict | None:
+    """Build a batch request for citation verification.
+
+    Uses structured output (not Citations API) for batch compatibility.
+    Returns None if no quotes to verify.
+    """
+    quotes_to_verify, source_texts = _fetch_source_texts(candidates)
+
+    if not quotes_to_verify or not source_texts:
         return None
 
     # Build a combined user message with source texts and quotes

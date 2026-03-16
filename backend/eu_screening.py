@@ -278,14 +278,23 @@ def screen_single_eu_case(
     """Screen a single EU case with Claude."""
     user_message = _build_eu_user_message(eu_case, problem, sub_problems, provisions)
 
-    result = call_claude_structured(
-        system_prompt=EU_SCREENING_SYSTEM_PROMPT,
-        user_message=user_message,
-        schema=EU_SCREENING_SCHEMA,
-        max_tokens=4000,
-        effort="high",
-        log_label=f"EU screening {eu_case['eu_case_id']}",
-    )
+    try:
+        result = call_claude_structured(
+            system_prompt=EU_SCREENING_SYSTEM_PROMPT,
+            user_message=user_message,
+            schema=EU_SCREENING_SCHEMA,
+            max_tokens=4000,
+            effort="high",
+            log_label=f"EU screening {eu_case['eu_case_id']}",
+        )
+    except Exception as e:
+        logger.error("EU screening LLM-kall feilet for %s: %s", eu_case["eu_case_id"], e)
+        return {
+            "error": f"LLM-kall feilet: {e}",
+            "eu_case_id": eu_case["eu_case_id"],
+            "case_name": eu_case.get("case_name"),
+            "ref_count": eu_case.get("ref_count", 0),
+        }
 
     result["eu_case_id"] = eu_case["eu_case_id"]
     result["case_name"] = eu_case.get("case_name")
