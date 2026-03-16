@@ -5,7 +5,7 @@ import anthropic
 
 from cases import get_case_detail
 from curation_cache import cache_curation, get_cached_curation, make_problem_hash
-from llm_utils import CLAUDE_MODEL, GEMINI_MODEL, LLMConfigError, call_claude_structured, parse_json_response
+from llm_utils import HAIKU_MODEL, GEMINI_MODEL, LLMConfigError, call_claude_structured, parse_json_response
 
 logger = logging.getLogger(__name__)
 MAX_PARAGRAPHS_CHARS = 12000  # Truncate very long decisions
@@ -120,6 +120,7 @@ def _call_claude(user_prompt: str) -> dict | None:
             schema=CURATION_SCHEMA,
             max_tokens=2000,
             effort="medium",
+            model=HAIKU_MODEL,
             log_label="Curation",
         )
     except (LLMConfigError, anthropic.APIError) as e:
@@ -196,7 +197,7 @@ def generate_curation(
 
     # Call LLM
     if provider == "claude":
-        model_name = CLAUDE_MODEL
+        model_name = HAIKU_MODEL
         curation = _call_claude(user_prompt)
     else:
         model_name = GEMINI_MODEL

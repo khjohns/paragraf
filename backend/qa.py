@@ -13,7 +13,7 @@ from concurrent.futures import ThreadPoolExecutor
 from db import get_client
 from synthesis import DOC_TYPE_NOTE, DOC_TYPE_QA_REPORT
 from llm_utils import (
-    CLAUDE_MODEL,
+    HAIKU_MODEL,
     get_anthropic_client,
     call_claude_structured,
     load_analysis_context,
@@ -257,7 +257,7 @@ For hvert sitat: sjekk om det finnes ordrett i kildeteksten, om det er trunkert 
     # matching and ask the model to return JSON via prompt instruction instead.
     anthropic_client = get_anthropic_client()
     response = anthropic_client.messages.create(
-        model=CLAUDE_MODEL,
+        model=HAIKU_MODEL,
         max_tokens=4000,
         system=[
             {
@@ -271,7 +271,7 @@ For hvert sitat: sjekk om det finnes ordrett i kildeteksten, om det er trunkert 
         messages=[{"role": "user", "content": content_blocks}],
     )
 
-    log_usage(response.usage, CLAUDE_MODEL, "Citation QA")
+    log_usage(response.usage, HAIKU_MODEL, "Citation QA")
 
     # Extract text blocks (skip cite blocks — they confirm source positions)
     text_parts = [block.text for block in response.content if block.type == "text"]
@@ -303,6 +303,7 @@ Sjekk notatets logiske konsistens mot screeningresultatene. Flagg problemer."""
         schema=LOGIC_QA_SCHEMA,
         max_tokens=4000,
         effort="medium",
+        model=HAIKU_MODEL,
         log_label="Logic QA",
     )
 
@@ -325,6 +326,7 @@ Sjekk om alle viktige saker (spesielt A-kandidater) er behandlet i notatet."""
         schema=COVERAGE_QA_SCHEMA,
         max_tokens=4000,
         effort="medium",
+        model=HAIKU_MODEL,
         log_label="Coverage QA",
     )
 
@@ -524,6 +526,7 @@ For hvert sitat: sjekk om det finnes ordrett i kildeteksten, om det er trunkert 
         schema=CITATION_QA_SCHEMA,
         max_tokens=4000,
         effort="medium",
+        model=HAIKU_MODEL,
     )
 
 
@@ -550,6 +553,7 @@ def submit_qa_batch(analysis_id: str) -> str:
             schema=CITATION_QA_SCHEMA,
             max_tokens=1000,
             effort="medium",
+            model=HAIKU_MODEL,
         ))
 
     # 2. Logical consistency
@@ -570,6 +574,7 @@ Sjekk notatets logiske konsistens mot screeningresultatene. Flagg problemer."""
         schema=LOGIC_QA_SCHEMA,
         max_tokens=4000,
         effort="medium",
+        model=HAIKU_MODEL,
     ))
 
     # 3. Coverage check
@@ -590,6 +595,7 @@ Sjekk om alle viktige saker (spesielt A-kandidater) er behandlet i notatet."""
         schema=COVERAGE_QA_SCHEMA,
         max_tokens=4000,
         effort="medium",
+        model=HAIKU_MODEL,
     ))
 
     return submit_batch(requests, log_label="QA batch")
