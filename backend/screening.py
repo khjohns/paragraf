@@ -309,16 +309,22 @@ def _persist_screening_result(analysis_id: str, sak_nr: str, result: dict):
 
     # Extract proposition to analysis_propositions (upsert by source_case+source)
     if result.get("proposition"):
-        client.table("analysis_propositions").upsert(
-            {
-                "analysis_id": analysis_id,
-                "proposition_text": result["proposition"],
-                "source_case": sak_nr,
-                "source": "ai_screening",
-                "confirmed": False,
-            },
-            on_conflict="analysis_id,source_case,source",
-        ).execute()
+        try:
+            client.table("analysis_propositions").upsert(
+                {
+                    "analysis_id": analysis_id,
+                    "proposition_text": result["proposition"],
+                    "source_case": sak_nr,
+                    "source": "ai_screening",
+                    "confirmed": False,
+                },
+                on_conflict="analysis_id,source_case,source",
+            ).execute()
+        except Exception as e:
+            logger.warning(
+                "Failed to upsert proposition for %s (analysis %s): %s",
+                sak_nr, analysis_id, e,
+            )
 
 
 def _fetch_case_texts_batch(sak_nrs: list[str], sections: list[str] | None = None) -> dict[str, str]:

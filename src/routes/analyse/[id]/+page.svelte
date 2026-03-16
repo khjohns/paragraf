@@ -29,11 +29,14 @@
   );
 
   const traversal = createTraversalQuery(() => ({
-    provisions: analysisState.analysis.seeds.provisions,
-    ftsTerms: analysisState.analysis.seeds.ftsTerms,
-    vectorQuery: analysisState.analysis.seeds.vectorQuery,
-    cases: analysisState.analysis.seeds.cases,
-    regulationFilter: uiState.regulationFilter ? 'new' : 'all',
+    analysisId: analysisState.analysis.id,
+    request: {
+      provisions: analysisState.analysis.seeds.provisions,
+      ftsTerms: analysisState.analysis.seeds.ftsTerms,
+      vectorQuery: analysisState.analysis.seeds.vectorQuery,
+      cases: analysisState.analysis.seeds.cases,
+      regulationFilter: uiState.regulationFilter ? 'new' : 'all',
+    },
   }));
 
   // Sync query results to store (untrack prevents cascading state updates)

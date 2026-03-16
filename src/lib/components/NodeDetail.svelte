@@ -40,7 +40,13 @@
 
   // AI curation query (only for KOFA cases with a problem statement, and KI enabled)
   const curationQuery = createCurationQuery(() => ({
-    sakNr: uiState.aiEnabled && selectedNode?.type === 'kofa_case' ? selectedNode.label : null,
+    sakNr:
+      uiState.aiEnabled &&
+      selectedNode?.type === 'kofa_case' &&
+      analysisState.analysis.status !== 'screening' &&
+      analysisState.analysis.status !== 'candidates_ready'
+        ? selectedNode.label
+        : null,
     problemStatement: analysisState.analysis.problemStatement,
     seedProvisions: analysisState.analysis.seeds.provisions,
   }));
