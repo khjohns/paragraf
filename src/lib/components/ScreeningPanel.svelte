@@ -26,6 +26,25 @@
     return { catCounts, catScreened, catRead, claudeCount: claude, meCount: me };
   });
   let screenedCount = $derived(Object.keys(screeningState.screeningResults).length);
+  let verificationStats = $derived.by(() => {
+    let verified = 0,
+      truncated = 0,
+      inaccurate = 0,
+      notFound = 0,
+      total = 0;
+    for (const result of Object.values(screeningState.screeningResults)) {
+      if (result.quote_verification) {
+        for (const v of result.quote_verification) {
+          total++;
+          if (v.status === 'verified') verified++;
+          else if (v.status === 'truncated') truncated++;
+          else if (v.status === 'inaccurate') inaccurate++;
+          else if (v.status === 'not_found') notFound++;
+        }
+      }
+    }
+    return { verified, truncated, inaccurate, notFound, total };
+  });
   let batchActive = $derived(screeningState.isBatchActive('screening'));
   let batchProgress = $derived(screeningState.getBatchProgress('screening'));
 
@@ -125,6 +144,23 @@
           class:complete={batchProgress === 100}
           style:width="{batchProgress}%"
         ></div>
+      </div>
+    </div>
+  {/if}
+
+  {#if verificationStats.total > 0}
+    <div class="verification-banner">
+      <span class="verification-label">Sitatverifisering</span>
+      <div class="verification-stats">
+        <span class="v-stat v-ok">✓ {verificationStats.verified}</span>
+        {#if verificationStats.truncated > 0}
+          <span class="v-stat v-warn">⚠ {verificationStats.truncated} trunkert</span>
+        {/if}
+        {#if verificationStats.inaccurate + verificationStats.notFound > 0}
+          <span class="v-stat v-err"
+            >✗ {verificationStats.inaccurate + verificationStats.notFound} feil</span
+          >
+        {/if}
       </div>
     </div>
   {/if}
@@ -315,5 +351,40 @@
     border-top-color: var(--p-kofa-accent);
     animation: spin 0.8s linear infinite;
     flex-shrink: 0;
+  }
+
+  .verification-banner {
+    margin-top: 4px;
+    padding: 8px 12px;
+    border-radius: var(--radius-md);
+    background: var(--p-surface);
+    border: 1px solid var(--p-border);
+  }
+  .verification-label {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--p-ink3);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    display: block;
+    margin-bottom: 4px;
+  }
+  .verification-stats {
+    display: flex;
+    gap: 12px;
+  }
+  .v-stat {
+    font-size: 11px;
+    font-weight: 600;
+    font-family: var(--font-data);
+  }
+  .v-ok {
+    color: var(--p-success, #2d7d46);
+  }
+  .v-warn {
+    color: var(--p-warn, #b25e09);
+  }
+  .v-err {
+    color: var(--p-error, #c13515);
   }
 </style>

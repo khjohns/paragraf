@@ -41,15 +41,40 @@
 
   <!-- Nøkkelsitater — expandable -->
   {#if result.quotes && result.quotes.length > 0}
+    {@const verifiedCount =
+      result.quote_verification?.filter((v) => v.status === 'verified').length ?? 0}
+    {@const totalVerified = result.quote_verification?.length ?? 0}
     <details class="quotes-details">
       <summary class="quotes-summary">
         Nøkkelsitater ({result.quotes.length})
+        {#if totalVerified > 0}
+          <span class="verification-summary">
+            — {verifiedCount}/{totalVerified} verifisert
+          </span>
+        {/if}
       </summary>
       <div class="quotes-list">
         {#each result.quotes as q}
-          <div class="quote-item">
+          {@const verification = result.quote_verification?.find((v) => v.paragraph === q.p)}
+          <div
+            class="quote-item"
+            class:truncated={verification?.status === 'truncated'}
+            class:inaccurate={verification?.status === 'inaccurate' ||
+              verification?.status === 'not_found'}
+          >
             <span class="quote-p">§{q.p}</span>
+            {#if verification}
+              <span
+                class="quote-status quote-status-{verification.status}"
+                title={verification.issue ?? ''}
+              >
+                {#if verification.status === 'verified'}✓{:else if verification.status === 'truncated'}⚠{:else}✗{/if}
+              </span>
+            {/if}
             {q.text}
+            {#if verification?.issue}
+              <div class="quote-issue">{verification.issue}</div>
+            {/if}
           </div>
         {/each}
       </div>
@@ -188,6 +213,43 @@
     color: var(--p-kofa-accent);
     margin-right: 8px;
     cursor: pointer;
+  }
+  .quote-status {
+    font-size: 10px;
+    font-weight: 700;
+    margin-right: 4px;
+    flex-shrink: 0;
+  }
+  .quote-status-verified {
+    color: var(--p-success, #2d7d46);
+  }
+  .quote-status-truncated {
+    color: var(--p-warn, #b25e09);
+  }
+  .quote-status-inaccurate,
+  .quote-status-not_found {
+    color: var(--p-error, #c13515);
+  }
+
+  .quote-item.truncated {
+    border-color: var(--p-warn, #b25e09);
+    border-left: 2px solid var(--p-warn, #b25e09);
+  }
+  .quote-item.inaccurate {
+    border-color: var(--p-error, #c13515);
+    border-left: 2px solid var(--p-error, #c13515);
+  }
+
+  .quote-issue {
+    margin-top: 4px;
+    font-size: 11px;
+    font-style: italic;
+    color: var(--p-ink3);
+  }
+
+  .verification-summary {
+    font-weight: 400;
+    color: var(--p-ink4);
   }
 
   /* Nuances */

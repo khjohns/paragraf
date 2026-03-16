@@ -198,9 +198,39 @@ SSE-screening fullført for alle 26 A-saker. Propositions-upsert feilet for de 5
 
 ---
 
+## Fikser gjennomført denne sesjonen
+
+| # | Observasjon | Fix | Commit |
+|---|-------------|-----|--------|
+| 1 | `effort` i Batch API → 400 | Fjernet effort fra `build_batch_request` + alle kallsteder | `8991991` |
+| 2 | `custom_id` med `/` → ugyldig | `sak_nr.replace("/", "_")` | `8991991` |
+| 3 | `gaps`-kolonne manglet → 500 ved traversal | Supabase-migrasjon `add_gaps_column_to_analyses` | — (DB) |
+| 4 | Manglende unique constraint på `analysis_propositions` | Supabase-migrasjon `add_unique_constraint_analysis_propositions` | — (DB) |
+| 5 | Propositions-upsert feil krasjet hele screening | Try/catch rundt upsert, logger warning | `5d1f777` |
+| 6 | Frontend brukte feil traversal-endepunkt (`/api/traverse`) | Byttet til `/api/analyses/<id>/traverse` | `5d1f777` |
+| 7 | Kuratering trigget under screening-fase | Deaktiver kuratering når status=screening/candidates_ready | `5d1f777` |
+| 8 | Screening brukte batch (timer) i stedet for SSE (minutter) | Byttet ScreeningPanel til `startScreeningSSE` | `8334517` |
+| 9 | Batch cancel-endepunkt manglet | Lagt til `/cancel-batch/<id>` + `cancel_batch()` | `8334517` |
+| 10 | Traversal kjøres 3x ved sideload | `enabled: analysisState.nodes.length === 0` på query | `64caf52` |
+| 11 | Pre-syntese sitatverifisering mangler | Ny `verify_screening_citations()` + endepunkt | `64caf52` |
+| 12 | Adaptive thinking ikke aktivert | `thinking: {"type": "adaptive"}` på Sonnet/Opus-kall | `7fc63df` |
+| 13 | Sitatverifisering kjøres automatisk + vises i UI | Auto-trigger etter SSE, badges per sitat | (pågår) |
+
+## Gjenstående bugs/forbedringer (ikke fikset)
+
+| # | Observasjon | Type | Prioritet |
+|---|-------------|------|-----------|
+| 1 | Scoping-redigering virker ikke | UX-design | Medium |
+| 2 | Scoping-resultat borte etter godkjenning | UX-design | Medium |
+| 3 | Fremdriftsindikator viser feil steg | Konsekvens av statusflyt — bør testes nå | Lav |
+| 4 | Frontend-redirect ved backend-restart | Race condition | Lav |
+| 5 | Batch polling mister state ved sideload | Nedprioritert (SSE er default nå) | Lav |
+| 6 | B-kategori defaulter til «Jeg leser» | Design-valg å vurdere | Lav |
+
 ## Aggregert kostnad hittil
 
 | Steg | Modell | Input | Output | Kostnad |
 |------|--------|-------|--------|---------|
 | Scoping | sonnet | 1 915 | 1 586 | $0.0295 |
-| **Total** | | | | **$0.0295** |
+| Screening (26 A-saker) | sonnet | ~162k | ~30k | ~$0.92 |
+| **Total** | | | | **~$0.95** |

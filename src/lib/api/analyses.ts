@@ -162,6 +162,23 @@ export function screenCases(
   );
 }
 
+export interface VerifyCitationsResult {
+  verified_quotes: Array<{
+    sak_nr: string;
+    paragraph: number;
+    quoted_text: string;
+    status: 'verified' | 'truncated' | 'inaccurate' | 'not_found';
+    issue: string | null;
+  }>;
+  summary: string;
+}
+
+export function verifyCitations(analysisId: string): Promise<VerifyCitationsResult> {
+  return apiFetch<VerifyCitationsResult>(`/api/analyses/${analysisId}/verify-citations`, {
+    method: 'POST',
+  });
+}
+
 export function postSearch(analysisId: string): Promise<PostSearchSuggestion> {
   return apiFetch<PostSearchSuggestion>(`/api/analyses/${analysisId}/post-search`, {
     method: 'POST',

@@ -11,6 +11,7 @@ import type {
 } from '$lib/types/analysis';
 import {
   screenCases,
+  verifyCitations,
   submitScreeningBatch,
   submitEuScreeningBatch,
   submitQaBatch,
@@ -36,6 +37,7 @@ class ScreeningState {
   screeningModes = $state<Record<string, ScreeningMode>>({ A: 'claude', B: 'claude', C: 'pick' });
   streamingSakNr = $state<string | null>(null);
   screeningStarted = $state(false);
+  verifyingCitations = $state(false);
 
   // ── EU Screening state ──
   euScreeningResults = $state<Record<string, EuScreeningResult>>({});
@@ -127,7 +129,8 @@ class ScreeningState {
       () => {
         this.streamingSakNr = null;
         this.screeningAbort = null;
-        toastState.show('Screening fullført', 'success');
+        toastState.show('Screening fullført — verifiserer sitater…', 'success');
+        this.runCitationVerification();
       },
       (error) => {
         this.streamingSakNr = null;
@@ -135,6 +138,35 @@ class ScreeningState {
         toastState.show(`Screening feilet: ${error}`, 'error');
       }
     );
+  }
+
+  // ── Citation Verification ──
+
+  private async runCitationVerification() {
+    this.verifyingCitations = true;
+    try {
+      const result = await verifyCitations(this.deps.getAnalysisId());
+      // Merge verification results back into screening results
+      for (const vq of result.verified_quotes) {
+        const existing = this.screeningResults[vq.sak_nr];
+        if (existing) {
+          const verifications = existing.quote_verification ?? [];
+          verifications.push(vq);
+          this.screeningResults[vq.sak_nr] = { ...existing, quote_verification: verifications };
+        }
+      }
+      const issues = result.verified_quotes.filter((v) => v.status !== 'verified').length;
+      if (issues > 0) {
+        toastState.show(`Sitatverifisering: ${issues} problem funnet`, 'info');
+      } else {
+        toastState.show('Alle sitater verifisert', 'success');
+      }
+    } catch (e) {
+      console.error('Citation verification failed:', e);
+      toastState.show('Sitatverifisering feilet', 'error');
+    } finally {
+      this.verifyingCitations = false;
+    }
   }
 
   // ── Batch methods ──

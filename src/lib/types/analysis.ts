@@ -103,6 +103,14 @@ export interface ScopingResult {
   reasoning: string;
 }
 
+export interface QuoteVerification {
+  sak_nr: string;
+  paragraph: number;
+  quoted_text: string;
+  status: 'verified' | 'truncated' | 'inaccurate' | 'not_found';
+  issue: string | null;
+}
+
 /** AI screening result for a case */
 export interface ScreeningResult {
   sak_nr: string;
@@ -115,6 +123,7 @@ export interface ScreeningResult {
   relevance_reasoning: string;
   star: boolean;
   error?: string;
+  quote_verification?: QuoteVerification[];
 }
 
 /** Screening assignment — who screens each case */
