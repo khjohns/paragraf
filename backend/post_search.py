@@ -6,6 +6,7 @@ additional search terms, provisions, and patterns to explore.
 import logging
 
 from db import get_client
+from llm_cache import get_cached, set_cached, make_post_search_hash
 from llm_utils import load_analysis_context, call_claude_structured, format_sub_problems
 
 logger = logging.getLogger(__name__)
@@ -150,6 +151,12 @@ def generate_post_search(analysis_id: str) -> dict:
     # Compress screening results
     screening_summary = _compress_screening_results(analysis_id)
 
+    # Check output cache
+    content_hash = make_post_search_hash(problem, provisions, screening_summary)
+    cached = get_cached(analysis_id, "post_search", content_hash)
+    if cached:
+        return cached
+
     # Build gap summary
     gap_summary = "Ingen gap-par." if not gaps else "\n".join(
         f"- {g.get('provision1', '?')} ∩ {g.get('provision2', '?')}: {g.get('count', 0)} saker"
@@ -179,10 +186,16 @@ def generate_post_search(analysis_id: str) -> dict:
 
 Analyser dekningen og foreslå supplerende søk for å dekke hull i analysen."""
 
-    return call_claude_structured(
-        system_prompt=POST_SEARCH_SYSTEM_PROMPT,
-        user_message=user_message,
-        schema=POST_SEARCH_SCHEMA,
-        effort="medium",
-        log_label=f"Post-search for {analysis_id}",
-    )
+    try:
+        result = call_claude_structured(
+            system_prompt=POST_SEARCH_SYSTEM_PROMPT,
+            user_message=user_message,
+            schema=POST_SEARCH_SCHEMA,
+            effort="medium",
+            log_label=f"Post-search for {analysis_id}",
+        )
+        set_cached(analysis_id, "post_search", content_hash, result)
+        return result
+    except Exception as e:
+        logger.error("Post-search LLM-kall feilet for analyse %s: %s", analysis_id, e)
+        raise PostSearchError(f"LLM-kall feilet under ettersøk: {e}") from e

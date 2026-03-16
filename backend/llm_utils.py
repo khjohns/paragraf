@@ -51,7 +51,9 @@ def get_anthropic_client() -> anthropic.Anthropic:
         api_key = os.environ.get("ANTHROPIC_API_KEY")
         if not api_key:
             raise LLMConfigError("ANTHROPIC_API_KEY ikke konfigurert")
-        _anthropic_client = anthropic.Anthropic(api_key=api_key, timeout=120.0)
+        _anthropic_client = anthropic.Anthropic(
+            api_key=api_key, timeout=120.0, max_retries=2,
+        )
     return _anthropic_client
 
 

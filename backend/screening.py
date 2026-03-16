@@ -4,6 +4,7 @@ Sends case decision text + analysis context to Claude for structured screening.
 Returns proposition, factum, assessment, quotes, nuances, and relevance per case.
 """
 import logging
+import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from db import get_client
@@ -200,14 +201,19 @@ def screen_single_case(
     sub_problems: list[str],
     provisions: list[str],
     sections: list[str] | None = None,
+    case_text: str | None = None,
 ) -> dict:
     """Screen a single case with Claude. Returns screening result dict.
 
     Uses structured outputs for guaranteed valid JSON, high effort for
     complex analysis, and prompt caching on the system prompt.
+
+    Args:
+        case_text: Pre-fetched case text. If None, fetches from DB.
     """
-    # Fetch case text
-    case_text = _fetch_case_text(sak_nr, sections or ["vurdering"])
+    # Fetch case text if not pre-supplied
+    if case_text is None:
+        case_text = _fetch_case_text(sak_nr, sections or ["vurdering"])
     if not case_text:
         raise ScreeningError(f"Ingen avgjørelsestekst funnet for {sak_nr}")
 
@@ -239,19 +245,26 @@ def _load_screening_context(analysis_id: str) -> tuple[str, list[str], list[str]
 def screen_cases(
     analysis_id: str,
     sak_nrs: list[str],
-    max_parallel: int = 3,
+    max_parallel: int | None = None,
 ):
     """Screen multiple cases in parallel, yielding results as they complete.
 
     Yields (sak_nr, result_dict) tuples. Each result is also persisted to DB.
     On error, yields (sak_nr, {"error": message}).
     """
+    if max_parallel is None:
+        max_parallel = int(os.environ.get("MAX_PARALLEL_SCREENING", "3"))
+
     problem, sub_problems, provisions = _load_screening_context(analysis_id)
+
+    # Pre-fetch all case texts in a single DB query to avoid per-case fetches
+    case_texts = _fetch_case_texts_batch(sak_nrs, ["vurdering"])
 
     with ThreadPoolExecutor(max_workers=max_parallel) as executor:
         futures = {
             executor.submit(
-                screen_single_case, sak_nr, problem, sub_problems, provisions
+                screen_single_case, sak_nr, problem, sub_problems, provisions,
+                case_text=case_texts.get(sak_nr),
             ): sak_nr
             for sak_nr in sak_nrs
         }

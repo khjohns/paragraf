@@ -7,6 +7,7 @@ to stay within token budget.
 import logging
 
 from db import get_client
+from llm_cache import get_cached, set_cached, make_synthesis_hash
 from llm_utils import (
     call_claude_structured,
     load_analysis_context,
@@ -297,6 +298,12 @@ def generate_synthesis(analysis_id: str) -> dict:
     if not candidates:
         raise SynthesisError("Ingen screenede saker å syntetisere")
 
+    # Check output cache
+    content_hash = make_synthesis_hash(problem, candidates, provisions)
+    cached = get_cached(analysis_id, "synthesis", content_hash)
+    if cached:
+        return cached
+
     # Build capsule-compressed screening data
     screening_capsule = _compress_screening_for_synthesis(candidates)
 
@@ -338,14 +345,18 @@ Skriv et strukturert notatutkast som organiserer funnene fra screening og \
 rettssetningsregisteret. Marker seksjoner der juristen må bidra med egne \
 vurderinger med [JURISTENS VURDERING]."""
 
-    result = call_claude_structured(
-        system_prompt=SYNTHESIS_SYSTEM_PROMPT,
-        user_message=user_message,
-        schema=SYNTHESIS_SCHEMA,
-        max_tokens=12000,
-        effort="high",
-        log_label=f"Synthesis for {analysis_id}",
-    )
+    try:
+        result = call_claude_structured(
+            system_prompt=SYNTHESIS_SYSTEM_PROMPT,
+            user_message=user_message,
+            schema=SYNTHESIS_SCHEMA,
+            max_tokens=12000,
+            effort="high",
+            log_label=f"Synthesis for {analysis_id}",
+        )
+    except Exception as e:
+        logger.error("Syntese LLM-kall feilet for analyse %s: %s", analysis_id, e)
+        raise SynthesisError(f"LLM-kall feilet under syntese: {e}") from e
 
     # Convert structured response to markdown for persistence
     markdown = _to_markdown(result)
@@ -362,6 +373,7 @@ vurderinger med [JURISTENS VURDERING]."""
     ).execute()
 
     result["markdown"] = markdown
+    set_cached(analysis_id, "synthesis", content_hash, result)
     return result
 
 
