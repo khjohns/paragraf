@@ -8,8 +8,31 @@ import anthropic
 
 from db import get_client
 
-CLAUDE_MODEL = "claude-sonnet-4-6"
+CLAUDE_MODEL = os.environ.get("CLAUDE_MODEL", "claude-sonnet-4-6")
+HAIKU_MODEL = "claude-haiku-4-5-20251001"
 GEMINI_MODEL = "gemini-3-flash-preview"
+
+# Models that support the effort parameter (Opus 4.6, Sonnet 4.6, Opus 4.5)
+_EFFORT_SUPPORTED_PREFIXES = ("claude-opus-4", "claude-sonnet-4")
+
+# Prices per million tokens (USD) — https://platform.claude.com/docs/en/about-claude/pricing
+MODEL_PRICING = {
+    "claude-sonnet-4-6": {
+        "input": 3.00, "output": 15.00,
+        "cache_write": 3.75, "cache_read": 0.30,
+        "batch_input": 1.50, "batch_output": 7.50,
+    },
+    "claude-haiku-4-5-20251001": {
+        "input": 1.00, "output": 5.00,
+        "cache_write": 1.25, "cache_read": 0.10,
+        "batch_input": 0.50, "batch_output": 2.50,
+    },
+    "claude-opus-4-6": {
+        "input": 5.00, "output": 25.00,
+        "cache_write": 6.25, "cache_read": 0.50,
+        "batch_input": 2.50, "batch_output": 12.50,
+    },
+}
 
 logger = logging.getLogger(__name__)
 
@@ -32,29 +55,129 @@ def get_anthropic_client() -> anthropic.Anthropic:
     return _anthropic_client
 
 
+def _supports_effort(model: str) -> bool:
+    """Check if a model supports the effort parameter."""
+    return any(model.startswith(p) for p in _EFFORT_SUPPORTED_PREFIXES)
+
+
+def build_output_config(
+    schema: dict | None = None,
+    effort: str | None = "high",
+    model: str = CLAUDE_MODEL,
+) -> dict:
+    """Build output_config respecting model capabilities.
+
+    Effort is only included for models that support it (Opus/Sonnet 4.x).
+    Schema and effort are independent — either, both, or neither can be set.
+    """
+    config: dict = {}
+    if schema:
+        config["format"] = {"type": "json_schema", "schema": schema}
+    if effort and _supports_effort(model):
+        config["effort"] = effort
+    return config
+
+
+_DEFAULT_PRICING = MODEL_PRICING["claude-sonnet-4-6"]
+
+
+def _calculate_cost(usage, model: str, is_batch: bool = False) -> tuple[float, int, int]:
+    """Calculate USD cost from API usage object.
+
+    Returns (cost_usd, cache_creation_tokens, cache_read_tokens).
+    """
+    pricing = MODEL_PRICING.get(model, _DEFAULT_PRICING)
+
+    input_price = pricing["batch_input"] if is_batch else pricing["input"]
+    output_price = pricing["batch_output"] if is_batch else pricing["output"]
+
+    input_tokens = usage.input_tokens
+    output_tokens = usage.output_tokens
+    cache_creation = getattr(usage, "cache_creation_input_tokens", 0) or 0
+    cache_read = getattr(usage, "cache_read_input_tokens", 0) or 0
+
+    # cache_read is included in input_tokens — bill separately at cache rate
+    base_input = input_tokens - cache_read
+    cost = (
+        base_input * input_price / 1_000_000
+        + output_tokens * output_price / 1_000_000
+        + cache_creation * pricing["cache_write"] / 1_000_000
+        + cache_read * pricing["cache_read"] / 1_000_000
+    )
+    return cost, cache_creation, cache_read
+
+
+def log_usage(usage, model: str, label: str, is_batch: bool = False) -> float:
+    """Log token usage with cost breakdown. Returns cost in USD."""
+    cost, cache_creation, cache_read = _calculate_cost(usage, model, is_batch)
+
+    # Extract short model name: "claude-sonnet-4-6" → "sonnet"
+    parts = model.split("-")
+    short_name = parts[1] if len(parts) > 1 else model
+
+    logger.info(
+        "%s [%s]: %d input (%d cache-write, %d cache-read), %d output — $%.4f",
+        label,
+        short_name,
+        usage.input_tokens,
+        cache_creation,
+        cache_read,
+        usage.output_tokens,
+        cost,
+    )
+    return cost
+
+
+class CostTracker:
+    """Track cumulative LLM costs for an analysis run."""
+
+    def __init__(self):
+        self.entries: list[dict] = []
+
+    def add(self, label: str, model: str, usage, is_batch: bool = False) -> float:
+        """Log usage and track cost. Returns cost in USD."""
+        cost = log_usage(usage, model, label, is_batch)
+        self.entries.append({
+            "label": label,
+            "model": model,
+            "input_tokens": usage.input_tokens,
+            "output_tokens": usage.output_tokens,
+            "cost_usd": cost,
+        })
+        return cost
+
+    @property
+    def total_cost(self) -> float:
+        return sum(e["cost_usd"] for e in self.entries)
+
+    def summary(self) -> str:
+        lines = [f"  {e['label']}: ${e['cost_usd']:.4f}" for e in self.entries]
+        lines.append(f"  TOTAL: ${self.total_cost:.4f}")
+        return "\n".join(lines)
+
+
 def call_claude_structured(
     system_prompt: str,
     user_message: str,
     schema: dict,
     max_tokens: int = 4000,
     effort: str = "high",
+    model: str = CLAUDE_MODEL,
     log_label: str = "Claude call",
 ) -> dict:
     """Call Claude with structured outputs, prompt caching, and token logging.
+
+    Args:
+        model: Model to use. Defaults to CLAUDE_MODEL (Sonnet).
+            Effort is automatically omitted for models that don't support it.
 
     Returns the parsed JSON response.
     """
     client = get_anthropic_client()
     response = client.messages.create(
-        model=CLAUDE_MODEL,
+        model=model,
         max_tokens=max_tokens,
-        output_config={
-            "format": {
-                "type": "json_schema",
-                "schema": schema,
-            },
-            "effort": effort,
-        },
+        output_config=build_output_config(schema=schema, effort=effort, model=model),
         system=[
             {
                 "type": "text",
@@ -66,13 +189,7 @@ def call_claude_structured(
     )
 
     text = response.content[0].text
-    logger.info(
-        "%s: %d input tokens (%d cached), %d output tokens",
-        log_label,
-        response.usage.input_tokens,
-        getattr(response.usage, "cache_read_input_tokens", 0),
-        response.usage.output_tokens,
-    )
+    log_usage(response.usage, model, log_label)
 
     return json.loads(text)
 
@@ -140,23 +257,21 @@ def build_batch_request(
     schema: dict,
     max_tokens: int = 4000,
     effort: str = "high",
+    model: str = CLAUDE_MODEL,
 ) -> dict:
     """Build a single request for the Message Batches API.
+
+    Args:
+        model: Model to use. Effort is automatically omitted for unsupported models.
 
     Returns a dict with custom_id and params matching the batch request format.
     """
     return {
         "custom_id": custom_id,
         "params": {
-            "model": CLAUDE_MODEL,
+            "model": model,
             "max_tokens": max_tokens,
-            "output_config": {
-                "format": {
-                    "type": "json_schema",
-                    "schema": schema,
-                },
-                "effort": effort,
-            },
+            "output_config": build_output_config(schema=schema, effort=effort, model=model),
             "system": [
                 {
                     "type": "text",
@@ -215,7 +330,7 @@ def poll_batch_status(batch_id: str) -> dict:
     }
 
 
-def get_batch_results(batch_id: str) -> dict[str, dict]:
+def get_batch_results(batch_id: str, cost_tracker: CostTracker | None = None) -> dict[str, dict]:
     """Retrieve results from a completed batch.
 
     Returns a dict mapping custom_id → parsed JSON result.
@@ -229,12 +344,12 @@ def get_batch_results(batch_id: str) -> dict[str, dict]:
         if entry.result.type == "succeeded":
             text = entry.result.message.content[0].text
             results[custom_id] = json.loads(text)
-            logger.info(
-                "Batch result %s: %d input tokens, %d output tokens",
-                custom_id,
-                entry.result.message.usage.input_tokens,
-                entry.result.message.usage.output_tokens,
-            )
+            model = entry.result.message.model
+            usage = entry.result.message.usage
+            if cost_tracker:
+                cost_tracker.add(f"Batch/{custom_id}", model, usage, is_batch=True)
+            else:
+                log_usage(usage, model, f"Batch/{custom_id}", is_batch=True)
         elif entry.result.type == "errored":
             error_msg = str(entry.result.error)
             logger.error("Batch request %s errored: %s", custom_id, error_msg)

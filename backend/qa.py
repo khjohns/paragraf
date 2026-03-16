@@ -20,6 +20,8 @@ from llm_utils import (
     build_batch_request,
     submit_batch,
     get_batch_results,
+    log_usage,
+    parse_json_response,
 )
 
 logger = logging.getLogger(__name__)
@@ -144,6 +146,9 @@ COVERAGE_QA_SCHEMA = {
     "additionalProperties": False,
 }
 
+
+# Pre-formatted schema for citation QA prompt (Citations API is incompatible with json_schema)
+_CITATION_QA_SCHEMA_JSON = json.dumps(CITATION_QA_SCHEMA, ensure_ascii=False, indent=2)
 
 # --- System prompts ---
 
@@ -280,37 +285,38 @@ For hvert sitat: sjekk om det finnes ordrett i kildeteksten, om det er trunkert 
 (fjerner kvalifikasjoner), eller om det avviker. Returner strukturert resultat.""",
     })
 
-    # Call Claude with Citations API enabled
+    # Call Claude with Citations API enabled.
+    # NOTE: Citations API and structured output (json_schema) are incompatible —
+    # combining them returns 400. We use citations for machine-verified text
+    # matching and ask the model to return JSON via prompt instruction instead.
     anthropic_client = get_anthropic_client()
     response = anthropic_client.messages.create(
         model=CLAUDE_MODEL,
         max_tokens=4000,
-        output_config={
-            "format": {
-                "type": "json_schema",
-                "schema": CITATION_QA_SCHEMA,
-            },
-            "effort": "medium",
-        },
         system=[
             {
                 "type": "text",
-                "text": CITATION_QA_SYSTEM_PROMPT,
+                "text": CITATION_QA_SYSTEM_PROMPT
+                + "\n\nReturner resultatet som JSON med dette formatet:\n"
+                + _CITATION_QA_SCHEMA_JSON,
                 "cache_control": {"type": "ephemeral"},
             }
         ],
         messages=[{"role": "user", "content": content_blocks}],
     )
 
-    text = response.content[0].text
-    logger.info(
-        "Citation QA: %d input tokens (%d cached), %d output tokens",
-        response.usage.input_tokens,
-        getattr(response.usage, "cache_read_input_tokens", 0),
-        response.usage.output_tokens,
-    )
+    log_usage(response.usage, CLAUDE_MODEL, "Citation QA")
 
-    return json.loads(text)
+    # Extract text blocks (skip cite blocks — they confirm source positions)
+    text_parts = [block.text for block in response.content if block.type == "text"]
+    full_text = "\n".join(text_parts)
+
+    result = parse_json_response(full_text)
+    if result is None:
+        logger.warning("Citation QA: could not parse JSON from response")
+        return {"verified_quotes": [], "summary": "Kunne ikke tolke QA-respons."}
+
+    return result
 
 
 def _check_logical_consistency(note_markdown: str, screening_summary: str) -> dict:
