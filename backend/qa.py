@@ -13,7 +13,6 @@ from concurrent.futures import ThreadPoolExecutor
 from db import get_client
 from synthesis import DOC_TYPE_NOTE, DOC_TYPE_QA_REPORT
 from llm_utils import (
-    CLAUDE_MODEL,
     HAIKU_MODEL,
     get_anthropic_client,
     call_claude_structured,
