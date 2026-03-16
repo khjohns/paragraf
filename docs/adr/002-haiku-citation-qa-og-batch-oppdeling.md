@@ -16,58 +16,108 @@ ADR-001 konkluderer med å beholde Citations API kun i `qa.py` og ikke utvide ti
 
 ---
 
-## Analyse: Citations API + Haiku for sitatverifisering
+## Kritisk funn: API-kompatibilitet
 
-### Hvorfor Haiku er egnet for sitatverifisering
+### Citations API + Structured Output = Inkompatibelt
 
-Sitatverifisering (`_verify_citations_with_api`) er en **nesten deterministisk** oppgave:
+Anthropic-dokumentasjonen er eksplisitt: **Citations og structured output (`json_schema`) kan ikke kombineres** i samme API-kall. Forsøk returnerer 400-feil.
 
-1. **Input**: Kildetekst (avgjørelsestekst) + liste av sitater fra screening
-2. **Oppgave**: For hvert sitat — finn det i kildeteksten, klassifiser som `verified`/`truncated`/`inaccurate`/`not_found`
-3. **Output**: Strukturert JSON med status per sitat
+> "Structured outputs don't work with citations (returns 400) or message prefilling with JSON outputs mode."
+> — [Structured outputs docs](https://platform.claude.com/docs/en/build-with-claude/structured-outputs)
 
-Dette er i praksis **strengsammenligning med kontekst**. Oppgaven krever:
-- Nøyaktig tekstmatching (Citations API håndterer dette maskinelt)
-- Vurdering av om trunkering fjerner kvalifikasjoner (krever noe forståelse, men er mønstergjenkjenning)
-- Ingen kreativ resonnering eller juridisk analyse
+**Bug i eksisterende kode**: `qa.py:_verify_citations_with_api()` (linje 285–303) kombinerer `citations: {"enabled": True}` på document-blokker med `output_config.format: json_schema`. Dette kallet ville feilt med 400 ved kjøring — koden er tydeligvis ikke testet mot API-et.
 
-### Kvalitetsvurdering: Haiku vs Sonnet for denne oppgaven
+### Citations API + Batch API = Kompatibelt
 
-| Dimensjon | Haiku 4.5 | Sonnet 4.6 | Vurdering |
-|-----------|-----------|------------|-----------|
-| Tekstmatching (ordrett) | Utmerket | Utmerket | Citations API gjør tung-løftet — modellen klassifiserer |
-| Trunkering-deteksjon | Meget god | Utmerket | Haiku kan identifisere utelatte kvalifikasjoner fra kontekst |
-| Klassifisering (4 kategorier) | Utmerket | Utmerket | Enkel kategorisering med tydelig instruksjon |
-| Structured output | Støttet | Støttet | Begge støtter json_schema |
-| Citations API | Støttet (4.5+) | Støttet | Begge kan bruke document-blokker med citations |
+Citations-parametere er del av Batch API-skjemaet. Document-blokker med `citations: {"enabled": True}` kan sendes i batch-forespørsler.
 
-**Konklusjon**: Haiku 4.5 vil levere **tilnærmet identisk kvalitet** som Sonnet for denne oppgaven. Citations API gjør den vanskeligste delen (eksakt tekstlokalisering) — modellen trenger bare å klassifisere matchene.
+> Batch API request parameters include `TextBlockParam` with `citations` field, and defines `CitationSearchResultLocationParam`.
+> — [Create a Message Batch](https://docs.anthropic.com/en/api/creating-message-batches)
 
-### Kostnadsgevinst
+### Structured Output + Batch API = Kompatibelt
 
-| | Sonnet 4.6 | Haiku 4.5 | Besparelse |
+Bekreftet i dokumentasjonen: structured outputs fungerer med batch processing.
+
+### Oppsummert kompatibilitetsmatrise
+
+| | Structured Output | Batch API | Citations API |
 |---|---|---|---|
-| Input | $3/MTok | $1/MTok | 67% |
-| Output | $15/MTok | $5/MTok | 67% |
-| Med batch (50%) | $1.5/$7.5 | $0.50/$2.50 | 83% vs Sonnet standard |
-| Med batch + cache (90% read) | ~$0.30/$7.5 | ~$0.10/$2.50 | 95% vs Sonnet standard |
+| **Structured Output** | — | Kompatibelt | **Inkompatibelt (400)** |
+| **Batch API** | Kompatibelt | — | Kompatibelt |
+| **Citations API** | **Inkompatibelt (400)** | Kompatibelt | — |
 
-Typisk sitatverifisering sender ~15K input-tokens (kildetekster) og ~2K output-tokens. Per analyse:
-- **Sonnet standard**: ~$0.075
-- **Haiku batch + cache**: ~$0.012
-- **Besparelse**: ~84% per QA-kjøring
+---
 
-### Begrensning: Citations API er ikke tilgjengelig i Batch API
+## Analyse: Tilnærminger for sitatverifisering
 
-**Viktig funn**: ADR-001 sin eksisterende batch-implementering for QA (`_build_citation_batch_request`) bruker allerede **ikke** Citations API — den faller tilbake til structured output med kildetekst i XML-blokker. Dette er fordi Batch API og Citations API ikke nødvendigvis er kompatible i samme request.
+Gitt inkompatibiliteten mellom citations og structured output, finnes det fire reelle tilnærminger:
 
-Det betyr at det allerede finnes **to kodestier**:
-1. **Sanntid**: Citations API med document-blokker (bedre verifisering)
-2. **Batch**: Structured output med XML-kildetekst (billigere, men ingen maskinell sitatmatching)
+### Tilnærming A: Haiku + Citations API + Batch (anbefalt for sitatsjekk)
 
-For Haiku-delegering er begge stier aktuelle:
-- **Sanntidskall med Haiku**: Bruk Citations API, bytt kun modell → 67% besparelse
-- **Batch med Haiku**: Bruk eksisterende batch-sti, bytt modell → 83% besparelse
+| Egenskap | Verdi |
+|----------|-------|
+| Modell | Haiku 4.5 |
+| Citations | Ja — maskinell tekstmatching |
+| Structured output | **Nei** — parse citation-blokker fra respons |
+| Batch | Ja — 50% rabatt |
+| JSON-garanti | Nei — men citation-blokker er allerede strukturert data |
+| Kostnad | ~83% besparelse vs Sonnet standard |
+
+**Hvorfor dette fungerer**: Citations API returnerer strukturerte `cite`-blokker med `cited_text`, `document_index`, `start_char_offset` og `end_char_offset`. Disse blokkene *er* verifiseringsresultatet — de viser nøyaktig hvilken tekst modellen fant. Modellens fritekst-respons klassifiserer bare matchene. Vi trenger ikke json_schema fordi:
+
+1. Cite-blokkene gir oss maskinelt verifiserte posisjoner (strukturert av API-et selv)
+2. Modellens klassifisering (verified/truncated/inaccurate/not_found) kan parses fra fritekst med enkel logikk
+3. Alternativt kan vi be modellen returnere JSON uten grammatisk tvang (`"Returner JSON"` i prompt) — Haiku følger instruksjoner godt for enkle formater
+
+**Implementering**:
+```python
+# Fjern output_config.format (inkompatibelt med citations)
+# Behold document-blokker med citations enabled
+# Parse citation-blokker fra response.content
+response = client.messages.create(
+    model="claude-haiku-4-5-20251001",
+    max_tokens=4000,
+    system=[{"type": "text", "text": SYSTEM_PROMPT, "cache_control": {"type": "ephemeral"}}],
+    messages=[{"role": "user", "content": content_blocks}],
+    # INGEN output_config.format — inkompatibelt med citations
+)
+
+# Respons inneholder cite-blokker:
+# {"type": "cite", "cited_text": "...", "document_index": 0,
+#  "start_char_offset": 1234, "end_char_offset": 1456}
+```
+
+### Tilnærming B: Haiku + Structured Output + Batch (anbefalt for logikk/dekning)
+
+| Egenskap | Verdi |
+|----------|-------|
+| Modell | Haiku 4.5 |
+| Citations | Nei — ingen kildetekst å sitere |
+| Structured output | Ja — garantert JSON |
+| Batch | Ja — 50% rabatt |
+| Kostnad | ~83% besparelse vs Sonnet standard |
+
+Logikksjekk og dekningssjekk bruker ikke Citations API uansett — de opererer på notatmarkdown og screeningsammendrag, ikke kildetekster. Her er structured output + batch den naturlige kombinasjonen.
+
+### Tilnærming C: Sonnet + Structured Output + Batch (fallback)
+
+Hvis Haiku-kvaliteten viser seg utilstrekkelig for logikk/dekning, faller vi tilbake til Sonnet med batch — 50% besparelse, garantert JSON.
+
+### Tilnærming D: Sonnet + Structured Output uten Batch (nåværende, minus buggen)
+
+Dagens tilnærming, men med bugfiks: fjern enten citations eller structured output fra `_verify_citations_with_api()`.
+
+---
+
+## Anbefalt strategi per QA-oppgave
+
+| QA-oppgave | Tilnærming | Modell | Citations | Structured | Batch | Besparelse |
+|------------|-----------|--------|-----------|-----------|-------|------------|
+| **Sitatverifisering** | A | Haiku | **Ja** | Nei | Ja | ~83% |
+| **Logikksjekk** | B | Haiku | Nei | **Ja** | Ja | ~83% |
+| **Dekningssjekk** | B | Haiku | Nei | **Ja** | Ja | ~83% |
+
+Nøkkelinnsikten: **ulike QA-oppgaver trenger ulike API-strategier**. Sitatsjekk trenger citations (maskinell matching), mens logikk/dekning trenger structured output (garantert JSON-klassifisering). Disse er gjensidig utelukkende per API-kall, men kan sendes som separate requests i samme batch.
 
 ---
 
@@ -88,28 +138,23 @@ For Haiku-delegering er begge stier aktuelle:
 | Synthesis | `synthesis.py` | **Lav** | **Nei** | Mest komplekse oppgaven — komposisjon og juridisk argumentasjon |
 | Chat | `chat.py` | **Lav** | **Nei** | Interaktiv sparring krever resonneringsdybde |
 
-### Tier 1: Klare Haiku-batch-kandidater
+### Tier 1: Klare Haiku-kandidater
 
-#### A. Alle tre QA-oppgaver → Haiku batch
+#### A. QA-oppgaver → Haiku (differensiert strategi)
 
 Alle tre QA-oppgaver er verifiseringsoppgaver med tydelige kriterier:
 
 ```
-Sitatverifisering: "Finnes dette sitatet ordrett i kildeteksten?"
-Logikksjekk:       "Følger konklusjon X logisk fra premiss Y?"
-Dekningssjekk:     "Er A-kandidat X behandlet i notatet?"
+Sitatverifisering: "Finnes dette sitatet ordrett i kildeteksten?" → Citations API
+Logikksjekk:       "Følger konklusjon X logisk fra premiss Y?"   → Structured output
+Dekningssjekk:     "Er A-kandidat X behandlet i notatet?"        → Structured output
 ```
 
-**Anbefaling**: Kjør alle 3 som Haiku-batch. Dagens effort er allerede `"medium"` — Sonnet med medium effort tilsvarer omtrent Haiku med high effort for denne typen oppgave.
-
-**Implementering**:
-- Legg til `model`-parameter i `build_batch_request()` / `call_claude_structured()`
-- QA-modulen sender `model="claude-haiku-4-5-20251001"` for alle 3 kall
-- Behold `effort="medium"` (eller vurder `"high"` for Haiku — marginal kostnad)
+Sitatsjekk bruker Citations API for maskinell matching — structured output er verken nødvendig eller mulig her. Logikk- og dekningssjekk bruker structured output for garantert JSON — de har ingen kildetekst å kjøre citations mot.
 
 #### B. Curation → Haiku (sanntid eller batch)
 
-Curation (`generate_curation`) identifiserer relevante avsnitt og markerer dem. Dette er enklere enn screening — ingen proposisjonsformulering, ingen relevansvurdering på tvers av saker.
+Curation (`generate_curation`) identifiserer relevante avsnitt og markerer dem. Enklere enn screening — ingen proposisjonsformulering, ingen relevansvurdering på tvers av saker.
 
 **Egenskaper**:
 - Input: Avsnitt fra én sak + problemstilling
@@ -117,18 +162,18 @@ Curation (`generate_curation`) identifiserer relevante avsnitt og markerer dem. 
 - Allerede `effort="medium"`
 - Resultater caches i `curation_cache` → feil kan korrigeres ved re-kjøring
 
-**Anbefaling**: Bytt til Haiku for curation. Curation kjøres per sak, så batch er naturlig ved forhåndsgenerering for flere saker.
+**Anbefaling**: Bytt til Haiku med structured output + batch for curation.
 
 ### Tier 2: Mulige Haiku-kandidater (krever evaluering)
 
 #### C. Scoping → Haiku (mulig)
 
-Scoping transformerer en uformell problemstilling til strukturert forskningsplan. Den krever kjennskap til norske anskaffelsesrettslige bestemmelser (FOA, LOA, EU-direktiver).
+Scoping transformerer en uformell problemstilling til strukturert forskningsplan. Krever kjennskap til norske anskaffelsesrettslige bestemmelser (FOA, LOA, EU-direktiver).
 
 **For**: Oppgaven er i bunn og grunn klassifisering — mapp problem til bestemmelser og søkestrategi.
-**Mot**: Feil i scoping forplanter seg gjennom hele analysen. Haiku kan ha svakere domene-kunnskap.
+**Mot**: Feil i scoping forplanter seg gjennom hele analysen. Haiku kan ha svakere domenekunnskap.
 
-**Anbefaling**: Test med eval-sett. Kjør 20 scoping-oppgaver med Haiku vs Sonnet, sammenlign bestemmelsesrefusjoner og sub-problem-kvalitet. Implementer kun hvis kvalitetsforskjellen er neglisjerbar.
+**Anbefaling**: Test med eval-sett. Kjør 20 scoping-oppgaver med Haiku vs Sonnet, sammenlign bestemmelsesreferanser og sub-problem-kvalitet.
 
 #### D. Post-search → Haiku (mulig)
 
@@ -145,46 +190,90 @@ Screening, cross-propositions, synthesis og chat forblir på Sonnet. Disse kreve
 
 ---
 
-## Batch-arkitektur for Haiku-oppgaver
+## Bugfiks: `qa.py:_verify_citations_with_api()`
+
+### Nåværende kode (linje 285–303)
+
+```python
+response = anthropic_client.messages.create(
+    model=CLAUDE_MODEL,
+    max_tokens=4000,
+    output_config={
+        "format": {
+            "type": "json_schema",
+            "schema": CITATION_QA_SCHEMA,  # ← Inkompatibelt med citations
+        },
+        "effort": "medium",
+    },
+    system=[...],
+    messages=[{"role": "user", "content": content_blocks}],  # ← content_blocks har citations enabled
+)
+```
+
+### Problem
+
+Kombinerer `output_config.format: json_schema` med `citations: {"enabled": True}` på document-blokker. Returnerer 400 ved kjøring.
+
+### Anbefalt fix
+
+Fjern `output_config.format` og parse citation-blokker direkte fra responsen:
+
+```python
+response = anthropic_client.messages.create(
+    model=HAIKU_MODEL,  # Bytt til Haiku
+    max_tokens=4000,
+    # Kun effort, ingen format (inkompatibelt med citations)
+    output_config={"effort": "medium"},
+    system=[...],
+    messages=[{"role": "user", "content": content_blocks}],
+)
+
+# Parse cite-blokker fra response.content
+citations = [block for block in response.content if block.type == "cite"]
+text_blocks = [block for block in response.content if block.type == "text"]
+```
+
+Citation-blokker gir `cited_text`, `document_index`, `start_char_offset`, `end_char_offset` — tilstrekkelig for å verifisere sitatnøyaktighet maskinelt.
+
+---
+
+## Batch-arkitektur
 
 ### Foreslått design
 
 ```
-┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
-│  QA pipeline     │    │  Curation batch  │    │  Screening      │
-│  (3 Haiku-kall)  │    │  (N Haiku-kall)  │    │  (N Sonnet-kall)│
-│  sitatsjekk      │    │  per sak i       │    │  (uendret)      │
-│  logikksjekk     │    │  analyse         │    │                 │
-│  dekningssjekk   │    │                  │    │                 │
-└────────┬────────┘    └────────┬─────────┘    └────────┬────────┘
-         │                      │                       │
-         ▼                      ▼                       ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                    submit_batch()                                │
-│  llm_utils.py — model parameter per request                     │
-│  Haiku-batch og Sonnet-batch kan sendes separat eller blandet   │
-└─────────────────────────────────────────────────────────────────┘
+┌─────────────────────────┐  ┌─────────────────────────┐  ┌─────────────────┐
+│  Sitatverifisering       │  │  Logikk + Dekning       │  │  Screening      │
+│  Haiku + Citations API   │  │  Haiku + Structured out  │  │  Sonnet + Batch │
+│  (ingen structured out)  │  │  (ingen citations)       │  │  (uendret)      │
+└──────────┬──────────────┘  └──────────┬──────────────┘  └────────┬────────┘
+           │                            │                          │
+           ▼                            ▼                          ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           submit_batch()                                    │
+│  llm_utils.py — model + format varierer per request i samme batch           │
+│  Batch API støtter både citations- og structured-requests side om side       │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ### Implementeringsendringer
 
-1. **`llm_utils.py`**: Legg til `model`-parameter i `build_batch_request()` og `call_claude_structured()` (default: `CLAUDE_MODEL`)
-2. **`qa.py`**: Sett `model=HAIKU_MODEL` for alle 3 QA-kall (både sanntid og batch)
-3. **`curation.py`**: Sett `model=HAIKU_MODEL`, legg til batch-støtte for bulk-curation
-4. **Ny konstant**: `HAIKU_MODEL = "claude-haiku-4-5-20251001"` i `llm_utils.py`
+1. **`llm_utils.py`**: Legg til `HAIKU_MODEL` konstant, `model`-parameter i `build_batch_request()` og `call_claude_structured()`
+2. **`qa.py` sitatsjekk**: Fjern `output_config.format`, behold Citations API, bytt til Haiku, legg til citation-block-parser
+3. **`qa.py` logikk+dekning**: Bytt til Haiku med structured output (uendret API-strategi, kun modellbytte)
+4. **`qa.py` batch-varianter**: Oppdater `_build_citation_batch_request()` til å bruke citations uten structured output
+5. **`curation.py`**: Bytt til Haiku med structured output + batch
 
 ### Kostnadssammendrag
 
-| Oppgave | Nåværende modell | Ny modell | Batch? | Estimert besparelse |
-|---------|-----------------|-----------|--------|---------------------|
-| Sitatverifisering | Sonnet | **Haiku** | Ja | ~83% |
-| Logikksjekk | Sonnet | **Haiku** | Ja | ~83% |
-| Dekningssjekk | Sonnet | **Haiku** | Ja | ~83% |
-| Curation | Sonnet/Gemini | **Haiku** | Ja (bulk) | ~83% |
-| Screening | Sonnet | Sonnet | Ja | ~50% (fra ADR-001) |
-| EU-screening | Sonnet | Sonnet | Ja | ~50% (fra ADR-001) |
-
-**Total estimert besparelse for QA + curation**: ~83% vs nåværende.
+| Oppgave | Nåværende | Ny strategi | Besparelse |
+|---------|-----------|-------------|------------|
+| Sitatverifisering | Sonnet (bugget) | Haiku + Citations + Batch | ~83% |
+| Logikksjekk | Sonnet | Haiku + Structured + Batch | ~83% |
+| Dekningssjekk | Sonnet | Haiku + Structured + Batch | ~83% |
+| Curation | Sonnet/Gemini | Haiku + Structured + Batch | ~83% |
+| Screening | Sonnet | Sonnet + Batch (ADR-001) | ~50% |
+| EU-screening | Sonnet | Sonnet + Batch (ADR-001) | ~50% |
 
 ---
 
@@ -192,15 +281,22 @@ Screening, cross-propositions, synthesis og chat forblir på Sonnet. Disse kreve
 
 | Risiko | Sannsynlighet | Konsekvens | Mitigering |
 |--------|--------------|------------|-----------|
-| Haiku gir lavere kvalitet på logikksjekk | Lav | Middels | Logikksjekk flagger problemer — false negatives betyr færre flagg, ikke feil flagg. Eval-sett for verifisering |
-| Haiku misser trunkerte sitater | Lav | Lav | Citations API håndterer matching. Haiku klassifiserer kun — tydelig prompt med eksempler |
-| Haiku-curation gir svakere highlights | Middels | Lav | Curation caches og kan re-kjøres. Brukeren ser highlights og vurderer selv |
-| Modellbytte krever API-kompatibilitetstesting | Lav | Lav | Haiku 4.5 bruker identisk API-format som Sonnet |
-| Batch API + Citations API inkompatibilitet | Middels | Middels | Bruk eksisterende batch-kodesti (XML-basert) for batch. Sanntids-fallback med Citations API |
+| Haiku gir lavere kvalitet på logikksjekk | Lav | Middels | Logikksjekk flagger problemer — false negatives betyr færre flagg, ikke feil. Eval-sett |
+| Citation-block-parsing er mer komplekst enn JSON-schema | Lav | Lav | Citation-blokker er veldefinert API-output med faste felter |
+| Haiku-fritekst for sitatsjekk er mindre presis enn structured | Middels | Lav | Citation-blokkene er hoveddataen — friteksten er supplement. Alternativt: prompt-basert JSON uten grammatisk tvang |
+| Haiku-curation gir svakere highlights | Middels | Lav | Curation caches og kan re-kjøres |
+| Batch-latens for QA (minutter vs sekunder) | Middels | Middels | QA er siste steg — brukeren venter allerede. Progressbar + polling |
+| Blanding av citations- og structured-requests i batch | Lav | Lav | Batch API behandler hver request uavhengig |
 
 ---
 
 ## Handlingsplan
+
+### Prioritet 0 — Bugfiks (kritisk)
+
+| # | Handling | Fil | Endring |
+|---|---------|-----|---------|
+| 0 | Fiks citations + structured output-kombinasjon | `qa.py` | Fjern `output_config.format` fra `_verify_citations_with_api()`, parse citation-blokker |
 
 ### Prioritet 1 — QA til Haiku (lav risiko, høy gevinst)
 
@@ -208,9 +304,9 @@ Screening, cross-propositions, synthesis og chat forblir på Sonnet. Disse kreve
 |---|---------|-----|---------|
 | 1 | Legg til `HAIKU_MODEL` konstant | `llm_utils.py` | `HAIKU_MODEL = "claude-haiku-4-5-20251001"` |
 | 2 | Legg til `model`-parameter | `llm_utils.py` | I `call_claude_structured()` og `build_batch_request()` |
-| 3 | QA sitatsjekk → Haiku | `qa.py` | Bruk `HAIKU_MODEL` i `_verify_citations_with_api()` |
-| 4 | QA logikk+dekning → Haiku | `qa.py` | Bruk `HAIKU_MODEL` i `_check_logical_consistency()` og `_check_coverage()` |
-| 5 | QA batch → Haiku | `qa.py` | Bruk `HAIKU_MODEL` i `_build_*_batch_request()` |
+| 3 | Sitatsjekk → Haiku + Citations (uten structured) | `qa.py` | Bytt modell, fjern json_schema, implementer citation-parser |
+| 4 | Logikk+dekning → Haiku + Structured | `qa.py` | Bytt modell, behold structured output |
+| 5 | Batch-varianter → Haiku | `qa.py` | Oppdater `_build_*_batch_request()` med riktig strategi per oppgave |
 
 ### Prioritet 2 — Curation til Haiku (middels risiko)
 
@@ -233,6 +329,8 @@ Screening, cross-propositions, synthesis og chat forblir på Sonnet. Disse kreve
 
 - [ADR-001: Anthropic API-optimalisering](001-anthropic-api-optimalisering.md)
 - [Citations API](https://docs.anthropic.com/en/docs/build-with-claude/citations)
+- [Structured outputs — inkompatibiliteter](https://platform.claude.com/docs/en/build-with-claude/structured-outputs)
 - [Batches API](https://docs.anthropic.com/en/docs/build-with-claude/batches)
+- [Create a Message Batch — API-referanse](https://docs.anthropic.com/en/api/creating-message-batches)
 - [Claude Haiku 4.5](https://docs.anthropic.com/en/docs/about-claude/models)
 - [Introducing Citations API](https://www.anthropic.com/news/introducing-citations-api)
