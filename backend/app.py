@@ -18,7 +18,7 @@ from cross_propositions import generate_cross_propositions, CrossPropositionsErr
 from eu_screening import identify_eu_cases, screen_eu_cases, screen_eu_cases_batch, process_eu_screening_batch_results, EuScreeningError
 from synthesis import generate_synthesis, update_synthesis, SynthesisError
 from qa import run_qa, submit_qa_batch, process_qa_batch_results, QAError
-from llm_utils import poll_batch_status
+from llm_utils import poll_batch_status, cancel_batch
 from chat import chat_stream, ChatError
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
@@ -427,6 +427,17 @@ def batch_status_route(analysis_id, batch_id):
         status = poll_batch_status(batch_id)
         return jsonify(status)
     except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/analyses/<analysis_id>/cancel-batch/<batch_id>", methods=["POST"])
+def cancel_batch_route(analysis_id, batch_id):
+    """Cancel a running batch."""
+    try:
+        result = cancel_batch(batch_id)
+        return jsonify(result)
+    except Exception as e:
+        logger.exception("cancel-batch failed")
         return jsonify({"error": str(e)}), 500
 
 

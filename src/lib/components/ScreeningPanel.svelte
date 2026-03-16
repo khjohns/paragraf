@@ -37,7 +37,7 @@
 
     if (claudeCases.length === 0) return;
 
-    screeningState.startScreeningBatch(claudeCases);
+    screeningState.startScreeningSSE(claudeCases);
   }
 
   const modes: { key: ScreeningMode; label: string }[] = [

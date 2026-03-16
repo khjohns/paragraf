@@ -10,6 +10,7 @@ import type {
   ScreeningResult,
 } from '$lib/types/analysis';
 import {
+  screenCases,
   submitScreeningBatch,
   submitEuScreeningBatch,
   submitQaBatch,
@@ -101,6 +102,39 @@ class ScreeningState {
 
   setStreamingEuCaseId(id: string | null) {
     this.streamingEuCaseId = id;
+  }
+
+  // ── SSE Screening ──
+
+  private screeningAbort: AbortController | null = null;
+
+  startScreeningSSE(sakNrs: string[]) {
+    this.screeningStarted = true;
+    this.deps.setStatus('screening');
+    toastState.show(`Screening startet — ${sakNrs.length} saker via SSE`, 'success');
+
+    this.screeningAbort = screenCases(
+      this.deps.getAnalysisId(),
+      sakNrs,
+      (result) => {
+        if (result.error) {
+          toastState.show(`Screening-feil: ${result.error}`, 'error');
+          return;
+        }
+        this.streamingSakNr = result.sak_nr;
+        this.addScreeningResult(result);
+      },
+      () => {
+        this.streamingSakNr = null;
+        this.screeningAbort = null;
+        toastState.show('Screening fullført', 'success');
+      },
+      (error) => {
+        this.streamingSakNr = null;
+        this.screeningAbort = null;
+        toastState.show(`Screening feilet: ${error}`, 'error');
+      }
+    );
   }
 
   // ── Batch methods ──

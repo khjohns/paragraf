@@ -72,8 +72,23 @@ Etter batch-bugfix og restart: kategori-togglene er nå visuelt tydelige (filled
 ### Frontend-redirect ved backend-restart ⚠️
 Ved backend-restart navigerte frontend kort til «ny analyse» før den omdirigerte til riktig side. Sannsynligvis en race condition i initial data-lasting.
 
-### Full traversal kjøres automatisk ved hvert sideload ⚠️ Ytelse
-Hver gang siden lastes kjøres `/api/traverse` på nytt — alle DB-spørringer mot kofa_law_references, search_kofa_decision_text (4 kall), Gemini embeddings, kofa_cases, kofa_law_references, kofa_case_references, kofa_eu_references, kofa_eu_case_law, kofa_forarbeider_law_refs. Dette er dyrt i produksjon og kan gi inkonsistente kandidatlister hvis databasen endrer seg. Vurder å cache traversal-resultater eller kun re-kjøre ved eksplisitt brukerhandling.
+### Frontend bruker feil traversal-endepunkt ⚠️ KRITISK BUG
+
+Frontend kaller `/api/traverse` (gammel rute, app.py:55) — **ikke** `/api/analyses/<id>/traverse` (ny rute, app.py:204). Den gamle ruten returnerer traversal-data men **persisterer ingenting** (ingen `persist_candidates`, ingen `update_analysis`).
+
+**Konsekvenser:**
+1. Kandidater lagres aldri i `analysis_candidates` → DB har 0 rader
+2. Screening PATCH-er 0 rader (candidates finnes ikke) → screening-resultater kastes
+3. Ved reload: hydrate finner ingenting i DB → tilbake til start
+4. Screening kjører mot Anthropic API og kaster bort pengene — resultatet lagres kun i frontend-minne
+
+**Fix:** Frontend må bruke `/api/analyses/<id>/traverse` i stedet for `/api/traverse`.
+
+### Full traversal kjøres 3 ganger ved sideload ⚠️ Ytelse
+
+Backend-loggen viser at `/api/traverse` kalles **tre separate ganger** ved én enkelt sideload. Hver kjøring utfører ~20 Supabase-spørringer (lovdata, FTS ×4, hybrid search, kofa_cases, law_refs, case_refs, eu_refs, eu_case_law, forarbeider ×5, lovdata_sections ×5).
+
+**Må fikses:** Traversal bør kun kjøres ved eksplisitt brukerhandling, ikke ved sideload. Kandidater skal hentes fra DB (som allerede er persistert via `/api/analyses/<id>/traverse`).
 
 ### Fremdriftsindikator ⚠️ (viser feil steg)
 - Steg 0 «Fremdrift» vises som fullført (svart fylt sirkel)
@@ -129,7 +144,39 @@ Batchen hos Anthropic fortsetter å kjøre, men frontend vet ikke om den.
 **Fix:** Persist `batch_id` til DB (`analyses.batch_id`). Ved sideload: sjekk om aktiv batch finnes og gjenoppta polling automatisk.
 **0% fremdrift** i UI er også fordi Batch API kun rapporterer succeeded/processing/errored-tellere, ikke per-request fremgang.
 
-### Neste: Start screening
+### Batch API er feil løsning for interaktiv analyse ⚠️ ARKITEKTURBESLUTNING
+
+Batch API har SLA på opptil 24 timer (typisk 15-60 min). For 26 A-saker tok det over 1 time uten å fullføre. Dette ødelegger arbeidsflyten — brukeren sitter og venter i stedet for å jobbe iterativt.
+
+**Konklusjon:** Batch API egner seg for bakgrunnsjobber (nattlig prosessering, bulk-migrering), **ikke** for interaktiv analyse der brukeren venter på resultater.
+
+**Anbefaling:** Bruk SSE-streaming (`/screen`) som primærmetode for screening. Parallelle kall (3-5 samtidige) gir resultater innen sekunder per sak, og brukeren ser fremdrift løpende. Batch API kan eventuelt tilbys som opt-in for store analyser brukeren vil kjøre over natten.
+
+### Klikk på sak trigger både screening-ekspansjon og kuratering ⚠️ UX-BUG
+
+Når bruker klikker på en screenet sak i listen skjer to ting samtidig:
+1. Screening-resultatet ekspanderes inline (ScreeningResultCard)
+2. Høyrepanelet åpnes og Gemini-kuratering starter automatisk
+
+**Problem:** Under screening-fasen bør klikk på en sak vise screening-resultatet — ikke starte en kostbar Gemini-kuratering. Kuratering hører til lese-/vurderings-fasen, ikke screening-fasen.
+
+**Mulig fix:** Deaktiver automatisk kuratering når `status` er `screening` eller `screening_complete`. Alternativt: la kuratering være opt-in (knapp) i stedet for automatisk ved sak-klikk.
+
+### Screening-resultater ✅ (26 A-saker via SSE)
+
+SSE-screening fullført for alle 26 A-saker. Propositions-upsert feilet for de 5 første (constraint manglet), lyktes for de 21 siste (etter migrasjon). **Men:** Ingen resultater lagret i DB — PATCH treffer 0 rader fordi candidates aldri ble INSERT-et (se «Frontend bruker feil traversal-endepunkt»).
+
+**Token-kostnad screening (26 saker):**
+| Metrikk | Verdi |
+|---------|-------|
+| Saker | 26 |
+| Totalt input | ~162k tokens |
+| Totalt output | ~30k tokens |
+| Kostnad | ~$0.92 |
+| Gjennomsnitt per sak | ~$0.035 |
+| Tid (SSE, 3 parallelle) | ~5 min |
+
+### Neste: Start screening (via SSE)
 
 ---
 

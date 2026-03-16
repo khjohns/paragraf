@@ -330,6 +330,16 @@ def poll_batch_status(batch_id: str) -> dict:
     }
 
 
+def cancel_batch(batch_id: str) -> dict:
+    """Cancel a running batch."""
+    client = get_anthropic_client()
+    batch = client.messages.batches.cancel(batch_id)
+    return {
+        "batch_id": batch.id,
+        "processing_status": batch.processing_status,
+    }
+
+
 def get_batch_results(batch_id: str, cost_tracker: CostTracker | None = None) -> dict[str, dict]:
     """Retrieve results from a completed batch.
 
