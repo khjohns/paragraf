@@ -245,13 +245,16 @@ def _load_screening_context(analysis_id: str) -> tuple[str, list[str], list[str]
 def screen_cases(
     analysis_id: str,
     sak_nrs: list[str],
-    max_parallel: int = int(os.environ.get("MAX_PARALLEL_SCREENING", "3")),
+    max_parallel: int | None = None,
 ):
     """Screen multiple cases in parallel, yielding results as they complete.
 
     Yields (sak_nr, result_dict) tuples. Each result is also persisted to DB.
     On error, yields (sak_nr, {"error": message}).
     """
+    if max_parallel is None:
+        max_parallel = int(os.environ.get("MAX_PARALLEL_SCREENING", "3"))
+
     problem, sub_problems, provisions = _load_screening_context(analysis_id)
 
     # Pre-fetch all case texts in a single DB query to avoid per-case fetches

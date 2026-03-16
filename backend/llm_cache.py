@@ -59,16 +59,17 @@ def set_cached(
                 "content_hash": content_hash,
                 "result_json": result,
             },
-            on_conflict="analysis_id,cache_type",
+            on_conflict="analysis_id,cache_type,content_hash",
         ).execute()
     except Exception as e:
         logger.warning("Cache write feilet (ikke kritisk): %s", e)
 
 
 def make_synthesis_hash(problem: str, candidates: list[dict], provisions: list[str]) -> str:
-    """Hash for synthesis cache — changes when problem, candidates, or provisions change."""
+    """Hash for synthesis cache — changes when problem, candidates, screening, or provisions change."""
     candidate_keys = sorted(
-        f"{c.get('sak_nr', '')}:{c.get('category', '')}" for c in candidates
+        f"{c.get('sak_nr', '')}:{c.get('category', '')}:{c.get('ai_screening', {}).get('proposition', '')}"
+        for c in candidates
     )
     return _make_hash(problem, json.dumps(candidate_keys), json.dumps(sorted(provisions)))
 

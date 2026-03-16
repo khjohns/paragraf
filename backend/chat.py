@@ -28,6 +28,9 @@ class ChatError(Exception):
 # Max chars for synthesis note truncation in chat context
 CHAT_SYNTHESIS_TRUNCATE = int(os.environ.get("CHAT_SYNTHESIS_TRUNCATE", "3000"))
 
+# Reusable executor for parallel DB queries (avoids per-request thread creation)
+_db_executor = ThreadPoolExecutor(max_workers=3)
+
 
 def _parse_screening(raw) -> dict | None:
     """Parse ai_screening field which may be a JSON string or dict."""
@@ -98,14 +101,13 @@ def _load_chat_context(analysis_id: str) -> str:
         )
         return doc[0]["content"] if doc else None
 
-    with ThreadPoolExecutor(max_workers=3) as executor:
-        candidates_future = executor.submit(_fetch_candidates)
-        propositions_future = executor.submit(_fetch_propositions)
-        note_future = executor.submit(_fetch_synthesis_note)
+    candidates_future = _db_executor.submit(_fetch_candidates)
+    propositions_future = _db_executor.submit(_fetch_propositions)
+    note_future = _db_executor.submit(_fetch_synthesis_note)
 
-        candidates = candidates_future.result()
-        propositions = propositions_future.result()
-        synthesis_note = note_future.result()
+    candidates = candidates_future.result()
+    propositions = propositions_future.result()
+    synthesis_note = note_future.result()
 
     # Build context string
     parts = []
