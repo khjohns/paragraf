@@ -409,6 +409,63 @@ def _build_and_persist_qa_report(
     return report
 
 
+def verify_screening_citations(analysis_id: str) -> dict:
+    """Pre-synthesis citation verification on screening quotes.
+
+    Fetches screened candidates, extracts their quotes, verifies against
+    source text using Citations API with Haiku. Returns verification report
+    and persists quote_verification on each candidate's ai_screening jsonb.
+    """
+    client = get_client()
+
+    candidates = (
+        client.table("analysis_candidates")
+        .select("sak_nr, category, ai_screening")
+        .eq("analysis_id", analysis_id)
+        .not_.is_("ai_screening", "null")
+        .order("category")
+        .execute()
+        .data
+    ) or []
+
+    # Filter to A and B categories (same as _fetch_source_texts importance filter)
+    ab_candidates = [c for c in candidates if c.get("category") in ("A", "B")]
+
+    if not ab_candidates:
+        return {"verified_quotes": [], "summary": "Ingen A/B-kandidater å verifisere."}
+
+    logger.info(
+        "Pre-synthesis citation verification for analysis %s (%d A/B candidates)",
+        analysis_id,
+        len(ab_candidates),
+    )
+
+    # Reuse existing verification — pass empty note_markdown (not needed pre-synthesis)
+    result = _verify_citations_with_api(ab_candidates, "")
+
+    # Persist quote_verification per candidate
+    verified_quotes = result.get("verified_quotes", [])
+    if verified_quotes:
+        # Group results by sak_nr
+        per_case: dict[str, list[dict]] = {}
+        for vq in verified_quotes:
+            sak_nr = vq.get("sak_nr")
+            if sak_nr:
+                per_case.setdefault(sak_nr, []).append(vq)
+
+        for candidate in ab_candidates:
+            sak_nr = candidate["sak_nr"]
+            if sak_nr not in per_case:
+                continue
+            existing_screening = candidate.get("ai_screening") or {}
+            updated_screening = {**existing_screening, "quote_verification": per_case[sak_nr]}
+            client.table("analysis_candidates").update({
+                "ai_screening": updated_screening,
+            }).eq("analysis_id", analysis_id).eq("sak_nr", sak_nr).execute()
+
+    return result
+
+
 def run_qa(analysis_id: str) -> dict:
     """Run full QA on the synthesis note.
 

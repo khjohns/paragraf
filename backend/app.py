@@ -17,7 +17,7 @@ from post_search import generate_post_search, PostSearchError
 from cross_propositions import generate_cross_propositions, CrossPropositionsError
 from eu_screening import identify_eu_cases, screen_eu_cases, screen_eu_cases_batch, process_eu_screening_batch_results, EuScreeningError
 from synthesis import generate_synthesis, update_synthesis, SynthesisError
-from qa import run_qa, submit_qa_batch, process_qa_batch_results, QAError
+from qa import run_qa, submit_qa_batch, process_qa_batch_results, verify_screening_citations, QAError
 from llm_utils import poll_batch_status, cancel_batch
 from chat import chat_stream, ChatError
 
@@ -369,6 +369,20 @@ def qa_route(analysis_id):
         update_analysis(analysis_id, {"status": "qa"})
         return jsonify(result)
     except QAError as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/analyses/<analysis_id>/verify-citations", methods=["POST"])
+def verify_citations_route(analysis_id):
+    """Pre-synthesis citation verification on screening quotes."""
+    try:
+        result = verify_screening_citations(analysis_id)
+        update_analysis(analysis_id, {"status": "screening_complete"})
+        return jsonify(result)
+    except QAError as e:
+        return jsonify({"error": str(e)}), 500
+    except Exception as e:
+        logger.exception("verify-citations failed")
         return jsonify({"error": str(e)}), 500
 
 
