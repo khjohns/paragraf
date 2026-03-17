@@ -1,10 +1,13 @@
-"""Synthesis — Sprint 15.
+"""Synthesis — Sprint 15 + agentisk syntese (ADR-004 Fase 1).
 
 Generates a legal analysis note (notatutkast) from screening results,
 proposition registry, notes, and EU case summaries. Uses capsule compression
-to stay within token budget.
+to stay within token budget. Agentic loop lets Claude fetch additional case
+paragraphs on-demand via tool use.
 """
+import json as json_module
 import logging
+import time
 
 from db import get_client
 from llm_cache import get_cached, set_cached, make_synthesis_hash
@@ -12,6 +15,11 @@ from llm_utils import (
     call_claude_structured,
     load_analysis_context,
     format_sub_problems,
+    get_anthropic_client,
+    build_output_config,
+    log_usage,
+    CostTracker,
+    CLAUDE_MODEL,
 )
 
 logger = logging.getLogger(__name__)
@@ -130,6 +138,13 @@ bestemmelsespar som ikke er dekket? Tidsmessige hull?
 </task>
 </instructions>
 
+<tools_guidance>
+Du har tilgang til verktøy for å hente mer kontekst ved behov. Bruk dem sparsomt:
+- Hent avsnitt kun når capsule-sammendraget mangler nyanser du trenger for analysen
+- Prioriter B- og C-saker der du ser potensielt viktige poenger i komprimeringen
+- Maks 3-5 tool-kall per syntese — start med det du har, hent kun det som mangler
+</tools_guidance>
+
 <formatting_rules>
 - Skriv alltid på norsk (bokmål)
 - Bruk akademisk juridisk stil — presis, nøktern, ikke-konkluderende
@@ -137,6 +152,236 @@ bestemmelsespar som ikke er dekket? Tidsmessige hull?
 - Marker AI-generert vurdering tydelig vs. gjennomgang av praksis
 - Marker seksjoner der juristen må bidra med [JURISTENS VURDERING]
 </formatting_rules>"""
+
+
+SYNTHESIS_TOOLS = [
+    {
+        "name": "fetch_case_paragraphs",
+        "description": (
+            "Hent spesifikke avsnitt fra en KOFA-avgjørelse. Bruk dette når "
+            "capsule-sammendraget ikke gir nok detaljer — f.eks. for å verifisere "
+            "et juridisk poeng, sammenligne faktum, eller forstå nyanser i "
+            "klagenemndas resonnement. Send null for paragraph_nrs for å "
+            "hente alle avsnitt (maks 50)."
+        ),
+        "strict": True,
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "sak_nr": {
+                    "type": "string",
+                    "description": "Saksnummer, f.eks. '2023/456'",
+                },
+                "paragraph_nrs": {
+                    "type": ["array", "null"],
+                    "items": {"type": "integer"},
+                    "description": (
+                        "Spesifikke avsnittsnumre å hente. "
+                        "Null for å hente alle avsnitt (maks 50)."
+                    ),
+                },
+            },
+            "required": ["sak_nr", "paragraph_nrs"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "fetch_provision_cases",
+        "description": (
+            "Hent liste over KOFA-saker som refererer til en spesifikk "
+            "lovbestemmelse. Bruk for å sjekke om det finnes relevante saker "
+            "du ikke har sett i capsule-dataene."
+        ),
+        "strict": True,
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "dok_id": {
+                    "type": "string",
+                    "description": "Lovnavn/alias, f.eks. 'anskaffelsesforskriften'",
+                },
+                "section_id": {
+                    "type": "string",
+                    "description": "Paragraf-ID, f.eks. '§ 7-9'",
+                },
+            },
+            "required": ["dok_id", "section_id"],
+            "additionalProperties": False,
+        },
+    },
+]
+
+MAX_TOOL_TURNS = 5
+
+
+# ---------------------------------------------------------------------------
+# Tool dispatch helpers for agentic loop
+# ---------------------------------------------------------------------------
+
+
+def _fetch_paragraphs(sak_nr: str, paragraph_nrs: list[int] | None) -> dict:
+    """Fetch specific paragraphs from a KOFA decision. Tool handler.
+
+    Returns {"sak_nr": ..., "paragraphs": [{"nr": int, "text": str}, ...]}.
+    paragraph_nrs=None means all paragraphs (max 50).
+    """
+    client = get_client()
+    q = (
+        client.table("kofa_decision_text")
+        .select("paragraph_number, text")
+        .eq("sak_nr", sak_nr)
+        .order("paragraph_number")
+        .limit(50)
+    )
+    if paragraph_nrs:
+        q = q.in_("paragraph_number", paragraph_nrs)
+    rows = q.execute().data or []
+    return {
+        "sak_nr": sak_nr,
+        "paragraphs": [{"nr": r["paragraph_number"], "text": r["text"]} for r in rows],
+    }
+
+
+def _fetch_provision_cases_tool(dok_id: str, section_id: str) -> dict:
+    """Fetch cases referencing a provision. Tool handler.
+
+    Returns {"dok_id": ..., "section_id": ..., "total": int, "cases": [...]}.
+    dok_id is the law alias (e.g. 'anskaffelsesforskriften') which maps to
+    kofa_law_references.law_name. Reuses _fetch_referencing_cases from provisions.py.
+    """
+    from provisions import _fetch_referencing_cases
+    client = get_client()
+    total, cases = _fetch_referencing_cases(client, dok_id, section_id)
+    return {
+        "dok_id": dok_id,
+        "section_id": section_id,
+        "total": total,
+        "cases": cases,
+    }
+
+
+def _execute_tool(name: str, tool_input: dict) -> dict:
+    """Dispatch a tool call to the appropriate handler."""
+    if name == "fetch_case_paragraphs":
+        return _fetch_paragraphs(tool_input["sak_nr"], tool_input["paragraph_nrs"])
+    elif name == "fetch_provision_cases":
+        return _fetch_provision_cases_tool(tool_input["dok_id"], tool_input["section_id"])
+    raise ValueError(f"Unknown tool: {name}")
+
+
+# ---------------------------------------------------------------------------
+# Agentic loop (ADR-004 Fase 1 — blocking, no streaming)
+# ---------------------------------------------------------------------------
+
+
+def _run_agentic_loop(
+    user_message: str,
+    analysis_id: str,
+) -> dict:
+    """Run an agentic synthesis loop with tool use.
+
+    Returns the structured synthesis result dict with _llm_meta.
+    Raises SynthesisError on failure.
+    """
+    client = get_anthropic_client()
+    messages = [{"role": "user", "content": user_message}]
+    cost_tracker = CostTracker()
+    tools_called = []
+    t0 = time.monotonic()
+
+    for turn in range(1, MAX_TOOL_TURNS + 1):
+        t_turn = time.monotonic()
+        response = client.messages.create(
+            model=CLAUDE_MODEL,
+            max_tokens=12000,
+            output_config=build_output_config(
+                schema=SYNTHESIS_SCHEMA, effort="high", model=CLAUDE_MODEL,
+            ),
+            tools=SYNTHESIS_TOOLS,
+            system=[{
+                "type": "text",
+                "text": SYNTHESIS_SYSTEM_PROMPT,
+                "cache_control": {"type": "ephemeral"},
+            }],
+            messages=messages,
+        )
+        elapsed_turn = int((time.monotonic() - t_turn) * 1000)
+
+        cost_tracker.add(
+            f"Synthesis/{analysis_id}/turn-{turn}",
+            CLAUDE_MODEL,
+            response.usage,
+            elapsed_ms=elapsed_turn,
+        )
+
+        # Append assistant response to message history
+        messages.append({"role": "assistant", "content": response.content})
+
+        if response.stop_reason == "end_turn":
+            # Extract structured JSON from the last text block
+            text = next(
+                (b.text for b in response.content if hasattr(b, "text")),
+                None,
+            )
+            if not text:
+                raise SynthesisError("Agentisk loop ga ingen tekst-output")
+
+            result = json_module.loads(text)
+
+            # Build _llm_meta with agentic-specific info
+            total_elapsed = int((time.monotonic() - t0) * 1000)
+            result["_llm_meta"] = {
+                "model": CLAUDE_MODEL,
+                "total_turns": turn,
+                "tools_called": tools_called,
+                "cost_usd": round(cost_tracker.total_cost, 6),
+                "elapsed_ms": total_elapsed,
+                "agentic": True,
+            }
+            logger.info(
+                "Agentic synthesis complete: %d turns, %d tool calls, $%.4f, %.1fs",
+                turn, len(tools_called), cost_tracker.total_cost,
+                total_elapsed / 1000,
+            )
+            return result
+
+        if response.stop_reason == "tool_use":
+            tool_results = []
+            for block in response.content:
+                if block.type == "tool_use":
+                    logger.info(
+                        "Synthesis tool call: %s(%s)",
+                        block.name,
+                        json_module.dumps(block.input, ensure_ascii=False)[:200],
+                    )
+                    try:
+                        tool_result = _execute_tool(block.name, block.input)
+                        content = json_module.dumps(tool_result, ensure_ascii=False)
+                    except Exception as e:
+                        logger.error("Tool execution failed: %s", e)
+                        content = json_module.dumps({"error": str(e)})
+
+                    tools_called.append({
+                        "turn": turn,
+                        "tool": block.name,
+                        "input": block.input,
+                        "success": "error" not in content,
+                    })
+                    tool_results.append({
+                        "type": "tool_result",
+                        "tool_use_id": block.id,
+                        "content": content,
+                    })
+
+            messages.append({"role": "user", "content": tool_results})
+            continue
+
+        # Unexpected stop_reason
+        logger.warning("Unexpected stop_reason: %s", response.stop_reason)
+        raise SynthesisError(f"Uventet stop_reason: {response.stop_reason}")
+
+    # Exhausted max turns without end_turn
+    raise SynthesisError(f"Agentisk loop nådde maks {MAX_TOOL_TURNS} turns uten sluttresultat")
 
 
 # Rough token estimates per character (for Norwegian legal text)
@@ -345,18 +590,26 @@ Skriv et strukturert notatutkast som organiserer funnene fra screening og \
 rettssetningsregisteret. Marker seksjoner der juristen må bidra med egne \
 vurderinger med [JURISTENS VURDERING]."""
 
+    # Try agentic loop, fall back to single-shot on failure
     try:
-        result = call_claude_structured(
-            system_prompt=SYNTHESIS_SYSTEM_PROMPT,
-            user_message=user_message,
-            schema=SYNTHESIS_SCHEMA,
-            max_tokens=12000,
-            effort="high",
-            log_label=f"Synthesis for {analysis_id}",
-        )
+        result = _run_agentic_loop(user_message, analysis_id)
     except Exception as e:
-        logger.error("Syntese LLM-kall feilet for analyse %s: %s", analysis_id, e)
-        raise SynthesisError(f"LLM-kall feilet under syntese: {e}") from e
+        logger.warning(
+            "Agentic synthesis failed for %s, falling back to single-shot: %s",
+            analysis_id, e,
+        )
+        try:
+            result = call_claude_structured(
+                system_prompt=SYNTHESIS_SYSTEM_PROMPT,
+                user_message=user_message,
+                schema=SYNTHESIS_SCHEMA,
+                max_tokens=12000,
+                effort="high",
+                log_label=f"Synthesis fallback for {analysis_id}",
+            )
+        except Exception as e2:
+            logger.error("Synthesis fallback also failed for %s: %s", analysis_id, e2)
+            raise SynthesisError(f"Syntese feilet: {e2}") from e2
 
     # Convert structured response to markdown for persistence
     markdown = _to_markdown(result)
@@ -371,6 +624,14 @@ vurderinger med [JURISTENS VURDERING]."""
         },
         on_conflict="analysis_id,doc_type",
     ).execute()
+
+    # Increment total_cost_usd on the analysis
+    cost = (result.get("_llm_meta") or {}).get("cost_usd", 0)
+    if cost:
+        client.rpc("increment_total_cost", {
+            "analysis_id_input": analysis_id,
+            "cost_increment": cost,
+        }).execute()
 
     result["markdown"] = markdown
     set_cached(analysis_id, "synthesis", content_hash, result)

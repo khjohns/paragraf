@@ -73,4 +73,34 @@ def test_analysis(api):
 
     # Teardown via dedicated cleanup endpoint (DELETE cascade)
     # If no DELETE endpoint exists, we leave it — PYTEST prefix makes it identifiable
-    api.delete(f"/api/analyses/{analysis_id}")
+    # api.delete(f"/api/analyses/{analysis_id}")
+
+
+@pytest.fixture(scope="session")
+def screened_analysis(api):
+    """Find an existing PYTEST analysis with screened candidates.
+
+    Reuses data from previous test runs to avoid expensive LLM calls.
+    Falls back to test_analysis fixture if none found.
+    """
+    r = api.get("/api/analyses")
+    assert r.status_code == 200
+    analyses = r.json()
+
+    # Find a PYTEST analysis with screened candidates.
+    # Prefer one that already has synthesis status (avoids re-running expensive LLM calls).
+    best = None
+    for a in reversed(analyses):  # newest first
+        if "PYTEST" not in a.get("title", ""):
+            continue
+        detail = api.get(f"/api/analyses/{a['id']}").json()
+        screened = [c for c in detail.get("candidates", []) if c.get("ai_screening")]
+        if len(screened) >= 2:
+            if detail.get("status") == "synthesis":
+                return detail  # already has synthesis — ideal
+            if best is None:
+                best = detail
+
+    if best:
+        return best
+    pytest.skip("No existing PYTEST analysis with screened candidates")

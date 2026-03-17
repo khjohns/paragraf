@@ -191,9 +191,9 @@ class CostTracker:
     def __init__(self):
         self.entries: list[dict] = []
 
-    def add(self, label: str, model: str, usage, is_batch: bool = False) -> float:
+    def add(self, label: str, model: str, usage, is_batch: bool = False, elapsed_ms: int | None = None) -> float:
         """Log usage and track cost. Returns cost in USD."""
-        cost = log_usage(usage, model, label, is_batch)
+        cost = log_usage(usage, model, label, is_batch, elapsed_ms=elapsed_ms)
         self.entries.append({
             "label": label,
             "model": model,
