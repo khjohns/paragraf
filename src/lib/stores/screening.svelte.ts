@@ -267,6 +267,10 @@ class ScreeningState {
     }
     this.screeningStatus = status;
     this.screeningResults = results;
+    // If any candidates have been screened, mark screening as started
+    if (Object.keys(results).length > 0) {
+      this.screeningStarted = true;
+    }
   }
 
   // ── Private polling internals ──
