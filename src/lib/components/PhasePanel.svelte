@@ -1,7 +1,7 @@
 <script lang="ts">
   import { analysisState } from '$lib/stores/analysis.svelte';
   import { pipelineState } from '$lib/stores/pipeline.svelte';
-  import { uiState, type ProcessView } from '$lib/stores/ui.svelte';
+  import { uiState } from '$lib/stores/ui.svelte';
   import { screeningState } from '$lib/stores/screening.svelte';
   import ScreeningPanel from './ScreeningPanel.svelte';
   import PostSearchPanel from './PostSearchPanel.svelte';
@@ -47,21 +47,18 @@
       label: 'Problem',
       state: sn > 1 ? 'done' : status === 'scoping' ? 'active' : 'pending',
       detail: sn > 1 ? 'definert' : null,
-      processView: 'context' as ProcessView,
     },
     {
       num: 2,
       label: 'Kandidater',
       state: sn > 2 ? 'done' : sn === 2 ? 'active' : 'pending',
       detail: totalCases > 0 ? `${totalCases} saker` : null,
-      processView: 'context' as ProcessView,
     },
     {
       num: 3,
       label: 'Screening',
       state: sn > 3 ? 'done' : sn === 3 ? 'active' : 'pending',
       detail: sn >= 3 && totalCases > 0 ? `${screenedCount + readCount}/${totalCases}` : null,
-      processView: null as ProcessView, // controls shown in-panel below
     },
     {
       num: 4,
@@ -74,7 +71,6 @@
       detail: pipelineState.synthesisResult
         ? `${pipelineState.synthesisResult.sections.length} seksjoner`
         : null,
-      processView: 'synthesis-review' as ProcessView,
       children: pipelineState.qaReport
         ? [
             {
@@ -90,25 +86,20 @@
     },
   ]);
 
-  function handlePhaseClick(processView: ProcessView) {
-    if (!processView) return;
-    // Always open — closing via "← Tilbake" in process view or ContextStrip
-    uiState.setProcessView(processView);
+  function handlePhaseClick(phaseNum: number) {
+    uiState.setPhase(phaseNum);
   }
 </script>
 
 <div class="phase-panel">
   <nav class="phases">
     {#each phases as phase}
-      {@const isActiveView =
-        uiState.activeProcessView === phase.processView && phase.processView !== null}
+      {@const isActiveTab = uiState.activePhase === phase.num}
       <button
         class="phase-row"
-        class:active-view={isActiveView}
-        class:clickable={phase.processView !== null}
-        class:current={phase.state === 'active'}
-        onclick={() => handlePhaseClick(phase.processView)}
-        disabled={phase.processView === null}
+        class:active-view={isActiveTab}
+        class:clickable={true}
+        onclick={() => handlePhaseClick(phase.num)}
       >
         <span class="phase-label">{phase.label}</span>
         <span class="phase-status">
@@ -209,18 +200,12 @@
   .phase-row.active-view {
     background: var(--p-active);
   }
-  .phase-row.current {
-    border-left: 2px solid var(--p-kofa-accent);
-    padding-left: 6px;
-  }
-
   .phase-label {
     font-size: 12px;
     font-weight: 500;
     color: var(--p-ink2);
   }
-  .phase-row.active-view .phase-label,
-  .phase-row.current .phase-label {
+  .phase-row.active-view .phase-label {
     color: var(--p-ink);
     font-weight: 600;
   }

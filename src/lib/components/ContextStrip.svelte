@@ -1,6 +1,5 @@
 <script lang="ts">
   import { analysisState } from '$lib/stores/analysis.svelte';
-  import { uiState } from '$lib/stores/ui.svelte';
   import { formatProvision } from '$lib/utils/provisions';
 
   let readCount = $derived(Object.values(analysisState.analysis.readStatus).filter(Boolean).length);
@@ -11,22 +10,9 @@
       ? formatProvision(analysisState.analysis.seeds.provisions[0])
       : null
   );
-
-  function openContext() {
-    if (uiState.activeProcessView === 'context') {
-      uiState.clearProcessView();
-    } else {
-      uiState.setProcessView('context');
-    }
-  }
 </script>
 
-<button
-  class="context-strip"
-  class:active={uiState.activeProcessView === 'context'}
-  onclick={openContext}
->
-  <span class="chevron">{uiState.activeProcessView === 'context' ? '▾' : '▸'}</span>
+<div class="context-strip">
   {#if primaryProvision}
     <span class="strip-provision">{primaryProvision}</span>
     {#if analysisState.analysis.problemStatement}
@@ -48,39 +34,18 @@
   {#if analysisState.analysis.iteration > 1}
     <span class="strip-iter">Iter. {analysisState.analysis.iteration}</span>
   {/if}
-</button>
+</div>
 
 <style>
   .context-strip {
-    all: unset;
-    cursor: pointer;
     display: flex;
     align-items: center;
     gap: 8px;
     padding: 7px 16px;
-    width: 100%;
-    box-sizing: border-box;
     font-size: 12px;
     color: var(--p-ink2);
     border-bottom: 1px solid rgba(26, 24, 20, 0.08);
     background: var(--p-panel);
-    flex-shrink: 0;
-    transition: background 0.1s ease;
-  }
-  .context-strip:hover {
-    background: var(--p-hover);
-  }
-  .context-strip:active {
-    background: var(--p-active);
-  }
-  .context-strip.active {
-    background: var(--p-active);
-    border-bottom-color: rgba(26, 24, 20, 0.13);
-  }
-
-  .chevron {
-    font-size: 10px;
-    color: var(--p-ink4);
     flex-shrink: 0;
   }
   .strip-provision {

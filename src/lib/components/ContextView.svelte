@@ -1,6 +1,6 @@
 <script lang="ts">
   import { analysisState } from '$lib/stores/analysis.svelte';
-  import { uiState } from '$lib/stores/ui.svelte';
+
   import { formatProvision } from '$lib/utils/provisions';
   import SeedInput from './SeedInput.svelte';
   import CategoryBadge from './CategoryBadge.svelte';
@@ -12,9 +12,6 @@
 
 <div class="context-view">
   <div class="process-header">
-    <button class="back-btn" onclick={() => uiState.clearProcessView()}
-      >← Tilbake til arbeidsrom</button
-    >
     <span class="process-title">Søkeoppsett</span>
     <span class="header-spacer"></span>
     {#if !editing}
@@ -341,20 +338,6 @@
     border-bottom: 1px solid var(--p-border-m);
     background: var(--p-panel);
     flex-shrink: 0;
-  }
-  .back-btn {
-    all: unset;
-    cursor: pointer;
-    font-size: 12px;
-    color: var(--p-ink3);
-    font-weight: 500;
-    padding: 4px 8px;
-    border-radius: var(--radius-md);
-    transition: all 0.1s ease;
-  }
-  .back-btn:hover {
-    color: var(--p-ink);
-    background: var(--p-hover);
   }
   .process-title {
     font-size: 13px;

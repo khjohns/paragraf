@@ -15,6 +15,8 @@ class UiState {
   graphCategoryFilter = $state<Set<string>>(new Set()); // empty = show all
   graphTypeFilter = $state<Set<string>>(new Set()); // empty = show all
   activeProcessView = $state<ProcessView>(null);
+  /** Active phase tab (1=Problem, 2=Kandidater, 3=Screening/workspace, 4=Syntese) */
+  activePhase = $state(3);
 
   private toggleSetFilter(field: 'graphCategoryFilter' | 'graphTypeFilter', value: string) {
     const next = new Set(this[field]);
@@ -97,6 +99,19 @@ class UiState {
 
   clearProcessView() {
     this.activeProcessView = null;
+    this.activePhase = 3;
+  }
+
+  /** Navigate to a phase tab. Sets both activePhase and the corresponding processView. */
+  setPhase(phase: number) {
+    this.activePhase = phase;
+    if (phase === 1 || phase === 2) {
+      this.activeProcessView = 'context';
+    } else if (phase === 4) {
+      this.activeProcessView = 'synthesis-review';
+    } else {
+      this.activeProcessView = null; // phase 3 = workspace
+    }
   }
 }
 
