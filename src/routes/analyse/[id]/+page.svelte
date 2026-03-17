@@ -8,7 +8,7 @@
   import PropositionRegistry from '$lib/components/PropositionRegistry.svelte';
   import SynthesisView from '$lib/components/SynthesisView.svelte';
   import SynthesisProcessView from '$lib/components/SynthesisProcessView.svelte';
-  import ScreeningDelegation from '$lib/components/ScreeningDelegation.svelte';
+  import ContextView from '$lib/components/ContextView.svelte';
   import ChatDrawer from '$lib/components/ChatDrawer.svelte';
   import NodeDetail from '$lib/components/NodeDetail.svelte';
   import ScopingOverlay from '$lib/components/ScopingOverlay.svelte';
@@ -86,8 +86,8 @@
     {#snippet middlePanel()}
       {#if uiState.activeProcessView === 'synthesis-review'}
         <SynthesisProcessView />
-      {:else if uiState.activeProcessView === 'screening-delegation'}
-        <ScreeningDelegation />
+      {:else if uiState.activeProcessView === 'context'}
+        <ContextView />
       {:else}
         <Toolbar />
         <div class="middle-content">
