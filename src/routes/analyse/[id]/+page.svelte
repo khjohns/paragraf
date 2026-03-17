@@ -45,7 +45,7 @@
       cases: analysisState.analysis.seeds.cases,
       regulationFilter: uiState.regulationFilter ? 'new' : 'all',
     },
-    enabled: !hydrated || analysisState.nodes.length === 0,
+    enabled: hydrated && analysisState.nodes.length === 0,
   }));
 
   // Sync query results to store (untrack prevents cascading state updates)

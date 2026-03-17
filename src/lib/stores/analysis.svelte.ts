@@ -271,6 +271,22 @@ class AnalysisState {
     this.totalCostUsd = data.total_cost_usd ?? 0;
     this.citationSummary = data.citation_summary ?? null;
 
+    // Restore nodes/edges from localStorage (not in DB response)
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const cached = JSON.parse(raw);
+        if (cached.nodes) {
+          this.nodes = cached.nodes;
+          this.previousNodeIds = new Set(cached.nodes.map((n: GraphNode) => n.id));
+        }
+        if (cached.edges) this.edges = cached.edges;
+        if (cached.gaps) this.gaps = cached.gaps;
+      }
+    } catch {
+      // Corrupt localStorage — nodes will be empty, traversal query will re-fetch
+    }
+
     // Delegate screening hydration
     screeningState.reset();
     screeningState.loadFromCandidates(data.candidates);
