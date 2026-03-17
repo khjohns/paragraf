@@ -47,14 +47,14 @@
       label: 'Problem',
       state: sn > 1 ? 'done' : status === 'scoping' ? 'active' : 'pending',
       detail: sn > 1 ? 'definert' : null,
-      processView: 'context' as ProcessView,
+      processView: null as ProcessView,
     },
     {
       num: 2,
       label: 'Kandidater',
       state: sn > 2 ? 'done' : sn === 2 ? 'active' : 'pending',
       detail: totalCases > 0 ? `${totalCases} saker` : null,
-      processView: 'context' as ProcessView,
+      processView: null as ProcessView,
     },
     {
       num: 3,
@@ -242,7 +242,6 @@
   .status-active {
     font-size: 11px;
     color: var(--p-kofa-accent);
-    animation: pulse 1.2s ease-in-out infinite;
   }
   .status-detail {
     font-size: 10px;
@@ -270,16 +269,6 @@
   }
   .sub-icon.warning {
     color: var(--p-warn);
-  }
-
-  @keyframes pulse {
-    0%,
-    100% {
-      opacity: 1;
-    }
-    50% {
-      opacity: 0.4;
-    }
   }
 
   /* Phase-contextual controls */
