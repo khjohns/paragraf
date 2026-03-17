@@ -146,6 +146,10 @@ createQuery(() => ({
 - Persistering: localStorage (debounced 500ms) + Supabase DB (debounced 1s)
 - UI-tilstand i `uiState`, innholdstilstand i `analysisState` — to separate stores
 
+## Codegrasp
+
+Bruk `mcp__codegrasp__get_session_context` ved start av ny sesjon for å hente observasjoner fra forrige sesjon. Bruk `mcp__codegrasp__save_observation` for å dokumentere invarianter, subtile bugs og design-valg — lenk til symboler med `linked_symbols`.
+
 ## Deployment
 
 - GCP Cloud Run: `paragraf` service, `europe-north1`, min-instances=0
