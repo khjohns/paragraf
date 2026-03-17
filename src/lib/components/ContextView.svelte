@@ -7,6 +7,7 @@
 
   let editing = $state(false);
   let zeroGaps = $derived(analysisState.gaps.filter((g) => g.count === 0));
+  let nonZeroGaps = $derived(analysisState.gaps.filter((g) => g.count > 0));
 </script>
 
 <div class="context-view">
@@ -21,31 +22,54 @@
     {/if}
   </div>
 
-  <div class="context-content">
-    <div class="context-grid">
-      <!-- Left: Problem + Seeds -->
-      <div class="context-left">
-        {#if analysisState.analysis.problemStatement}
-          <div class="ctx-section">
-            <div class="ctx-label">Problemstilling</div>
-            <div class="ctx-text">{analysisState.analysis.problemStatement}</div>
+  <div class="context-scroll">
+    <div class="context-flow">
+      <!-- 1. Problem — the hero -->
+      <section class="card">
+        <div class="card-label">Problemstilling</div>
+        <p class="card-desc">
+          Det juridiske spørsmålet denne analysen undersøker. Claude har foreslått bestemmelser og
+          søketermer basert på dette.
+        </p>
+        <p class="problem-text">
+          {analysisState.analysis.problemStatement || 'Ikke definert ennå'}
+        </p>
+        {#if analysisState.scopingResult?.reasoning}
+          <div class="ai-block">
+            <p class="ai-text">{analysisState.scopingResult.reasoning}</p>
           </div>
         {/if}
+      </section>
 
-        {#if editing}
-          <div class="ctx-section">
-            <SeedInput />
-            <button class="edit-done-btn" onclick={() => (editing = false)}>Ferdig</button>
-          </div>
-        {:else}
-          <div class="ctx-section">
-            <div class="ctx-label">Bestemmelser</div>
-            <div class="ctx-badges">
+      <!-- 2. Search parameters — what we're looking for -->
+      {#if editing}
+        <section class="card">
+          <div class="card-label">Søkeparametre</div>
+          <SeedInput />
+          <button class="done-btn" onclick={() => (editing = false)}>Ferdig</button>
+        </section>
+      {:else}
+        <section class="card">
+          <div class="card-label">Søkeparametre</div>
+          <p class="card-desc">
+            Bestemmelsene, søkeordene og den semantiske beskrivelsen som brukes for å finne
+            relevante KOFA-avgjørelser. Fjern med × eller legg til foreslåtte.
+          </p>
+
+          <!-- Provisions with inline coverage -->
+          <div class="param-group">
+            <div
+              class="param-label"
+              title="Lovbestemmelser som brukes for å finne saker via referansetabellen (R-signal)"
+            >
+              Bestemmelser
+            </div>
+            <div class="provision-list">
               {#each analysisState.analysis.seeds.provisions as prov, i}
-                <span class="prov-badge">
-                  {formatProvision(prov)}
+                <div class="provision-row">
+                  <span class="prov-badge">{formatProvision(prov)}</span>
                   <button
-                    class="badge-remove"
+                    class="prov-remove"
                     onclick={() => {
                       analysisState.setSeeds({
                         ...analysisState.analysis.seeds,
@@ -55,12 +79,12 @@
                       });
                     }}>×</button
                   >
-                </span>
+                </div>
               {/each}
             </div>
             {#if analysisState.suggestedProvisions.length > 0}
-              <div class="suggested-row">
-                <span class="suggested-label">Foreslåtte:</span>
+              <div class="suggested">
+                <span class="suggested-label">Kan være relevant:</span>
                 {#each analysisState.suggestedProvisions as s}
                   <button
                     class="suggested-btn"
@@ -80,14 +104,19 @@
           </div>
 
           {#if analysisState.analysis.seeds.ftsTerms.length > 0}
-            <div class="ctx-section">
-              <div class="ctx-label">Fulltekstsøk</div>
-              <div class="ctx-badges">
+            <div class="param-group">
+              <div
+                class="param-label"
+                title="Eksakte søkeord som matches mot avgjørelsesteksten (F-signal)"
+              >
+                Fulltekstsøk
+              </div>
+              <div class="term-list">
                 {#each analysisState.analysis.seeds.ftsTerms as term, i}
-                  <span class="fts-badge">
+                  <span class="fts-chip">
                     «{term}»
                     <button
-                      class="badge-remove"
+                      class="chip-remove"
                       onclick={() => {
                         analysisState.setSeeds({
                           ...analysisState.analysis.seeds,
@@ -104,84 +133,124 @@
           {/if}
 
           {#if analysisState.analysis.seeds.vectorQuery}
-            <div class="ctx-section">
-              <div class="ctx-label">Semantisk søk</div>
-              <div class="ctx-text vector-text">{analysisState.analysis.seeds.vectorQuery}</div>
+            <div class="param-group">
+              <div
+                class="param-label"
+                title="En naturlig beskrivelse av problemstillingen — finner saker med lignende innhold selv om ordene er forskjellige (V-signal)"
+              >
+                Semantisk søk
+              </div>
+              <p class="vector-text">{analysisState.analysis.seeds.vectorQuery}</p>
             </div>
           {/if}
-        {/if}
+        </section>
+      {/if}
 
-        {#if analysisState.scopingResult?.reasoning}
-          <div class="ctx-section ai-section">
-            <div class="ctx-label">Claudes vurdering</div>
-            <div class="ctx-text ai-text">{analysisState.scopingResult.reasoning}</div>
-          </div>
-        {/if}
-      </div>
+      <!-- 3. Results — what we found -->
+      {#if analysisState.caseNodes.length > 0}
+        <section class="card">
+          <div class="card-label">Resultater</div>
+          <p class="card-desc">
+            Saker funnet via søkeparametrene. Kategori A = treff på alle tre søkemetoder, B = to, C
+            = én. Kategorien sier hvor mange søk som fant saken — ikke hvor relevant den er.
+          </p>
 
-      <!-- Right: Coverage + Gaps + Iterations -->
-      <div class="context-right">
-        {#if analysisState.caseNodes.length > 0}
-          <div class="ctx-section">
-            <div class="ctx-label">Søkedekning</div>
-            <div class="coverage-grid">
-              <span class="cov-signal">R</span><span class="cov-desc">Referansetabell</span><span
-                class="cov-count">{analysisState.coverageStats.ref}</span
+          <!-- Candidate summary -->
+          <div class="results-hero">
+            <span class="results-count">{analysisState.caseNodes.length}</span>
+            <span class="results-label">kandidater funnet</span>
+            <div class="results-cats">
+              <span title="A-saker: Treff på alle tre søkemetoder (R+F+V)"
+                ><CategoryBadge category="A" small /><span class="cat-num"
+                  >{analysisState.catCounts.A}</span
+                ></span
               >
-              <span class="cov-signal">F</span><span class="cov-desc">Fulltekstsøk</span><span
-                class="cov-count">{analysisState.coverageStats.fts}</span
+              <span title="B-saker: Treff på to av tre søkemetoder"
+                ><CategoryBadge category="B" small /><span class="cat-num"
+                  >{analysisState.catCounts.B}</span
+                ></span
               >
-              <span class="cov-signal">V</span><span class="cov-desc">Vektor</span><span
-                class="cov-count">{analysisState.coverageStats.vec}</span
+              <span title="C-saker: Treff på én søkemetode"
+                ><CategoryBadge category="C" small /><span class="cat-num"
+                  >{analysisState.catCounts.C}</span
+                ></span
               >
             </div>
-            <div class="cov-total">
-              {analysisState.caseNodes.length} unike kandidater →
-              <CategoryBadge category="A" small />
-              {analysisState.catCounts.A}
-              <CategoryBadge category="B" small />
-              {analysisState.catCounts.B}
-              <CategoryBadge category="C" small />
-              {analysisState.catCounts.C}
+          </div>
+
+          <!-- Signal coverage -->
+          <div class="signal-row">
+            <div
+              class="signal-item"
+              title="Saker som refererer til bestemmelsene direkte i KOFAs referansetabell"
+            >
+              <span class="signal-letter">R</span>
+              <span class="signal-name">Referansetabell</span>
+              <span class="signal-count">{analysisState.coverageStats.ref}</span>
+            </div>
+            <div class="signal-item" title="Saker der søkeordene forekommer i avgjørelsesteksten">
+              <span class="signal-letter">F</span>
+              <span class="signal-name">Fulltekstsøk</span>
+              <span class="signal-count">{analysisState.coverageStats.fts}</span>
+            </div>
+            <div
+              class="signal-item"
+              title="Saker med lignende innhold basert på maskinlæring (semantisk likhet)"
+            >
+              <span class="signal-letter">V</span>
+              <span class="signal-name">Vektor</span>
+              <span class="signal-count">{analysisState.coverageStats.vec}</span>
             </div>
           </div>
-        {/if}
 
-        {#if analysisState.gaps.length > 0}
-          <div class="ctx-section">
-            <div class="ctx-label">Gap-matrise</div>
-            {#each analysisState.gaps as gap}
-              {#if gap.count === 0 && gap.id1 && gap.id2}
-                {@const id1 = gap.id1}
-                {@const id2 = gap.id2}
-                <button
-                  class="gap-row is-zero"
-                  onclick={() => analysisState.addSeedsFromGap(id1, id2)}
-                >
-                  <span class="gap-prov">{gap.provision1}</span>
-                  <span class="gap-sep">∩</span>
-                  <span class="gap-prov">{gap.provision2}</span>
-                  <span class="gap-val">∅</span>
-                </button>
-              {:else}
-                <div class="gap-row">
-                  <span class="gap-prov">{gap.provision1}</span>
-                  <span class="gap-sep">∩</span>
-                  <span class="gap-prov">{gap.provision2}</span>
-                  <span class="gap-val">{gap.count}</span>
+          <!-- Gap matrix — compact -->
+          {#if analysisState.gaps.length > 0}
+            <div class="gap-section">
+              <div
+                class="param-label"
+                title="Viser om det finnes saker som behandler to bestemmelser sammen. Hull (∅) kan bety at kombinasjonen bør undersøkes med flere seeds."
+              >
+                Bestemmelsespar — interseksjoner
+              </div>
+              {#if nonZeroGaps.length > 0}
+                <div class="gap-compact">
+                  {#each nonZeroGaps as gap}
+                    <span class="gap-chip"
+                      >{gap.provision1} ∩ {gap.provision2}: <strong>{gap.count}</strong></span
+                    >
+                  {/each}
                 </div>
               {/if}
-            {/each}
-            {#if zeroGaps.length > 0}
-              <div class="gap-hint">{zeroGaps.length} hull — klikk for å legge til som seeds</div>
-            {/if}
-          </div>
-        {/if}
+              {#if zeroGaps.length > 0}
+                <div class="gap-zeros">
+                  <span class="gap-zero-label">{zeroGaps.length} hull uten treff:</span>
+                  <div class="gap-compact">
+                    {#each zeroGaps as gap}
+                      {#if gap.id1 && gap.id2}
+                        {@const id1 = gap.id1}
+                        {@const id2 = gap.id2}
+                        <button
+                          class="gap-chip zero"
+                          onclick={() => analysisState.addSeedsFromGap(id1, id2)}
+                        >
+                          {gap.provision1} ∩ {gap.provision2} <span class="gap-add">+</span>
+                        </button>
+                      {/if}
+                    {/each}
+                  </div>
+                  <span class="gap-hint">Klikk for å legge til som seeds</span>
+                </div>
+              {/if}
+            </div>
+          {/if}
+        </section>
+      {/if}
 
-        <!-- Iteration history -->
-        {#if analysisState.analysis.iterationHistory?.length}
-          <div class="ctx-section">
-            <div class="ctx-label">Søkerunder</div>
+      <!-- 4. Iterations -->
+      {#if analysisState.analysis.iterationHistory?.length}
+        <section class="card">
+          <div class="card-label">Søkerunder</div>
+          <div class="rounds">
             <button
               class="round-row"
               class:active={analysisState.filterIteration === 1}
@@ -216,18 +285,18 @@
                 <span class="round-count">+{entry.newNodeCount}</span>
               </button>
             {/each}
-            {#if analysisState.filterIteration !== null}
-              <button class="clear-filter" onclick={() => analysisState.clearFilterIteration()}>
-                Vis alle runder
-              </button>
-            {/if}
           </div>
-        {/if}
+          {#if analysisState.filterIteration !== null}
+            <button class="clear-filter" onclick={() => analysisState.clearFilterIteration()}
+              >Vis alle runder</button
+            >
+          {/if}
+        </section>
+      {/if}
 
-        <button class="new-iter-btn" onclick={() => analysisState.startNewIteration()}>
-          + Ny iterasjon med nye seeds
-        </button>
-      </div>
+      <button class="new-iter-btn" onclick={() => analysisState.startNewIteration()}>
+        + Ny iterasjon med nye seeds
+      </button>
     </div>
   </div>
 </div>
@@ -286,117 +355,133 @@
     color: var(--p-ink);
   }
 
-  .context-content {
+  /* Scrollable content */
+  .context-scroll {
     flex: 1;
     overflow-y: auto;
-    padding: 24px 32px;
+    padding: 24px 32px 40px;
+  }
+  .context-flow {
+    max-width: 720px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
   }
 
-  .context-grid {
-    display: grid;
-    grid-template-columns: 3fr 2fr;
-    gap: 40px;
-    max-width: 1000px;
+  /* Cards */
+  .card {
+    padding: 20px 24px;
+    border: 1px solid var(--p-border);
+    border-radius: var(--radius-lg);
+    background: var(--p-surface);
   }
-
-  .ctx-section {
-    margin-bottom: 16px;
-  }
-  .ctx-section:last-child {
-    margin-bottom: 0;
-  }
-  .ctx-label {
+  .card-label {
     font-size: 10px;
     font-weight: 600;
     letter-spacing: 0.06em;
     text-transform: uppercase;
     color: var(--p-ink3);
-    margin-bottom: 6px;
-  }
-  .ctx-text {
-    font-size: 13px;
-    line-height: 1.6;
-    color: var(--p-ink);
-  }
-  .vector-text {
-    font-style: italic;
-    color: var(--p-ink2);
+    margin-bottom: 12px;
   }
 
-  .ai-section {
+  .card-desc {
+    font-size: 11px;
+    line-height: 1.5;
+    color: var(--p-ink3);
+    margin: -4px 0 12px;
+  }
+
+  /* 1. Problem */
+  .problem-text {
+    font-size: 14px;
+    line-height: 1.65;
+    color: var(--p-ink);
+    margin: 0;
+  }
+  .ai-block {
+    margin-top: 12px;
+    padding: 10px 14px;
     border-left: 3px solid var(--p-ai-border);
     background: var(--p-ai-bg);
     border-radius: var(--radius-md);
-    padding: 10px 14px;
   }
   .ai-text {
     font-size: 12px;
+    line-height: 1.55;
     color: var(--p-ink2);
     font-style: italic;
+    margin: 0;
   }
 
-  /* Badges */
-  .ctx-badges {
+  /* 2. Search params */
+  .param-group {
+    margin-bottom: 16px;
+  }
+  .param-group:last-child {
+    margin-bottom: 0;
+  }
+  .param-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--p-ink2);
+    margin-bottom: 6px;
+  }
+
+  .provision-list {
     display: flex;
     flex-wrap: wrap;
-    gap: 4px;
+    gap: 6px;
+  }
+  .provision-row {
+    display: flex;
+    align-items: center;
+    gap: 2px;
   }
   .prov-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
     font-family: var(--font-data);
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 600;
     color: var(--p-provision-accent);
     background: var(--p-provision-bg);
     border: 1px solid var(--p-provision-border);
-    padding: 3px 8px;
+    padding: 4px 10px;
     border-radius: var(--radius-badge);
   }
-  .fts-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    font-family: var(--font-data);
-    font-size: 11px;
-    font-weight: 500;
-    color: var(--p-ink2);
-    background: var(--p-hover);
-    padding: 3px 8px;
-    border-radius: var(--radius-badge);
-  }
-  .badge-remove {
+  .prov-remove {
     all: unset;
     cursor: pointer;
-    font-size: 12px;
-    line-height: 1;
-    opacity: 0.4;
-  }
-  .badge-remove:hover {
-    opacity: 1;
-  }
-
-  .suggested-row {
+    font-size: 14px;
+    color: var(--p-ink4);
+    width: 18px;
+    height: 18px;
     display: flex;
     align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-sm);
+  }
+  .prov-remove:hover {
+    color: var(--p-ink);
+    background: var(--p-hover);
+  }
+
+  .suggested {
+    display: flex;
     flex-wrap: wrap;
-    gap: 4px;
+    gap: 6px;
+    align-items: center;
     margin-top: 8px;
   }
   .suggested-label {
     font-size: 10px;
     color: var(--p-ink4);
-    font-weight: 500;
   }
   .suggested-btn {
     all: unset;
     cursor: pointer;
     font-family: var(--font-data);
-    font-size: 10px;
-    font-weight: 600;
+    font-size: 11px;
     color: var(--p-ink3);
-    padding: 2px 6px;
+    padding: 2px 8px;
     border-radius: var(--radius-badge);
     border: 1px dashed var(--p-border-m);
   }
@@ -406,11 +491,45 @@
     background: var(--p-provision-bg);
   }
 
-  .edit-done-btn {
+  .term-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .fts-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-family: var(--font-data);
+    font-size: 11px;
+    color: var(--p-ink2);
+    background: var(--p-hover);
+    padding: 4px 10px;
+    border-radius: var(--radius-badge);
+  }
+  .chip-remove {
     all: unset;
     cursor: pointer;
-    margin-top: 12px;
-    padding: 8px 20px;
+    font-size: 12px;
+    opacity: 0.4;
+  }
+  .chip-remove:hover {
+    opacity: 1;
+  }
+
+  .vector-text {
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--p-ink2);
+    font-style: italic;
+    margin: 0;
+  }
+
+  .done-btn {
+    all: unset;
+    cursor: pointer;
+    margin-top: 16px;
+    padding: 8px 24px;
     border-radius: var(--radius-md);
     background: var(--p-ink);
     color: var(--p-panel);
@@ -419,100 +538,142 @@
     display: block;
     text-align: center;
   }
-  .edit-done-btn:hover {
+  .done-btn:hover {
     opacity: 0.85;
   }
 
-  /* Coverage */
-  .coverage-grid {
-    display: grid;
-    grid-template-columns: 14px 1fr auto;
-    gap: 4px 8px;
-    align-items: center;
+  /* 3. Results */
+  .results-hero {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin-bottom: 12px;
   }
-  .cov-signal {
-    font-family: var(--font-data);
+  .results-count {
+    font-size: 28px;
     font-weight: 700;
-    font-size: 10px;
-    color: var(--p-ink3);
-  }
-  .cov-desc {
-    font-size: 11px;
-    color: var(--p-ink3);
-  }
-  .cov-count {
     font-family: var(--font-data);
-    font-size: 11px;
-    font-weight: 600;
-    color: var(--p-ink2);
-    text-align: right;
+    color: var(--p-ink);
+    line-height: 1;
   }
-  .cov-total {
+  .results-label {
+    font-size: 13px;
+    color: var(--p-ink2);
+  }
+  .results-cats {
     display: flex;
     align-items: center;
     gap: 6px;
-    margin-top: 8px;
-    padding-top: 8px;
-    border-top: 1px solid var(--p-border);
-    font-size: 11px;
+    margin-left: auto;
+  }
+  .cat-num {
     font-family: var(--font-data);
+    font-size: 12px;
     font-weight: 600;
-    color: var(--p-ink);
+    color: var(--p-ink2);
   }
 
-  /* Gaps */
-  .gap-row {
-    all: unset;
+  .signal-row {
+    display: flex;
+    gap: 16px;
+    padding: 10px 0;
+    border-top: 1px solid var(--p-border);
+    border-bottom: 1px solid var(--p-border);
+    margin-bottom: 12px;
+  }
+  .signal-item {
     display: flex;
     align-items: center;
     gap: 6px;
-    font-size: 11px;
+    flex: 1;
+  }
+  .signal-letter {
     font-family: var(--font-data);
+    font-weight: 700;
+    font-size: 11px;
+    color: var(--p-ink3);
+  }
+  .signal-name {
+    font-size: 11px;
+    color: var(--p-ink3);
+  }
+  .signal-count {
+    font-family: var(--font-data);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--p-ink);
+    margin-left: auto;
+  }
+
+  /* Gaps — compact chips */
+  .gap-section {
+    margin-top: 4px;
+  }
+  .gap-compact {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 4px;
+  }
+  .gap-chip {
+    font-family: var(--font-data);
+    font-size: 10px;
     color: var(--p-ink2);
-    padding: 3px 6px;
-    border-radius: var(--radius-md);
-    width: 100%;
-    box-sizing: border-box;
-  }
-  .gap-row.is-zero {
-    color: var(--p-gap);
-    cursor: pointer;
-    background: var(--p-gap-bg);
-  }
-  .gap-row.is-zero:hover {
-    background: rgba(155, 77, 202, 0.08);
-  }
-  .gap-prov {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    padding: 3px 8px;
+    border-radius: var(--radius-badge);
+    background: var(--p-hover);
+    border: 1px solid transparent;
     white-space: nowrap;
   }
-  .gap-sep {
-    color: var(--p-ink4);
+  .gap-chip.zero {
+    all: unset;
+    cursor: pointer;
+    font-family: var(--font-data);
     font-size: 10px;
-    flex-shrink: 0;
+    color: var(--p-gap);
+    padding: 3px 8px;
+    border-radius: var(--radius-badge);
+    background: var(--p-gap-bg);
+    border: 1px solid rgba(155, 77, 202, 0.12);
+    white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
   }
-  .gap-val {
-    margin-left: auto;
-    font-weight: 600;
-    flex-shrink: 0;
+  .gap-chip.zero:hover {
+    background: rgba(155, 77, 202, 0.1);
+    border-color: rgba(155, 77, 202, 0.2);
+  }
+  .gap-add {
+    font-weight: 700;
+  }
+  .gap-zeros {
+    margin-top: 8px;
+  }
+  .gap-zero-label {
+    font-size: 11px;
+    color: var(--p-gap);
+    font-weight: 500;
   }
   .gap-hint {
     font-size: 10px;
-    color: var(--p-gap);
-    font-style: italic;
+    color: var(--p-ink4);
     margin-top: 4px;
   }
 
-  /* Iterations */
+  /* 4. Iterations */
+  .rounds {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
   .round-row {
     all: unset;
     cursor: pointer;
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 5px 6px;
+    padding: 6px 8px;
     border-radius: var(--radius-md);
     font-size: 11px;
     color: var(--p-ink2);
@@ -526,14 +687,14 @@
     background: var(--p-active);
   }
   .round-num {
-    width: 16px;
-    height: 16px;
+    width: 18px;
+    height: 18px;
     border-radius: 50%;
     background: var(--p-input);
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 9px;
+    font-size: 10px;
     font-weight: 600;
     color: var(--p-ink3);
     flex-shrink: 0;
@@ -545,14 +706,14 @@
   .round-seeds {
     flex: 1;
     font-family: var(--font-data);
-    font-size: 10px;
+    font-size: 11px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
   .round-count {
     font-family: var(--font-data);
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 600;
     color: var(--p-ink3);
     flex-shrink: 0;
@@ -564,7 +725,7 @@
     font-weight: 600;
     color: var(--p-ink2);
     text-decoration: underline;
-    margin-top: 2px;
+    margin-top: 4px;
   }
   .clear-filter:hover {
     color: var(--p-ink);
@@ -574,15 +735,14 @@
     all: unset;
     cursor: pointer;
     width: 100%;
-    padding: 8px 12px;
+    padding: 10px 16px;
     border-radius: var(--radius-md);
     border: 1px dashed var(--p-border-m);
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 500;
     color: var(--p-ink3);
     text-align: center;
     box-sizing: border-box;
-    margin-top: 8px;
   }
   .new-iter-btn:hover {
     border-color: var(--p-border-s);
