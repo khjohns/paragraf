@@ -70,6 +70,27 @@ ALTER TABLE analyses ADD COLUMN citation_summary jsonb;
 
 Settes av `verify_screening_citations` etter logging.
 
+## Tester
+
+Eksisterende tester i `backend/tests/test_pipeline.py` (14 stk) må utvides. Kjør med:
+```bash
+cd backend && python -m pytest tests/test_pipeline.py -v -s  # Krever backend på :5002 med secrets
+```
+
+### Nye tester for denne sprinten
+
+| Test | Hva den verifiserer |
+|------|---------------------|
+| `test_citation_qa_llm_meta` | `_llm_meta` (model=haiku, tokens, cost) lagret etter verify-citations |
+| `test_cumulative_cost` | `analyses.total_cost_usd` oppdateres inkrementelt etter screening + QA |
+| `test_quote_verification_linked` | Hvert quote-objekt i `ai_screening.quotes` har `verification.status` direkte (ikke separat array) |
+| `test_citation_summary_on_analysis` | `analyses.citation_summary` inneholder aggregert status-fordeling |
+
+### Oppdater eksisterende tester
+
+- `test_verify_citations` — sjekk at responsen inkluderer `_llm_meta`
+- `test_quote_verification_persisted` — sjekk at verification er på quote-objektet, ikke i separat array
+
 ## Eksisterende kode å lese
 
 - `backend/llm_utils.py` — `call_claude_structured`, `_extract_cache_tokens`, `log_usage`
@@ -77,11 +98,50 @@ Settes av `verify_screening_citations` etter logging.
 - `backend/screening.py` — `_persist_screening_result`
 - `backend/tests/test_pipeline.py` — integrasjonstester (14 stk)
 
-## Codegrasp-observasjoner
+## Bruk av codegrasp MCP
 
-6 observasjoner lagret — bruk `get_session_context()` for å hente dem. Relevante:
-- #5: Pipeline smoke test funn
-- #6: _llm_meta og thinking-tokens
+Codegrasp skal brukes aktivt — sparer tokens og bygger kumulativ kunnskap mellom sesjoner.
+
+### Før du begynner
+
+```
+mcp__codegrasp__reindex                    # Oppdater indeksen
+mcp__codegrasp__get_session_context        # Hent alle 6 observasjoner fra forrige sesjon
+```
+
+### Under arbeid
+
+- **`get_skeleton(file_path)`** — Les filer uten implementasjonsdetaljer (70-90% token-reduksjon). Bruk dette FØR `Read` for å forstå struktur.
+- **`get_context_capsule(symbol_fqns)`** — Hent relevant kode for et symbol med avhengigheter. Bedre enn å lese hele filer.
+- **`get_session_context(symbol_fqns)`** — Sjekk observasjoner før du endrer en funksjon. Flagges som `stale` hvis koden er endret.
+- **`get_impact_graph(symbol_fqn)`** — Se hva som påvirkes av en endring (NB: kun 9 edges, Python-imports fanges dårlig).
+
+### Etter endringer
+
+- **`save_observation`** — Dokumenter invarianter, subtile bugs, og design-valg. Lenk til symboler (`linked_symbols`) slik at de spores mot kodeendringer.
+- **`get_diff_impact`** — Kjør etter endringer for å se påvirkede symboler.
+- **`find_dead_code`** — Identifiser ubrukt kode etter refaktorering.
+
+### Eksisterende observasjoner (6 stk)
+
+| # | Tema | Nøkkelsymboler |
+|---|------|----------------|
+| 1 | `persist_candidates` upsert-invariant | `analyses.py::persist_candidates` |
+| 2 | To traversal-endepunkter (gammel bør fjernes) | `app.py::traverse`, `app.py::traverse_analysis_route` |
+| 3 | Adaptive thinking + Haiku-begrensning | `llm_utils.py::call_claude_structured` |
+| 4 | `screeningStarted` hydration-begrensning | `screening.svelte.ts::ScreeningState` |
+| 5 | Pipeline smoke test (14/14) — seed-format, SSE, upsert | `traversal.py`, `screening.py`, `qa.py` |
+| 6 | `_llm_meta` struktur, cache-format, thinking | `llm_utils.py::call_claude_structured` |
+
+### Vurdering av verktøyene
+
+| Verktøy | Nytte | Bruk når |
+|---------|-------|----------|
+| `get_skeleton` | **Høy** — 70-90% token-sparing | Forstå fil-struktur uten å lese alt |
+| `save_observation` + `get_session_context` | **Høy** — overlever mellom sesjoner | Kommunisere invarianter og subtile bugs |
+| `get_context_capsule` | **Middels** — avhenger av edge-graf | Hente kode med kontekst |
+| `find_dead_code` | **Middels** — mange false positives (Flask-ruter) | Opprydding etter refaktorering |
+| `get_diff_impact` / `search_logic_flow` | **Lav** — sparsom edge-graf (9 edges) | Begrenset verdi foreløpig |
 
 ## ADR-004: Agentisk syntese
 
