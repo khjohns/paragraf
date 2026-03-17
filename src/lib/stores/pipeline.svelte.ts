@@ -5,8 +5,16 @@ import type {
   QAReport,
   LlmMeta,
 } from '$lib/types/analysis';
-import type { AnalysisDocuments } from '$lib/api/analyses';
+import type { AnalysisDocuments, StreamEvent } from '$lib/api/analyses';
 import { fetchDocuments } from '$lib/api/analyses';
+
+/** A single line in the live streaming progress log */
+export interface StreamProgressItem {
+  type: 'status' | 'tool_call' | 'tool_result';
+  label: string;
+  done: boolean;
+  turn?: number;
+}
 
 class PipelineState {
   // ── Propositions ──
@@ -19,6 +27,12 @@ class PipelineState {
   synthesisResult = $state<SynthesisResult | null>(null);
   synthesisMarkdown = $state<string>('');
   synthesisLoading = $state(false);
+
+  // ── Streaming progress (ADR-004 Fase 2) ──
+  synthesisStreaming = $state(false);
+  synthesisProgress = $state<StreamProgressItem[]>([]);
+  qaStreaming = $state(false);
+  qaProgress = $state<StreamProgressItem[]>([]);
 
   // ── LLM Meta (for WorkLog) ──
   synthesisLlmMeta = $state<LlmMeta | null>(null);
@@ -69,6 +83,48 @@ class PipelineState {
     this.synthesisLoading = loading;
   }
 
+  // ── Streaming progress (ADR-004 Fase 2) ──
+
+  startSynthesisStream() {
+    this.synthesisStreaming = true;
+    this.synthesisProgress = [];
+    this.synthesisLoading = true;
+  }
+
+  addSynthesisProgress(item: StreamProgressItem) {
+    // Mark previous non-done items as done if same type
+    this.synthesisProgress = [...this.synthesisProgress, item];
+  }
+
+  markLastProgressDone(target: 'synthesis' | 'qa') {
+    const arr = target === 'synthesis' ? this.synthesisProgress : this.qaProgress;
+    const last = arr.findLast((p) => !p.done);
+    if (last) last.done = true;
+  }
+
+  endSynthesisStream() {
+    this.synthesisStreaming = false;
+    this.synthesisLoading = false;
+    // Mark all remaining as done
+    for (const item of this.synthesisProgress) item.done = true;
+  }
+
+  startQaStream() {
+    this.qaStreaming = true;
+    this.qaProgress = [];
+    this.qaLoading = true;
+  }
+
+  addQaProgress(item: StreamProgressItem) {
+    this.qaProgress = [...this.qaProgress, item];
+  }
+
+  endQaStream() {
+    this.qaStreaming = false;
+    this.qaLoading = false;
+    for (const item of this.qaProgress) item.done = true;
+  }
+
   // ── QA methods ──
 
   setQaReport(report: QAReport | null) {
@@ -90,9 +146,13 @@ class PipelineState {
     this.synthesisResult = null;
     this.synthesisMarkdown = '';
     this.synthesisLoading = false;
+    this.synthesisStreaming = false;
+    this.synthesisProgress = [];
     this.synthesisLlmMeta = null;
     this.qaReport = null;
     this.qaLoading = false;
+    this.qaStreaming = false;
+    this.qaProgress = [];
     this.qaLlmMeta = null;
   }
 

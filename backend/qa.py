@@ -721,7 +721,7 @@ Ikke returner tomme arrays med mindre du faktisk har sjekket og funnet null prob
 
         if response.stop_reason == "end_turn":
             text = next(
-                (b.text for b in response.content if hasattr(b, "text")),
+                (b.text for b in response.content if b.type == "text"),
                 None,
             )
             if not text:
@@ -799,6 +799,175 @@ Ikke returner tomme arrays med mindre du faktisk har sjekket og funnet null prob
         raise QAError(f"Uventet stop_reason i QA: {response.stop_reason}")
 
     raise QAError(f"QA-loop nådde maks {MAX_QA_TOOL_TURNS} turns")
+
+
+def run_qa_stream(analysis_id: str):
+    """Streaming QA with live SSE events during the agentic loop.
+
+    Yields (event_type, data) tuples — same protocol as generate_synthesis_stream.
+    """
+    from synthesis import _summarize_tool_result
+
+    yield ("status", {"phase": "loading_context"})
+
+    try:
+        note_markdown, candidates, candidates_summary = _load_qa_inputs(analysis_id)
+    except QAError as e:
+        yield ("error", {"message": str(e)})
+        return
+
+    yield ("status", {"phase": "calling_claude", "turn": 1})
+
+    client = get_anthropic_client()
+    user_message = f"""<notat>
+{note_markdown}
+</notat>
+
+<screenede_saker>
+{candidates_summary}
+</screenede_saker>
+
+Kvalitetssikre dette notatutkastet. Du MÅ gjøre følgende:
+
+1. FØRST: Identifiser de 3-5 viktigste avsnitthenvisningene i notatet (f.eks. «2022/31, avsnitt 35»). \
+Bruk fetch_case_paragraphs for å hente disse avsnittene og sammenlign med hva notatet påstår.
+
+2. DERETTER: Vurder logisk konsistens og dekning basert på screenede saker.
+
+Ikke returner tomme arrays med mindre du faktisk har sjekket og funnet null problemer."""
+
+    messages = [{"role": "user", "content": user_message}]
+    cost_tracker = CostTracker()
+    tools_called = []
+    t0 = time.monotonic()
+
+    for turn in range(1, MAX_QA_TOOL_TURNS + 1):
+        if turn > 1:
+            yield ("status", {"phase": "calling_claude", "turn": turn})
+
+        t_turn = time.monotonic()
+        try:
+            response = client.messages.create(
+                model=CLAUDE_MODEL,
+                max_tokens=16000,
+                thinking={"type": "adaptive"},
+                output_config=build_output_config(
+                    schema=COMBINED_QA_SCHEMA, effort="high", model=CLAUDE_MODEL,
+                ),
+                tools=SYNTHESIS_TOOLS,
+                system=[{
+                    "type": "text",
+                    "text": COMBINED_QA_SYSTEM_PROMPT,
+                    "cache_control": {"type": "ephemeral"},
+                }],
+                messages=messages,
+            )
+        except Exception as e:
+            logger.error("QA API call failed on turn %d: %s", turn, e)
+            yield ("error", {"message": f"API-feil: {e}"})
+            return
+
+        elapsed_turn = int((time.monotonic() - t_turn) * 1000)
+        turn_cost = cost_tracker.add(
+            f"QA/{analysis_id}/turn-{turn}",
+            CLAUDE_MODEL, response.usage, elapsed_ms=elapsed_turn,
+        )
+
+        messages.append({"role": "assistant", "content": response.content})
+
+        if response.stop_reason == "end_turn":
+            text = next(
+                (b.text for b in response.content if hasattr(b, "text")), None,
+            )
+            if not text:
+                yield ("error", {"message": "QA-loop ga ingen tekst-output"})
+                return
+
+            result = json_module.loads(text)
+            total_elapsed = int((time.monotonic() - t0) * 1000)
+            result["_llm_meta"] = {
+                "model": CLAUDE_MODEL,
+                "total_turns": turn,
+                "tools_called": tools_called,
+                "cost_usd": round(cost_tracker.total_cost, 6),
+                "elapsed_ms": total_elapsed,
+                "agentic": True,
+            }
+
+            persist_llm_call(
+                analysis_id=analysis_id, call_type="qa",
+                model=CLAUDE_MODEL, usage=response.usage,
+                cost_usd=turn_cost, elapsed_ms=elapsed_turn,
+                stop_reason="end_turn", turn=turn,
+            )
+
+            _persist_qa_report(analysis_id, result)
+
+            logger.info(
+                "Streaming QA complete: %d turns, %d tool calls, $%.4f, %.1fs",
+                turn, len(tools_called), cost_tracker.total_cost,
+                total_elapsed / 1000,
+            )
+
+            yield ("result", {"qa_report": result})
+            return
+
+        if response.stop_reason == "tool_use":
+            turn_tool_calls = []
+            tool_results = []
+            for block in response.content:
+                if block.type == "tool_use":
+                    yield ("tool_call", {
+                        "tool": block.name,
+                        "input": block.input,
+                        "turn": turn,
+                    })
+
+                    try:
+                        tool_result = _execute_tool(block.name, block.input)
+                        content = json_module.dumps(tool_result, ensure_ascii=False)
+                        summary = _summarize_tool_result(block.name, tool_result)
+                    except Exception as e:
+                        logger.error("QA tool execution failed: %s", e)
+                        content = json_module.dumps({"error": str(e)})
+                        summary = f"Feil: {e}"
+
+                    tool_entry = {
+                        "turn": turn,
+                        "tool": block.name,
+                        "input": block.input,
+                        "success": "error" not in content,
+                    }
+                    tools_called.append(tool_entry)
+                    turn_tool_calls.append(tool_entry)
+                    tool_results.append({
+                        "type": "tool_result",
+                        "tool_use_id": block.id,
+                        "content": content,
+                    })
+
+                    yield ("tool_result", {
+                        "tool": block.name,
+                        "summary": summary,
+                        "success": tool_entry["success"],
+                        "turn": turn,
+                    })
+
+            persist_llm_call(
+                analysis_id=analysis_id, call_type="qa",
+                model=CLAUDE_MODEL, usage=response.usage,
+                cost_usd=turn_cost, elapsed_ms=elapsed_turn,
+                stop_reason="tool_use", turn=turn,
+                tool_calls=turn_tool_calls,
+            )
+
+            messages.append({"role": "user", "content": tool_results})
+            continue
+
+        yield ("error", {"message": f"Uventet stop_reason i QA: {response.stop_reason}"})
+        return
+
+    yield ("error", {"message": f"QA-loop nådde maks {MAX_QA_TOOL_TURNS} turns"})
 
 
 def _persist_qa_report(analysis_id: str, result: dict) -> None:

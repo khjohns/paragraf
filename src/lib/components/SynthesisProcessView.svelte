@@ -1,9 +1,10 @@
 <script lang="ts">
   import { analysisState } from '$lib/stores/analysis.svelte';
   import { pipelineState } from '$lib/stores/pipeline.svelte';
-  import { screeningState } from '$lib/stores/screening.svelte';
   import { uiState } from '$lib/stores/ui.svelte';
-  import { synthesize, updateSynthesisNote } from '$lib/api/analyses';
+  import { synthesizeStream, qaStream, updateSynthesisNote } from '$lib/api/analyses';
+  import type { StreamEvent } from '$lib/api/analyses';
+  import type { SynthesisResult } from '$lib/types/analysis';
   import { toastState } from '$lib/stores/toast.svelte';
   import {
     QA_SEVERITY_CONFIG,
@@ -22,6 +23,9 @@
   let editing = $state(false);
   let editContent = $state('');
   let saving = $state(false);
+  let synthesisAbort = $state<AbortController | null>(null);
+  let qaAbort = $state<AbortController | null>(null);
+  let streamError = $state<string | null>(null);
 
   function renderBold(text: string): string {
     const escaped = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -29,6 +33,7 @@
   }
 
   let hasNote = $derived(!!pipelineState.synthesisResult || !!pipelineState.synthesisMarkdown);
+  let isStreaming = $derived(pipelineState.synthesisStreaming || pipelineState.qaStreaming);
   let lawyerSections = $derived(
     pipelineState.synthesisResult?.sections.filter((s) => s.requires_lawyer_input) ?? []
   );
@@ -60,18 +65,147 @@
     return refs;
   });
 
-  async function generateNote() {
-    pipelineState.setSynthesisLoading(true);
-    try {
-      const result = await synthesize(analysisState.analysis.id);
-      pipelineState.setSynthesisResult(result);
+  function _toolLabel(tool: string, input: Record<string, unknown>): string {
+    if (tool === 'fetch_case_paragraphs') {
+      const sakNr = input.sak_nr as string;
+      const pNrs = input.paragraph_nrs as number[] | null;
+      return pNrs
+        ? `Henter avs. ${pNrs.join(', ')} fra ${sakNr}`
+        : `Henter alle avsnitt fra ${sakNr}`;
+    }
+    if (tool === 'fetch_provision_cases') {
+      return `Henter saker for ${input.dok_id} ${input.section_id}`;
+    }
+    return tool;
+  }
+
+  function _phaseLabel(phase: string, turn: number | undefined, mode: 'synthesis' | 'qa'): string {
+    if (phase === 'loading_context') {
+      return mode === 'qa' ? 'Laster notat og kandidater…' : 'Laster screeningresultater…';
+    }
+    if (phase === 'calling_claude') {
+      if (mode === 'qa') {
+        if (!turn || turn === 1) return 'Sjekker referanser og logikk…';
+        return 'Ferdigstiller kvalitetssjekk…';
+      }
+      if (!turn || turn === 1) return 'Analyserer materialet…';
+      return 'Utarbeider notat…';
+    }
+    return phase;
+  }
+
+  function handleSynthesisEvent(event: StreamEvent) {
+    if (event.type === 'status') {
+      // Mark previous status as done
+      pipelineState.markLastProgressDone('synthesis');
+      pipelineState.addSynthesisProgress({
+        type: 'status',
+        label: _phaseLabel(
+          event.data.phase as string,
+          event.data.turn as number | undefined,
+          'synthesis'
+        ),
+        done: false,
+        turn: event.data.turn as number | undefined,
+      });
+    } else if (event.type === 'tool_call') {
+      pipelineState.addSynthesisProgress({
+        type: 'tool_call',
+        label: _toolLabel(event.data.tool as string, event.data.input as Record<string, unknown>),
+        done: false,
+        turn: event.data.turn as number | undefined,
+      });
+    } else if (event.type === 'tool_result') {
+      // Mark the corresponding tool_call as done
+      pipelineState.markLastProgressDone('synthesis');
+    } else if (event.type === 'result') {
+      const synthesis = event.data.synthesis as SynthesisResult;
+      const markdown = event.data.markdown as string;
+      synthesis.markdown = markdown;
+      pipelineState.setSynthesisResult(synthesis);
       analysisState.setStatus('synthesis');
-      toastState.show('Notatutkast generert', 'success');
-    } catch (e) {
-      toastState.show('Syntese feilet — prøv igjen', 'error');
-      console.error('Synthesis failed:', e);
-    } finally {
-      pipelineState.setSynthesisLoading(false);
+    }
+  }
+
+  function generateNote() {
+    streamError = null;
+    pipelineState.startSynthesisStream();
+
+    synthesisAbort = synthesizeStream(
+      analysisState.analysis.id,
+      handleSynthesisEvent,
+      () => {
+        pipelineState.endSynthesisStream();
+        synthesisAbort = null;
+        toastState.show('Notatutkast generert', 'success');
+      },
+      (error) => {
+        streamError = error;
+        pipelineState.endSynthesisStream();
+        synthesisAbort = null;
+        toastState.show('Syntese feilet — prøv igjen', 'error');
+        console.error('Synthesis stream failed:', error);
+      }
+    );
+  }
+
+  function handleQaEvent(event: StreamEvent) {
+    if (event.type === 'status') {
+      pipelineState.markLastProgressDone('qa');
+      pipelineState.addQaProgress({
+        type: 'status',
+        label: _phaseLabel(event.data.phase as string, event.data.turn as number | undefined, 'qa'),
+        done: false,
+        turn: event.data.turn as number | undefined,
+      });
+    } else if (event.type === 'tool_call') {
+      pipelineState.addQaProgress({
+        type: 'tool_call',
+        label: _toolLabel(event.data.tool as string, event.data.input as Record<string, unknown>),
+        done: false,
+        turn: event.data.turn as number | undefined,
+      });
+    } else if (event.type === 'tool_result') {
+      pipelineState.markLastProgressDone('qa');
+    } else if (event.type === 'result') {
+      const qaReport = event.data.qa_report as Record<string, unknown>;
+      pipelineState.setQaReport(qaReport as never);
+      pipelineState.qaLlmMeta = (qaReport._llm_meta as never) ?? null;
+      analysisState.setStatus('qa');
+    }
+  }
+
+  function runQaStream() {
+    streamError = null;
+    pipelineState.startQaStream();
+
+    qaAbort = qaStream(
+      analysisState.analysis.id,
+      handleQaEvent,
+      () => {
+        pipelineState.endQaStream();
+        qaAbort = null;
+        toastState.show('QA fullført', 'success');
+      },
+      (error) => {
+        streamError = error;
+        pipelineState.endQaStream();
+        qaAbort = null;
+        toastState.show('QA feilet — prøv igjen', 'error');
+      }
+    );
+  }
+
+  function abortStream() {
+    if (synthesisAbort) {
+      synthesisAbort.abort();
+      synthesisAbort = null;
+      pipelineState.endSynthesisStream();
+    }
+    if (qaAbort) {
+      qaAbort.abort();
+      qaAbort = null;
+      pipelineState.endQaStream();
     }
   }
 
@@ -116,11 +250,7 @@
     {#if hasNote && !editing}
       <div class="header-actions">
         <button class="header-btn" onclick={startEditing}>Rediger notat</button>
-        <button
-          class="header-btn"
-          onclick={() => screeningState.startQaBatch()}
-          disabled={pipelineState.qaLoading}
-        >
+        <button class="header-btn" onclick={runQaStream} disabled={pipelineState.qaLoading}>
           {pipelineState.qaLoading ? 'Kjører QA…' : 'Kjør QA på nytt'}
         </button>
         <button class="header-btn primary" onclick={exportMarkdown}>Eksporter markdown</button>
@@ -128,7 +258,45 @@
     {/if}
   </div>
 
-  {#if !hasNote}
+  {#if isStreaming}
+    <!-- Live streaming progress (ADR-004 Fase 2) -->
+    <div class="stream-progress">
+      <div class="stream-header">
+        <span class="stream-title">
+          {pipelineState.synthesisStreaming ? 'Genererer notat…' : 'Kjører QA…'}
+        </span>
+      </div>
+      <div class="stream-log">
+        {#each pipelineState.synthesisStreaming ? pipelineState.synthesisProgress : pipelineState.qaProgress as item}
+          <div class="stream-line" class:done={item.done}>
+            <span class="stream-icon">
+              {#if item.done}
+                <span class="check">✓</span>
+              {:else}
+                <span class="pulse">◐</span>
+              {/if}
+            </span>
+            <span class="stream-label">{item.label}</span>
+          </div>
+        {/each}
+      </div>
+
+      {#if streamError}
+        <div class="stream-error">
+          <span class="stream-error-icon">✗</span>
+          <span>{streamError}</span>
+        </div>
+        <button
+          class="generate-btn"
+          onclick={pipelineState.synthesisStreaming ? generateNote : runQaStream}
+        >
+          Prøv igjen
+        </button>
+      {:else}
+        <button class="abort-btn" onclick={abortStream}>Avbryt</button>
+      {/if}
+    </div>
+  {:else if !hasNote}
     <div class="empty-state">
       <div class="empty-title">Ingen syntese ennå</div>
       <div class="empty-desc">
@@ -222,11 +390,7 @@
       <div class="qa-column">
         {#if !report}
           <div class="qa-empty">
-            <button
-              class="qa-run-btn"
-              onclick={() => screeningState.startQaBatch()}
-              disabled={pipelineState.qaLoading}
-            >
+            <button class="qa-run-btn" onclick={runQaStream} disabled={pipelineState.qaLoading}>
               {#if pipelineState.qaLoading}
                 <span class="spinner"></span>
                 Kjører QA…
@@ -304,11 +468,7 @@
             </div>
           {/if}
 
-          <button
-            class="qa-rerun-btn"
-            onclick={() => screeningState.startQaBatch()}
-            disabled={pipelineState.qaLoading}
-          >
+          <button class="qa-rerun-btn" onclick={runQaStream} disabled={pipelineState.qaLoading}>
             {pipelineState.qaLoading ? 'Kjører…' : 'Kjør QA på nytt'}
           </button>
         {/if}
@@ -768,5 +928,116 @@
     border: 2px solid rgba(255, 255, 255, 0.3);
     border-top-color: var(--p-panel);
     animation: spin 0.8s linear infinite;
+  }
+
+  /* ── Streaming progress (ADR-004 Fase 2) ── */
+
+  .stream-progress {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 400px;
+    padding: 32px;
+    gap: 16px;
+  }
+
+  .stream-header {
+    margin-bottom: 8px;
+  }
+  .stream-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--p-ink2);
+  }
+
+  .stream-log {
+    width: 100%;
+    max-width: 480px;
+    border-left: 3px solid var(--p-ai-border-subtle, rgba(139, 105, 20, 0.15));
+    background: var(--p-ai-bg, rgba(251, 245, 232, 0.4));
+    border-radius: var(--radius-md);
+    padding: 12px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .stream-line {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 0;
+    font-size: 12px;
+    color: var(--p-ink2);
+    transition: opacity 0.15s ease;
+  }
+  .stream-line.done {
+    color: var(--p-ink3);
+  }
+
+  .stream-icon {
+    width: 16px;
+    flex-shrink: 0;
+    text-align: center;
+    font-size: 12px;
+  }
+  .stream-icon .check {
+    color: var(--p-success, #3d7a4a);
+    font-weight: 700;
+  }
+  .stream-icon .pulse {
+    color: var(--p-warn, #a67b2e);
+    animation: pulse 1.2s ease-in-out infinite;
+  }
+
+  .stream-label {
+    font-family: var(--font-data, 'JetBrains Mono', monospace);
+    font-size: 11px;
+    line-height: 1.4;
+  }
+
+  .stream-error {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-radius: var(--radius-md);
+    background: rgba(193, 53, 21, 0.06);
+    border: 1px solid rgba(193, 53, 21, 0.12);
+    font-size: 12px;
+    color: var(--p-error, #c13515);
+    max-width: 480px;
+    width: 100%;
+  }
+  .stream-error-icon {
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+
+  .abort-btn {
+    all: unset;
+    cursor: pointer;
+    padding: 6px 16px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--p-border);
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--p-ink3);
+  }
+  .abort-btn:hover {
+    background: var(--p-hover);
+    color: var(--p-ink);
+    border-color: var(--p-border-m);
+  }
+
+  @keyframes pulse {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.4;
+    }
   }
 </style>

@@ -18,8 +18,8 @@ from screening import screen_cases, rescreen_case, screen_cases_batch, process_s
 from post_search import generate_post_search, PostSearchError
 from cross_propositions import generate_cross_propositions, CrossPropositionsError
 from eu_screening import identify_eu_cases, screen_eu_cases, screen_eu_cases_batch, process_eu_screening_batch_results, EuScreeningError
-from synthesis import generate_synthesis, update_synthesis, SynthesisError
-from qa import run_qa, submit_qa_batch, process_qa_batch_results, verify_screening_citations, QAError
+from synthesis import generate_synthesis, generate_synthesis_stream, update_synthesis, SynthesisError
+from qa import run_qa, run_qa_stream, submit_qa_batch, process_qa_batch_results, verify_screening_citations, QAError
 from llm_utils import poll_batch_status, cancel_batch
 from chat import chat_stream, ChatError
 
@@ -87,6 +87,28 @@ def sse_response(generator_fn, error_class):
         except error_class as e:
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
         yield f"data: {json.dumps({'done': True})}\n\n"
+
+    return Response(
+        generate(),
+        mimetype="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+def sse_typed_response(generator_fn):
+    """Create an SSE Response from a generator that yields (event_type, data) tuples.
+
+    Uses named SSE events (event: + data:) for typed streaming — used by
+    synthesis and QA streaming endpoints (ADR-004 Fase 2).
+    """
+    def generate():
+        try:
+            for event_type, data in generator_fn():
+                yield f"event: {event_type}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
+        except Exception as e:
+            logger.exception("SSE stream error")
+            yield f"event: error\ndata: {json.dumps({'message': str(e)})}\n\n"
+        yield f"event: done\ndata: {{}}\n\n"
 
     return Response(
         generate(),
@@ -390,6 +412,13 @@ def synthesize_route(analysis_id):
         return jsonify({"error": str(e)}), 500
 
 
+@app.route("/api/analyses/<analysis_id>/synthesize-stream", methods=["POST"])
+def synthesize_stream_route(analysis_id):
+    """Streaming synthesis with live tool-call feedback (ADR-004 Fase 2)."""
+    update_analysis(analysis_id, {"status": "synthesis"})
+    return sse_typed_response(lambda: generate_synthesis_stream(analysis_id))
+
+
 @app.route("/api/analyses/<analysis_id>/synthesis", methods=["PATCH"])
 def update_synthesis_route(analysis_id):
     """Update the synthesis note (user edits)."""
@@ -422,6 +451,12 @@ def qa_route(analysis_id):
         return jsonify(result)
     except QAError as e:
         return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/analyses/<analysis_id>/qa-stream", methods=["POST"])
+def qa_stream_route(analysis_id):
+    """Streaming QA with live tool-call feedback (ADR-004 Fase 2)."""
+    return sse_typed_response(lambda: run_qa_stream(analysis_id))
 
 
 @app.route("/api/analyses/<analysis_id>/verify-citations", methods=["POST"])

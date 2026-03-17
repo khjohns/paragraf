@@ -233,6 +233,119 @@ export function synthesize(analysisId: string): Promise<SynthesisResult> {
   });
 }
 
+/** SSE event types for synthesis/QA streaming (ADR-004 Fase 2) */
+export interface StreamEvent {
+  type: 'status' | 'tool_call' | 'tool_result' | 'result' | 'error' | 'done';
+  data: Record<string, unknown>;
+}
+
+/**
+ * Generic typed-SSE stream reader for named events.
+ * Backend sends `event: <type>\ndata: <json>\n\n`.
+ */
+function streamTypedSSE(
+  url: string,
+  onEvent: (event: StreamEvent) => void,
+  onDone: () => void,
+  onError: (error: string) => void
+): AbortController {
+  const controller = new AbortController();
+
+  fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    signal: controller.signal,
+  })
+    .then(async (response) => {
+      if (!response.ok) {
+        const data = await response.json().catch(() => null);
+        onError((data as { error?: string })?.error ?? 'Stream feilet');
+        return;
+      }
+
+      const reader = response.body?.getReader();
+      if (!reader) {
+        onError('Ingen respons-strøm');
+        return;
+      }
+
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          // SSE messages are separated by \n\n
+          const messages = buffer.split('\n\n');
+          buffer = messages.pop() ?? '';
+
+          for (const msg of messages) {
+            if (!msg.trim()) continue;
+            const lines = msg.split('\n');
+            let eventType = '';
+            let eventData = '';
+            for (const line of lines) {
+              if (line.startsWith('event: ')) eventType = line.slice(7);
+              else if (line.startsWith('data: ')) eventData = line.slice(6);
+            }
+            if (!eventType) continue;
+
+            if (eventType === 'done') {
+              onDone();
+              return;
+            }
+
+            try {
+              const data = JSON.parse(eventData);
+              if (eventType === 'error') {
+                onError(data.message ?? 'Ukjent feil');
+                return;
+              }
+              onEvent({
+                type: eventType as StreamEvent['type'],
+                data,
+              });
+            } catch {
+              // Ignore parse errors
+            }
+          }
+        }
+      } finally {
+        reader.releaseLock();
+      }
+    })
+    .catch((err) => {
+      if (err.name !== 'AbortError') {
+        onError(err.message ?? 'Nettverksfeil');
+      }
+    });
+
+  return controller;
+}
+
+/** Start streaming synthesis with live tool-call feedback */
+export function synthesizeStream(
+  analysisId: string,
+  onEvent: (event: StreamEvent) => void,
+  onDone: () => void,
+  onError: (error: string) => void
+): AbortController {
+  return streamTypedSSE(`/api/analyses/${analysisId}/synthesize-stream`, onEvent, onDone, onError);
+}
+
+/** Start streaming QA with live tool-call feedback */
+export function qaStream(
+  analysisId: string,
+  onEvent: (event: StreamEvent) => void,
+  onDone: () => void,
+  onError: (error: string) => void
+): AbortController {
+  return streamTypedSSE(`/api/analyses/${analysisId}/qa-stream`, onEvent, onDone, onError);
+}
+
 export function updateSynthesisNote(
   analysisId: string,
   content: string

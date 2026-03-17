@@ -1,9 +1,12 @@
-"""Synthesis — Sprint 15 + agentisk syntese (ADR-004 Fase 1).
+"""Synthesis — ADR-004 Fase 1+2.
 
 Generates a legal analysis note (notatutkast) from screening results,
 proposition registry, notes, and EU case summaries. Uses capsule compression
 to stay within token budget. Agentic loop lets Claude fetch additional case
 paragraphs on-demand via tool use.
+
+Fase 2 adds generate_synthesis_stream() — an SSE-streaming variant that
+yields progress events during the agentic loop for live frontend feedback.
 """
 import json as json_module
 import logging
@@ -322,7 +325,7 @@ def _run_agentic_loop(
         if response.stop_reason == "end_turn":
             # Extract structured JSON from the last text block
             text = next(
-                (b.text for b in response.content if hasattr(b, "text")),
+                (b.text for b in response.content if b.type == "text"),
                 None,
             )
             if not text:
@@ -538,11 +541,91 @@ def _format_user_notes(candidates: list[dict]) -> str:
 
 
 def generate_synthesis(analysis_id: str) -> dict:
-    """Generate a legal analysis note using Claude.
+    """Generate a legal analysis note using Claude (blocking variant).
 
     Sends compressed screening results + propositions + notes to Claude.
     Returns structured note with sections, tensions, and coverage notes.
     Persists the note as markdown in analysis_documents.
+    """
+    user_message, content_hash, _candidates = _build_user_message(analysis_id)
+
+    cached = get_cached(analysis_id, "synthesis", content_hash)
+    if cached:
+        return cached
+
+    # Try agentic loop, fall back to single-shot on failure
+    try:
+        result = _run_agentic_loop(user_message, analysis_id)
+    except Exception as e:
+        logger.warning(
+            "Agentic synthesis failed for %s, falling back to single-shot: %s",
+            analysis_id, e,
+        )
+        try:
+            result = call_claude_structured(
+                system_prompt=SYNTHESIS_SYSTEM_PROMPT,
+                user_message=user_message,
+                schema=SYNTHESIS_SCHEMA,
+                max_tokens=12000,
+                effort="high",
+                log_label=f"Synthesis fallback for {analysis_id}",
+            )
+        except Exception as e2:
+            logger.error("Synthesis fallback also failed for %s: %s", analysis_id, e2)
+            raise SynthesisError(f"Syntese feilet: {e2}") from e2
+
+    # Convert structured response to markdown for persistence
+    markdown = _to_markdown(result)
+
+    # Persist to analysis_documents (with llm_meta)
+    llm_meta = result.get("_llm_meta")
+    client = get_client()
+    client.table("analysis_documents").upsert(
+        {
+            "analysis_id": analysis_id,
+            "doc_type": DOC_TYPE_NOTE,
+            "content": markdown,
+            "llm_meta": llm_meta,
+            "version": 1,
+        },
+        on_conflict="analysis_id,doc_type",
+    ).execute()
+
+    # Increment total_cost_usd on the analysis
+    cost = (result.get("_llm_meta") or {}).get("cost_usd", 0)
+    if cost:
+        client.rpc("increment_total_cost", {
+            "analysis_id_input": analysis_id,
+            "cost_increment": cost,
+        }).execute()
+
+    result["markdown"] = markdown
+    set_cached(analysis_id, "synthesis", content_hash, result)
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Streaming variant (ADR-004 Fase 2)
+# ---------------------------------------------------------------------------
+
+
+def _summarize_tool_result(name: str, result: dict) -> str:
+    """One-line summary of a tool result for SSE feedback."""
+    if name == "fetch_case_paragraphs":
+        n = len(result.get("paragraphs", []))
+        return f"{result.get('sak_nr', '?')}: {n} avsnitt hentet"
+    elif name == "fetch_provision_cases":
+        return (
+            f"{result.get('dok_id', '?')} {result.get('section_id', '?')}: "
+            f"{result.get('total', 0)} saker"
+        )
+    return str(result)[:80]
+
+
+def _build_user_message(analysis_id: str) -> tuple[str, str, list[dict]]:
+    """Build the user message for synthesis. Returns (user_message, content_hash, candidates).
+
+    Shared by both blocking and streaming variants.
     """
     ctx = load_analysis_context(analysis_id, extra_columns=["gaps"])
     problem = ctx["problem"]
@@ -550,7 +633,6 @@ def generate_synthesis(analysis_id: str) -> dict:
     provisions = ctx["provisions"]
     gaps = ctx.get("gaps") or []
 
-    # Load screened candidates
     client = get_client()
     candidates = (
         client.table("analysis_candidates")
@@ -565,20 +647,12 @@ def generate_synthesis(analysis_id: str) -> dict:
     if not candidates:
         raise SynthesisError("Ingen screenede saker å syntetisere")
 
-    # Check output cache
     content_hash = make_synthesis_hash(problem, candidates, provisions)
-    cached = get_cached(analysis_id, "synthesis", content_hash)
-    if cached:
-        return cached
 
-    # Build capsule-compressed screening data
     screening_capsule = _compress_screening_for_synthesis(candidates)
-
-    # Load propositions; extract notes from already-loaded candidates
     propositions_text = _load_propositions(analysis_id)
     notes_text = _format_user_notes(candidates)
 
-    # Build gap summary
     gap_summary = "Ingen hull." if not gaps else "\n".join(
         f"- {g.get('provision1', '?')} ∩ {g.get('provision2', '?')}: {g.get('count', 0)} saker"
         for g in gaps
@@ -612,54 +686,189 @@ Skriv et strukturert notatutkast som organiserer funnene fra screening og \
 rettssetningsregisteret. Marker seksjoner der juristen må bidra med egne \
 vurderinger med [JURISTENS VURDERING]."""
 
-    # Try agentic loop, fall back to single-shot on failure
+    return user_message, content_hash, candidates
+
+
+def generate_synthesis_stream(analysis_id: str):
+    """Streaming synthesis with live SSE events during the agentic loop.
+
+    Yields (event_type, data) tuples:
+    - ("status", {"phase": "...", ...})
+    - ("tool_call", {"tool": "...", "input": {...}})
+    - ("tool_result", {"tool": "...", "summary": "..."})
+    - ("result", {"synthesis": {...}, "markdown": "..."})
+    - ("error", {"message": "..."})
+    """
+    yield ("status", {"phase": "loading_context"})
+
     try:
-        result = _run_agentic_loop(user_message, analysis_id)
-    except Exception as e:
-        logger.warning(
-            "Agentic synthesis failed for %s, falling back to single-shot: %s",
-            analysis_id, e,
-        )
+        user_message, content_hash, candidates = _build_user_message(analysis_id)
+    except SynthesisError as e:
+        yield ("error", {"message": str(e)})
+        return
+
+    # Check cache
+    cached = get_cached(analysis_id, "synthesis", content_hash)
+    if cached:
+        cached["markdown"] = _to_markdown(cached)
+        yield ("result", {"synthesis": cached, "markdown": cached["markdown"]})
+        return
+
+    # Run agentic loop with SSE events
+    anthropic_client = get_anthropic_client()
+    messages = [{"role": "user", "content": user_message}]
+    cost_tracker = CostTracker()
+    tools_called = []
+    t0 = time.monotonic()
+
+    for turn in range(1, MAX_TOOL_TURNS + 1):
+        yield ("status", {"phase": "calling_claude", "turn": turn})
+
+        t_turn = time.monotonic()
         try:
-            result = call_claude_structured(
-                system_prompt=SYNTHESIS_SYSTEM_PROMPT,
-                user_message=user_message,
-                schema=SYNTHESIS_SCHEMA,
-                max_tokens=12000,
-                effort="high",
-                log_label=f"Synthesis fallback for {analysis_id}",
+            response = anthropic_client.messages.create(
+                model=CLAUDE_MODEL,
+                max_tokens=16000,
+                thinking={"type": "adaptive"},
+                output_config=build_output_config(
+                    schema=SYNTHESIS_SCHEMA, effort="high", model=CLAUDE_MODEL,
+                ),
+                tools=SYNTHESIS_TOOLS,
+                system=[{
+                    "type": "text",
+                    "text": SYNTHESIS_SYSTEM_PROMPT,
+                    "cache_control": {"type": "ephemeral"},
+                }],
+                messages=messages,
             )
-        except Exception as e2:
-            logger.error("Synthesis fallback also failed for %s: %s", analysis_id, e2)
-            raise SynthesisError(f"Syntese feilet: {e2}") from e2
+        except Exception as e:
+            logger.error("Synthesis API call failed on turn %d: %s", turn, e)
+            yield ("error", {"message": f"API-feil: {e}"})
+            return
 
-    # Convert structured response to markdown for persistence
-    markdown = _to_markdown(result)
+        elapsed_turn = int((time.monotonic() - t_turn) * 1000)
+        turn_cost = cost_tracker.add(
+            f"Synthesis/{analysis_id}/turn-{turn}",
+            CLAUDE_MODEL, response.usage, elapsed_ms=elapsed_turn,
+        )
 
-    # Persist to analysis_documents (with llm_meta)
-    llm_meta = result.get("_llm_meta")
-    client.table("analysis_documents").upsert(
-        {
-            "analysis_id": analysis_id,
-            "doc_type": DOC_TYPE_NOTE,
-            "content": markdown,
-            "llm_meta": llm_meta,
-            "version": 1,
-        },
-        on_conflict="analysis_id,doc_type",
-    ).execute()
+        messages.append({"role": "assistant", "content": response.content})
 
-    # Increment total_cost_usd on the analysis
-    cost = (result.get("_llm_meta") or {}).get("cost_usd", 0)
-    if cost:
-        client.rpc("increment_total_cost", {
-            "analysis_id_input": analysis_id,
-            "cost_increment": cost,
-        }).execute()
+        if response.stop_reason == "end_turn":
+            text = next(
+                (b.text for b in response.content if hasattr(b, "text")), None,
+            )
+            if not text:
+                yield ("error", {"message": "Agentisk loop ga ingen tekst-output"})
+                return
 
-    result["markdown"] = markdown
-    set_cached(analysis_id, "synthesis", content_hash, result)
-    return result
+            result = json_module.loads(text)
+            total_elapsed = int((time.monotonic() - t0) * 1000)
+            result["_llm_meta"] = {
+                "model": CLAUDE_MODEL,
+                "total_turns": turn,
+                "tools_called": tools_called,
+                "cost_usd": round(cost_tracker.total_cost, 6),
+                "elapsed_ms": total_elapsed,
+                "agentic": True,
+            }
+
+            persist_llm_call(
+                analysis_id=analysis_id, call_type="synthesis",
+                model=CLAUDE_MODEL, usage=response.usage,
+                cost_usd=turn_cost, elapsed_ms=elapsed_turn,
+                stop_reason="end_turn", turn=turn,
+            )
+
+            # Persist to DB
+            markdown = _to_markdown(result)
+            result["markdown"] = markdown
+            db_client = get_client()
+            db_client.table("analysis_documents").upsert(
+                {
+                    "analysis_id": analysis_id,
+                    "doc_type": DOC_TYPE_NOTE,
+                    "content": markdown,
+                    "llm_meta": result["_llm_meta"],
+                    "version": 1,
+                },
+                on_conflict="analysis_id,doc_type",
+            ).execute()
+
+            cost = result["_llm_meta"]["cost_usd"]
+            if cost:
+                db_client.rpc("increment_total_cost", {
+                    "analysis_id_input": analysis_id,
+                    "cost_increment": cost,
+                }).execute()
+
+            set_cached(analysis_id, "synthesis", content_hash, result)
+
+            logger.info(
+                "Streaming synthesis complete: %d turns, %d tool calls, $%.4f, %.1fs",
+                turn, len(tools_called), cost_tracker.total_cost,
+                total_elapsed / 1000,
+            )
+
+            yield ("result", {"synthesis": result, "markdown": markdown})
+            return
+
+        if response.stop_reason == "tool_use":
+            turn_tool_calls = []
+            tool_results = []
+            for block in response.content:
+                if block.type == "tool_use":
+                    yield ("tool_call", {
+                        "tool": block.name,
+                        "input": block.input,
+                        "turn": turn,
+                    })
+
+                    try:
+                        tool_result = _execute_tool(block.name, block.input)
+                        content = json_module.dumps(tool_result, ensure_ascii=False)
+                        summary = _summarize_tool_result(block.name, tool_result)
+                    except Exception as e:
+                        logger.error("Tool execution failed: %s", e)
+                        content = json_module.dumps({"error": str(e)})
+                        summary = f"Feil: {e}"
+
+                    tool_entry = {
+                        "turn": turn,
+                        "tool": block.name,
+                        "input": block.input,
+                        "success": "error" not in content,
+                    }
+                    tools_called.append(tool_entry)
+                    turn_tool_calls.append(tool_entry)
+                    tool_results.append({
+                        "type": "tool_result",
+                        "tool_use_id": block.id,
+                        "content": content,
+                    })
+
+                    yield ("tool_result", {
+                        "tool": block.name,
+                        "summary": summary,
+                        "success": tool_entry["success"],
+                        "turn": turn,
+                    })
+
+            persist_llm_call(
+                analysis_id=analysis_id, call_type="synthesis",
+                model=CLAUDE_MODEL, usage=response.usage,
+                cost_usd=turn_cost, elapsed_ms=elapsed_turn,
+                stop_reason="tool_use", turn=turn,
+                tool_calls=turn_tool_calls,
+            )
+
+            messages.append({"role": "user", "content": tool_results})
+            continue
+
+        yield ("error", {"message": f"Uventet stop_reason: {response.stop_reason}"})
+        return
+
+    yield ("error", {"message": f"Maks {MAX_TOOL_TURNS} turns nådd uten resultat"})
 
 
 def _to_markdown(result: dict) -> str:
