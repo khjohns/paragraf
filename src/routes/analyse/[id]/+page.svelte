@@ -37,9 +37,6 @@
       cases: analysisState.analysis.seeds.cases,
       regulationFilter: uiState.regulationFilter ? 'new' : 'all',
     },
-    // Only run traversal when no nodes are loaded yet — prevents automatic re-traversal
-    // on page load when candidates are already persisted in DB (status candidates_ready or later).
-    enabled: analysisState.nodes.length === 0,
   }));
 
   // Sync query results to store (untrack prevents cascading state updates)
