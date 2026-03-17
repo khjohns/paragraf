@@ -47,6 +47,10 @@ export interface AnalysisSummary {
   iteration: number;
   created_at: string;
   updated_at: string;
+  provisions: string[];
+  candidate_count: number;
+  read_count: number;
+  abc_counts: { A: number; B: number; C: number };
 }
 
 /** Seed row from DB */

@@ -35,6 +35,23 @@
 
   let totalCases = $derived(analysis.candidates.length);
   let totalRead = $derived(Object.values(categoryStats).reduce((sum, s) => sum + s.read, 0));
+
+  // Extract unique propositions from AI screening results
+  let propositions = $derived.by(() => {
+    const seen = new Set<string>();
+    const result: string[] = [];
+    for (const c of analysis.candidates) {
+      const prop = c.ai_screening?.proposition;
+      if (prop && !seen.has(prop)) {
+        seen.add(prop);
+        result.push(prop);
+      }
+    }
+    return result;
+  });
+
+  // Count tensions from propositions
+  // (Not yet available — would need cross-proposition analysis)
 </script>
 
 <div class="detail-panel">
@@ -57,7 +74,7 @@
     {#if analysis.problem}
       <div class="detail-problem">{analysis.problem}</div>
     {/if}
-    <button class="open-btn" onclick={() => onOpen(analysis.id)}>Åpne analyse</button>
+    <button class="open-btn" onclick={() => onOpen(analysis.id)}>Apne analyse</button>
   </div>
 
   <!-- Scrollable detail -->
@@ -80,7 +97,7 @@
     <!-- Reading progress per category -->
     {#if totalCases > 0}
       <div class="detail-section">
-        <div class="section-label">Lesestatus — {totalRead} av {totalCases}</div>
+        <div class="section-label">Lesestatus &mdash; {totalRead} av {totalCases}</div>
         {#each ['A', 'B', 'C'] as cat}
           {@const s = categoryStats[cat]}
           {#if s.total > 0}
@@ -102,15 +119,52 @@
       </div>
     {/if}
 
+    <!-- Propositions -->
+    {#if propositions.length > 0}
+      <div class="detail-section">
+        <div class="section-label">Rettssetninger</div>
+        {#each propositions as prop}
+          <div class="proposition-item">
+            <div class="proposition-dot"></div>
+            <span class="proposition-text">{prop}</span>
+          </div>
+        {/each}
+      </div>
+    {/if}
+
+    <!-- Tensions placeholder -->
+    <div class="detail-section">
+      <div class="section-label">Spenninger</div>
+      <span class="placeholder-text">Krever kryssanalyse av rettssetninger</span>
+    </div>
+
+    <!-- Gap pairs placeholder -->
+    <div class="detail-section">
+      <div class="section-label">Hull</div>
+      <span class="placeholder-text">Krever bestemmelsespar-analyse</span>
+    </div>
+
+    <!-- Overlaps placeholder -->
+    <div class="detail-section">
+      <div class="section-label">Overlapp</div>
+      <span class="placeholder-text">Krever teamvisning og kryss-analyse</span>
+    </div>
+
+    <!-- Recent activity placeholder -->
+    <div class="detail-section">
+      <div class="section-label">Siste aktivitet</div>
+      <span class="placeholder-text">Krever aktivitetslogg</span>
+    </div>
+
     <!-- AI next step -->
     <div class="detail-section no-border">
       <div class="ai-suggestion">
         <span class="ai-badge">AI</span>
         <span class="ai-text">
           {#if totalCases === 0}
-            Kjør primærsøk for å finne kandidatsaker.
+            Kjor primaersok for a finne kandidatsaker.
           {:else if totalRead < totalCases}
-            {totalCases - totalRead} uleste saker gjenstår. Start med A-kategorien.
+            {totalCases - totalRead} uleste saker gjenstar. Start med A-kategorien.
           {:else}
             Alle saker lest. Klar for sammenstilling.
           {/if}
@@ -133,7 +187,7 @@
   }
 
   .detail-header {
-    padding: 16px;
+    padding: 14px 16px;
     border-bottom: 1px solid var(--p-border);
     flex-shrink: 0;
   }
@@ -141,12 +195,12 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 8px;
+    margin-bottom: 6px;
   }
   .status-label {
     font-size: 10px;
     font-weight: 600;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.04em;
     text-transform: uppercase;
   }
   .close-btn {
@@ -174,10 +228,10 @@
     color: var(--p-ink);
     line-height: 1.3;
     letter-spacing: -0.01em;
-    margin-bottom: 8px;
+    margin-bottom: 6px;
   }
   .detail-problem {
-    font-size: 12px;
+    font-size: 12.5px;
     line-height: 1.55;
     color: var(--p-ink2);
   }
@@ -215,27 +269,27 @@
     font-size: 10px;
     font-weight: 600;
     color: var(--p-ink4);
-    letter-spacing: 0.06em;
+    letter-spacing: 0.05em;
     text-transform: uppercase;
-    margin-bottom: 8px;
+    margin-bottom: 6px;
   }
 
   .provisions-list {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 3px;
   }
   .provision-row {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
   }
   .provision-name {
     font-family: var(--font-data);
     font-size: 12px;
     font-weight: 600;
     color: var(--p-provision-accent);
-    min-width: 56px;
+    min-width: 55px;
   }
   .provision-line {
     flex: 1;
@@ -246,15 +300,15 @@
   .cat-progress-row {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
     margin-bottom: 4px;
   }
   .cat-badge {
     font-size: 10px;
     font-weight: 600;
-    padding: 2px 6px;
+    padding: 1px 4px;
     border-radius: var(--radius-badge);
-    min-width: 20px;
+    min-width: 18px;
     text-align: center;
   }
   .cat-badge.cat-a {
@@ -271,7 +325,7 @@
   }
   .cat-bar {
     flex: 1;
-    height: 4px;
+    height: 3px;
     border-radius: var(--radius-sm);
     background: var(--p-input);
     overflow: hidden;
@@ -289,28 +343,55 @@
     font-family: var(--font-data);
     font-size: 10px;
     color: var(--p-ink3);
-    min-width: 24px;
+    min-width: 20px;
     text-align: right;
   }
 
+  .proposition-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    padding: 4px 0;
+  }
+  .proposition-dot {
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: var(--p-ink3);
+    margin-top: 6px;
+    flex-shrink: 0;
+  }
+  .proposition-text {
+    font-size: 12px;
+    color: var(--p-ink2);
+    line-height: 1.45;
+  }
+
+  .placeholder-text {
+    font-size: 11px;
+    color: var(--p-ink4);
+    font-style: italic;
+  }
+
   .ai-suggestion {
-    padding: 8px 12px;
+    padding: 8px 10px;
     border-radius: var(--radius-md);
     background: var(--p-highlight);
     border-left: 3px solid var(--p-ai-border-subtle);
     display: flex;
     align-items: flex-start;
-    gap: 8px;
+    gap: 6px;
   }
   .ai-badge {
-    font-size: 10px;
+    font-size: 9px;
     font-weight: 700;
-    padding: 2px 6px;
+    padding: 1px 4px;
     border-radius: var(--radius-badge);
     background: var(--p-surface);
     border: 1px solid var(--p-ai-border-subtle);
     color: var(--p-kofa-accent);
     flex-shrink: 0;
+    margin-top: 1px;
   }
   .ai-text {
     font-size: 12px;

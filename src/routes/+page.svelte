@@ -10,6 +10,13 @@
   let selectedId = $state<string | null>(null);
   const selectedQuery = createAnalysisQuery(() => selectedId);
 
+  // Auto-select first analysis when list loads (matches mock behavior)
+  $effect(() => {
+    if (!selectedId && analysesQuery.data?.length) {
+      selectedId = analysesQuery.data[0].id;
+    }
+  });
+
   async function handleCreate() {
     const analysis = await createAnalysis('Ny analyse');
     goto(`/analyse/${analysis.id}`);
@@ -24,6 +31,8 @@
   <header class="portfolio-header">
     <span class="brand">Paragraf</span>
     <span class="spacer"></span>
+    <span class="user-name">Helene Johansen</span>
+    <div class="user-avatar">HJ</div>
   </header>
 
   <div class="portfolio-body">
@@ -65,13 +74,35 @@
     flex-shrink: 0;
   }
   .brand {
-    font-size: 11px;
+    font-size: 15px;
     font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--p-ink2);
+    letter-spacing: -0.02em;
+    color: var(--p-ink);
+  }
+  .user-name {
+    font-size: 11px;
+    color: var(--p-ink3);
+  }
+  .user-avatar {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: var(--p-kofa-bg);
+    border: 1px solid var(--p-border-m);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--p-kofa-accent);
   }
   .spacer {
     flex: 1;
+  }
+
+  .portfolio-body {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
   }
 </style>

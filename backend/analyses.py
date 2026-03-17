@@ -3,13 +3,32 @@ from db import get_client
 
 
 def list_analyses(user_id=None):
-    """List all analyses, optionally filtered by user."""
+    """List all analyses with provision seeds and candidate counts."""
     q = get_client().table("analyses").select(
-        "id, title, problem, status, iteration, created_at, updated_at"
+        "id, title, problem, status, iteration, created_at, updated_at, "
+        "analysis_seeds(seed_type, value), "
+        "analysis_candidates(id, category, read_at)"
     ).order("updated_at", desc=True)
     if user_id:
         q = q.eq("user_id", user_id)
-    return q.execute().data
+    rows = q.execute().data
+
+    result = []
+    for row in rows:
+        seeds = row.pop("analysis_seeds", [])
+        candidates = row.pop("analysis_candidates", [])
+        row["provisions"] = [s["value"] for s in seeds if s["seed_type"] == "provision"]
+        row["candidate_count"] = len(candidates)
+        row["read_count"] = sum(1 for c in candidates if c.get("read_at"))
+        abc = {"A": 0, "B": 0, "C": 0}
+        for c in candidates:
+            cat = c.get("category")
+            if cat in abc:
+                abc[cat] += 1
+        row["abc_counts"] = abc
+        result.append(row)
+
+    return result
 
 
 def get_analysis(analysis_id):
