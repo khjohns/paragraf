@@ -216,7 +216,7 @@ SSE-screening fullført for alle 26 A-saker. Propositions-upsert feilet for de 5
 | 12 | Adaptive thinking ikke aktivert | `thinking: {"type": "adaptive"}` på Sonnet/Opus-kall | `7fc63df` |
 | 13 | Sitatverifisering kjøres automatisk + vises i UI | Auto-trigger etter SSE, badges per sitat | `abcb283` |
 | 14 | Infinite loop i traversal-query (effect_update_depth_exceeded) | Fjern syklisk enabled, bruk staleTime: Infinity | `6d1bac0` |
-| 15 | «Velg per sak» defaulter til Claude uansett forrige valg | Husk previousMode, bruk som fallback | (uncommitted) |
+| 15 | «Velg per sak» defaulter til Claude uansett forrige valg | Forsøkt fix (previousModes) — fungerer ikke ennå | `5580466` |
 
 ## Gjenstående bugs/forbedringer (ikke fikset)
 
@@ -228,6 +228,13 @@ SSE-screening fullført for alle 26 A-saker. Propositions-upsert feilet for de 5
 | 4 | Frontend-redirect ved backend-restart | Race condition | Lav |
 | 5 | Batch polling mister state ved sideload | Nedprioritert (SSE er default nå) | Lav |
 | 6 | B-kategori defaulter til «Jeg leser» | Design-valg å vurdere | Lav |
+| 7 | «Velg per sak» defaulter alltid til Claude | previousModes-fix fungerte ikke — må undersøkes | Medium |
+| 8 | FOA 2017-filter dimmer saker men ekskluderer dem ikke fra screening | Dimmede saker bør ekskluderes fra «Claude screener»-listen | Medium |
+| 9 | Adaptive thinking gir 0 thinking-tokens (screening) | Sonnet velger å ikke tenke for screening — mulig riktig oppførsel | Info |
+| 10 | Prompt caching gir 0 cache-treff | Mulig inkompatibilitet med adaptive thinking modus | Info |
+| 11 | Traversal overskriver screening-resultater | `persist_candidates` DELETE+INSERT fjerner `ai_screening` | **Kritisk** |
+| 12 | Ingen «screen flere»-knapp etter screening er fullført | `screeningStarted=true` skjuler knappen permanent | Medium |
+| 13 | Kun 2 saker vises som screenet etter reload | Konsekvens av #11 — traversal slettet screenede kandidater | Konsekvens |
 
 ## Aggregert kostnad hittil
 

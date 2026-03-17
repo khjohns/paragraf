@@ -102,15 +102,10 @@ def upsert_seeds(analysis_id, seeds_data):
 def persist_candidates(analysis_id, case_nodes, iteration):
     """Persist traversal case nodes as analysis_candidates.
 
-    Upserts: deletes existing candidates for this analysis+iteration, then inserts.
-    Preserves candidates from other iterations.
+    Uses upsert on (analysis_id, sak_nr) to update category/signals/iteration
+    without overwriting screening results (ai_screening, screening_status, user_notes).
     """
     client = get_client()
-
-    # Delete existing candidates for this iteration (re-run safe)
-    client.table("analysis_candidates").delete().eq(
-        "analysis_id", analysis_id
-    ).eq("iteration", iteration).execute()
 
     rows = []
     for node in case_nodes:
@@ -123,11 +118,15 @@ def persist_candidates(analysis_id, case_nodes, iteration):
             "category": node.get("category"),
             "signals": node.get("signals", {}),
             "iteration": iteration,
-            "screening_status": "pending",
         })
 
     if rows:
-        client.table("analysis_candidates").insert(rows).execute()
+        # Only update traversal-derived fields; preserve screening data
+        client.table("analysis_candidates").upsert(
+            rows,
+            on_conflict="analysis_id,sak_nr",
+            default_to_null=False,
+        ).execute()
 
     return len(rows)
 
