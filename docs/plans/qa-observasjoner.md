@@ -188,7 +188,39 @@ SSE-screening fullført for alle 26 A-saker. Propositions-upsert feilet for de 5
 
 ## Steg 4-5 — EU-screening og syntese
 
-*(ikke kjørt ennå)*
+### EU-screening *(ikke kjørt ennå)*
+
+### Syntese ✅ (agentisk, ADR-004 Fase 1)
+
+Agentisk syntese implementert med tool use (blocking loop, ingen streaming).
+
+**Oppførsel observert:**
+
+| Turn | stop_reason | Handling | Tid | Kostnad |
+|------|-------------|----------|-----|---------|
+| 1 | tool_use | 2× `fetch_case_paragraphs`: sak 2022/31 avs. 29,35,40 + sak 2025/1084 avs. 41,47,50 | 5.2s | $0.022 |
+| 2 | end_turn | Produserte ferdig strukturert JSON (6 seksjoner, 3 spenninger) | 87.9s | $0.074 |
+
+**Nøkkeldata:**
+- Modell: Sonnet 4.6 (agentisk, 2 turns)
+- Cache: System-prompt (2065 tokens) cachet mellom turns → 90% rabatt på turn 2
+- Totalt: $0.096, 93s
+- Kvalitet: Identifiserte korrekt at problemstillingen («tildelingskriterier») ikke matcher materialet (som handler om kvalifikasjonskrav)
+- 3 saker referert i detalj (2022/31, 2025/1084, 2019/379), med avsnittsnumre
+- `_llm_meta` persistert på `analysis_documents.llm_meta` (jsonb)
+- Hvert turn logget i `llm_call_log` med tool_calls, cost, elapsed_ms
+
+**Observasjoner:**
+- Claude brukte tools spontant — hentet spesifikke avsnitt for de to viktigste sakene
+- `fetch_provision_cases` ble ikke brukt (kun 3 screenede saker, Claude hadde nok kontekst)
+- Prompt caching fungerer: turn 2 leste 2065 cached tokens (system prompt)
+- Fallback til single-shot kall fungerer (testet ved å tvinge feil)
+
+**DB-infrastruktur lagt til:**
+- `llm_output_cache` — hash-basert cache, unngår gjentatte $0.10-kall
+- `llm_call_log` — persistent logg for alle LLM-kall (tokens, cost, tools, turn)
+- `analysis_documents.llm_meta` — jsonb-kolonne for syntese-metadata
+- `UNIQUE(analysis_id, doc_type)` på `analysis_documents` — manglet, krasjet upsert
 
 ---
 
@@ -238,7 +270,7 @@ SSE-screening fullført for alle 26 A-saker. Propositions-upsert feilet for de 5
 
 ## Pipeline-integrasjonstester (2026-03-17)
 
-13/13 tester grønne (`backend/tests/test_pipeline.py`, 109s).
+17/17 pipeline-tester + 4/4 syntese-tester grønne.
 
 | Test | Hva den verifiserer | Status |
 |------|---------------------|--------|
@@ -264,6 +296,10 @@ SSE-screening fullført for alle 26 A-saker. Propositions-upsert feilet for de 5
 
 | Steg | Modell | Input | Output | Kostnad |
 |------|--------|-------|--------|---------|
-| Scoping | sonnet | 1 915 | 1 586 | $0.0295 |
-| Screening (26 A-saker) | sonnet | ~162k | ~30k | ~$0.92 |
-| **Total** | | | | **~$0.95** |
+| Scoping | sonnet | 1 915 | 1 586 | $0.030 |
+| Screening (26 A-saker, SSE) | sonnet | ~162k | ~30k | ~$0.920 |
+| Citation QA | haiku | ~8k | ~2k | ~$0.020 |
+| Syntese (agentisk, 2 turns) | sonnet | ~10k | ~4k | $0.096 |
+| **Total** | | | | **~$1.07** |
+
+*Merk: Testanalysen (3 saker) hadde total_cost_usd = $0.68 inkl. gjentatte kjøringer uten cache.*

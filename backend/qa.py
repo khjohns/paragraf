@@ -1,22 +1,25 @@
-"""Quality Assurance — Sprint 15.
+"""Quality Assurance — Sprint 15 + agentisk QA (ADR-004).
 
-Three-part QA process:
-1. Citation verification — uses Citations API to verify quotes match source text
+Single agentic QA call with tool use that checks:
+1. Reference accuracy — verifies synthesis references against source text
 2. Logical consistency — checks if conclusions follow from case law
-3. Coverage check — ensures all A-candidates are treated in the note
+3. Coverage — ensures all A-candidates are treated in the note
 """
 import json
+import json as json_module
 import logging
 import os
+import time
 from concurrent.futures import ThreadPoolExecutor
 
 from db import get_client
-from synthesis import DOC_TYPE_NOTE, DOC_TYPE_QA_REPORT
-import time
+from synthesis import DOC_TYPE_NOTE, DOC_TYPE_QA_REPORT, SYNTHESIS_TOOLS, _execute_tool
 
 from llm_utils import (
+    CLAUDE_MODEL,
     HAIKU_MODEL,
     get_anthropic_client,
+    build_output_config,
     call_claude_structured,
     load_analysis_context,
     format_sub_problems,
@@ -24,7 +27,9 @@ from llm_utils import (
     submit_batch,
     get_batch_results,
     log_usage,
+    persist_llm_call,
     parse_json_response,
+    CostTracker,
     _calculate_cost,
     _extract_cache_tokens,
 )
@@ -321,8 +326,8 @@ Sjekk notatets logiske konsistens mot screeningresultatene. Flagg problemer."""
         system_prompt=LOGIC_QA_SYSTEM_PROMPT,
         user_message=user_message,
         schema=LOGIC_QA_SCHEMA,
-        max_tokens=4000,
-        model=HAIKU_MODEL,
+        max_tokens=16000,
+        model=CLAUDE_MODEL,
         log_label="Logic QA",
     )
 
@@ -343,8 +348,8 @@ Sjekk om alle viktige saker (spesielt A-kandidater) er behandlet i notatet."""
         system_prompt=COVERAGE_QA_SYSTEM_PROMPT,
         user_message=user_message,
         schema=COVERAGE_QA_SCHEMA,
-        max_tokens=4000,
-        model=HAIKU_MODEL,
+        max_tokens=16000,
+        model=CLAUDE_MODEL,
         log_label="Coverage QA",
     )
 
@@ -523,20 +528,301 @@ def verify_screening_citations(analysis_id: str) -> dict:
     return result
 
 
+COMBINED_QA_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "reference_issues": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "sak_nr": {"type": "string"},
+                    "paragraph": {"type": ["integer", "null"]},
+                    "issue_type": {
+                        "type": "string",
+                        "enum": ["inaccurate_reference", "missing_nuance", "paragraph_mismatch", "fabricated"],
+                    },
+                    "description": {"type": "string"},
+                    "severity": {"type": "string", "enum": ["high", "medium", "low"]},
+                },
+                "required": ["sak_nr", "paragraph", "issue_type", "description", "severity"],
+                "additionalProperties": False,
+            },
+            "description": "Referanseproblemer funnet ved å slå opp avsnittene syntesen refererer til",
+        },
+        "logic_flags": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "type": {
+                        "type": "string",
+                        "enum": [
+                            "argumentative_gap", "unsupported_conclusion",
+                            "analogy_not_flagged", "missing_nuance", "contradiction",
+                        ],
+                    },
+                    "location": {"type": "string"},
+                    "description": {"type": "string"},
+                    "severity": {"type": "string", "enum": ["high", "medium", "low"]},
+                    "suggestion": {"type": "string"},
+                },
+                "required": ["type", "location", "description", "severity", "suggestion"],
+                "additionalProperties": False,
+            },
+            "description": "Logiske konsistensproblemer i notatet",
+        },
+        "untreated_cases": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "sak_nr": {"type": "string"},
+                    "category": {"type": "string"},
+                    "proposition": {"type": "string"},
+                    "justified_omission": {"type": "boolean"},
+                    "reason": {"type": "string"},
+                },
+                "required": ["sak_nr", "category", "proposition", "justified_omission", "reason"],
+                "additionalProperties": False,
+            },
+            "description": "Screenede saker som ikke er behandlet i notatet",
+        },
+        "overall_assessment": {
+            "type": "string",
+            "description": "Samlet kvalitetsvurdering av syntese-notatet",
+        },
+    },
+    "required": ["reference_issues", "logic_flags", "untreated_cases", "overall_assessment"],
+    "additionalProperties": False,
+}
+
+
+COMBINED_QA_SYSTEM_PROMPT = """\
+Du er en juridisk kvalitetssikrer for norsk anskaffelsesrett. Du kvalitetssikrer \
+et rettslig analysenotat som er generert fra screening av KOFA-avgjørelser.
+
+<instructions>
+Du mottar et notatutkast og screeningresultatene det bygger på. Gjennomfør tre sjekker:
+
+<check name="reference_accuracy">
+Notatet refererer til spesifikke saker og avsnittsnumre (f.eks. «2022/31, avsnitt 35»). \
+Bruk fetch_case_paragraphs-verktøyet til å slå opp de viktigste referansene og verifiser:
+- Sier kildeteksten det notatet påstår?
+- Er nyanser eller kvalifikasjoner utelatt?
+- Finnes det refererte avsnittet i det hele tatt?
+Prioriter referanser som underbygger sentrale poenger i notatet.
+</check>
+
+<check name="logical_consistency">
+Sjekk om notatets fremstilling er logisk konsistent:
+- Følger konklusjonene av den gjennomgåtte praksisen?
+- Er det argumentative sprang — påstander uten dekning i kildene?
+- Er analogier tydelig flagget som analogier?
+- Er vesentlige nyanser fra screening tatt med?
+- Er det indre motsetninger?
+</check>
+
+<check name="coverage">
+Sjekk om alle viktige saker er behandlet:
+- Er alle A-kandidater (direkte relevante) nevnt eller behandlet?
+- Er gullkandidater (★) gitt tilstrekkelig plass?
+- Er utelatelser av saker rimelig begrunnet?
+</check>
+</instructions>
+
+<formatting_rules>
+- Skriv alltid på norsk (bokmål)
+- Vær konkret — referer til spesifikke steder i notatet og spesifikke avsnitt i kildene
+- Bruk verktøy for å verifisere — ikke gjett om kildeteksten stemmer
+</formatting_rules>"""
+
+
+MAX_QA_TOOL_TURNS = 5
+
+
 def run_qa(analysis_id: str) -> dict:
-    """Run full QA on the synthesis note.
+    """Run agentic QA on the synthesis note.
 
-    Performs three checks in parallel:
-    1. Citation verification (with Citations API)
-    2. Logical consistency
-    3. Coverage check
-
-    Returns combined QA report. Persists report in analysis_documents.
+    Single Sonnet call with tool use (fetch_case_paragraphs) that checks
+    reference accuracy, logical consistency, and coverage in one pass.
+    Falls back to legacy parallel QA on failure.
     """
     note_markdown, candidates, candidates_summary = _load_qa_inputs(analysis_id)
 
-    logger.info("Starting QA for analysis %s", analysis_id)
+    logger.info("Starting agentic QA for analysis %s", analysis_id)
 
+    try:
+        result = _run_qa_agentic(analysis_id, note_markdown, candidates_summary)
+    except Exception as e:
+        logger.warning("Agentic QA failed for %s, falling back to legacy: %s", analysis_id, e)
+        result = _run_qa_legacy(analysis_id, note_markdown, candidates, candidates_summary)
+
+    return result
+
+
+def _run_qa_agentic(
+    analysis_id: str,
+    note_markdown: str,
+    candidates_summary: str,
+) -> dict:
+    """Agentic QA with tool use — single Sonnet call."""
+    client = get_anthropic_client()
+
+    user_message = f"""<notat>
+{note_markdown}
+</notat>
+
+<screenede_saker>
+{candidates_summary}
+</screenede_saker>
+
+Kvalitetssikre dette notatutkastet. Du MÅ gjøre følgende:
+
+1. FØRST: Identifiser de 3-5 viktigste avsnitthenvisningene i notatet (f.eks. «2022/31, avsnitt 35»). \
+Bruk fetch_case_paragraphs for å hente disse avsnittene og sammenlign med hva notatet påstår.
+
+2. DERETTER: Vurder logisk konsistens og dekning basert på screenede saker.
+
+Ikke returner tomme arrays med mindre du faktisk har sjekket og funnet null problemer."""
+
+    messages = [{"role": "user", "content": user_message}]
+    cost_tracker = CostTracker()
+    tools_called = []
+    t0 = time.monotonic()
+
+    for turn in range(1, MAX_QA_TOOL_TURNS + 1):
+        t_turn = time.monotonic()
+        response = client.messages.create(
+            model=CLAUDE_MODEL,
+            max_tokens=16000,
+            thinking={"type": "adaptive"},
+            output_config=build_output_config(
+                schema=COMBINED_QA_SCHEMA, effort="high", model=CLAUDE_MODEL,
+            ),
+            tools=SYNTHESIS_TOOLS,
+            system=[{
+                "type": "text",
+                "text": COMBINED_QA_SYSTEM_PROMPT,
+                "cache_control": {"type": "ephemeral"},
+            }],
+            messages=messages,
+        )
+        elapsed_turn = int((time.monotonic() - t_turn) * 1000)
+
+        turn_cost = cost_tracker.add(
+            f"QA/{analysis_id}/turn-{turn}",
+            CLAUDE_MODEL,
+            response.usage,
+            elapsed_ms=elapsed_turn,
+        )
+
+        messages.append({"role": "assistant", "content": response.content})
+
+        if response.stop_reason == "end_turn":
+            text = next(
+                (b.text for b in response.content if hasattr(b, "text")),
+                None,
+            )
+            if not text:
+                raise QAError("QA-loop ga ingen tekst-output")
+
+            result = json_module.loads(text)
+            total_elapsed = int((time.monotonic() - t0) * 1000)
+            result["_llm_meta"] = {
+                "model": CLAUDE_MODEL,
+                "total_turns": turn,
+                "tools_called": tools_called,
+                "cost_usd": round(cost_tracker.total_cost, 6),
+                "elapsed_ms": total_elapsed,
+                "agentic": True,
+            }
+
+            persist_llm_call(
+                analysis_id=analysis_id, call_type="qa",
+                model=CLAUDE_MODEL, usage=response.usage,
+                cost_usd=turn_cost, elapsed_ms=elapsed_turn,
+                stop_reason="end_turn", turn=turn,
+            )
+
+            logger.info(
+                "Agentic QA complete: %d turns, %d tool calls, $%.4f, %.1fs",
+                turn, len(tools_called), cost_tracker.total_cost,
+                total_elapsed / 1000,
+            )
+
+            # Persist QA report
+            _persist_qa_report(analysis_id, result)
+            return result
+
+        if response.stop_reason == "tool_use":
+            turn_tool_calls = []
+            tool_results = []
+            for block in response.content:
+                if block.type == "tool_use":
+                    logger.info("QA tool call: %s(%s)",
+                        block.name,
+                        json_module.dumps(block.input, ensure_ascii=False)[:200],
+                    )
+                    try:
+                        tool_result = _execute_tool(block.name, block.input)
+                        content = json_module.dumps(tool_result, ensure_ascii=False)
+                    except Exception as e:
+                        logger.error("QA tool execution failed: %s", e)
+                        content = json_module.dumps({"error": str(e)})
+
+                    tool_entry = {
+                        "turn": turn,
+                        "tool": block.name,
+                        "input": block.input,
+                        "success": "error" not in content,
+                    }
+                    tools_called.append(tool_entry)
+                    turn_tool_calls.append(tool_entry)
+                    tool_results.append({
+                        "type": "tool_result",
+                        "tool_use_id": block.id,
+                        "content": content,
+                    })
+
+            persist_llm_call(
+                analysis_id=analysis_id, call_type="qa",
+                model=CLAUDE_MODEL, usage=response.usage,
+                cost_usd=turn_cost, elapsed_ms=elapsed_turn,
+                stop_reason="tool_use", turn=turn,
+                tool_calls=turn_tool_calls,
+            )
+
+            messages.append({"role": "user", "content": tool_results})
+            continue
+
+        raise QAError(f"Uventet stop_reason i QA: {response.stop_reason}")
+
+    raise QAError(f"QA-loop nådde maks {MAX_QA_TOOL_TURNS} turns")
+
+
+def _persist_qa_report(analysis_id: str, result: dict) -> None:
+    """Persist QA report to analysis_documents."""
+    client = get_client()
+    client.table("analysis_documents").upsert(
+        {
+            "analysis_id": analysis_id,
+            "doc_type": DOC_TYPE_QA_REPORT,
+            "content": json.dumps(result, ensure_ascii=False),
+            "llm_meta": result.get("_llm_meta"),
+            "version": 1,
+        },
+        on_conflict="analysis_id,doc_type",
+    ).execute()
+
+
+def _run_qa_legacy(
+    analysis_id: str,
+    note_markdown: str,
+    candidates: list[dict],
+    candidates_summary: str,
+) -> dict:
+    """Legacy parallel QA — fallback if agentic QA fails."""
     with ThreadPoolExecutor(max_workers=3) as executor:
         citation_future = executor.submit(_verify_citations_with_api, candidates, note_markdown)
         logic_future = executor.submit(_check_logical_consistency, note_markdown, candidates_summary)

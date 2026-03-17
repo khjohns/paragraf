@@ -294,7 +294,8 @@ def _run_agentic_loop(
         t_turn = time.monotonic()
         response = client.messages.create(
             model=CLAUDE_MODEL,
-            max_tokens=12000,
+            max_tokens=16000,
+            thinking={"type": "adaptive"},
             output_config=build_output_config(
                 schema=SYNTHESIS_SCHEMA, effort="high", model=CLAUDE_MODEL,
             ),
