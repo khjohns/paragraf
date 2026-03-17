@@ -63,7 +63,7 @@ def create_analysis(title, problem=""):
 
 def update_analysis(analysis_id, updates):
     """Update analysis fields. Accepts: title, problem, refined_problem, sub_problems, context, status, iteration."""
-    allowed = {"title", "problem", "refined_problem", "sub_problems", "context", "status", "iteration", "gaps"}
+    allowed = {"title", "problem", "refined_problem", "sub_problems", "context", "status", "iteration", "gaps", "scoping_result"}
     filtered = {k: v for k, v in updates.items() if k in allowed}
     if not filtered:
         return None

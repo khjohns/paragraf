@@ -213,6 +213,16 @@ export interface EuScreeningResult {
   done?: boolean;
 }
 
+/** LLM call metadata (from _llm_meta) */
+export interface LlmMeta {
+  model: string;
+  total_turns: number;
+  tools_called: { turn: number; tool: string; input: Record<string, unknown>; success: boolean }[];
+  cost_usd: number;
+  elapsed_ms: number;
+  agentic: boolean;
+}
+
 /** Synthesis note section */
 export interface SynthesisSection {
   heading: string;
@@ -227,6 +237,7 @@ export interface SynthesisResult {
   unresolved_tensions: { description: string; cases: string[] }[];
   coverage_notes: string;
   markdown: string;
+  _llm_meta?: LlmMeta;
 }
 
 /** QA verified quote */
@@ -323,4 +334,13 @@ export interface AnalysisDbResponse {
   candidates: AnalysisCandidate[];
   created_at: string;
   updated_at: string;
+  scoping_result: ScopingResult | null;
+  total_cost_usd: number;
+  citation_summary: {
+    total: number;
+    verified?: number;
+    truncated?: number;
+    inaccurate?: number;
+    not_found?: number;
+  } | null;
 }

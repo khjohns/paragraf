@@ -73,6 +73,16 @@
     });
     analysisState.setStatus('searching');
 
+    // Persist scoping result for later recall in ContextStrip
+    analysisState.setScopingResult({
+      refined_problem: editedProblem,
+      sub_problems: editedSubProblems,
+      provisions: editedProvisions,
+      search_strategy: scopingResult!.search_strategy,
+      context: scopingResult!.context,
+      reasoning: scopingResult!.reasoning,
+    });
+
     // Show searching phase with progress indicators
     phase = 'searching';
     searchError = null;

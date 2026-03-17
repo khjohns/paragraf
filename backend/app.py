@@ -244,6 +244,9 @@ def scope_analysis_route(analysis_id):
         updates["sub_problems"] = result["sub_problems"]
     if result.get("context"):
         updates["context"] = result["context"]
+    # Persist the full scoping result for later recall (ContextStrip)
+    updates["scoping_result"] = result
+
     if updates:
         update_analysis(analysis_id, updates)
 

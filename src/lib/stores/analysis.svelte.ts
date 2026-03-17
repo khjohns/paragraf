@@ -5,6 +5,7 @@ import type {
   Seeds,
   IterationEntry,
   AnalysisDbResponse,
+  ScopingResult,
 } from '$lib/types/analysis';
 import type { SuggestedProvision } from '$lib/types/api';
 import { updateAnalysis, completeAnalysis } from '$lib/api/analyses';
@@ -22,6 +23,34 @@ class AnalysisState {
   suggestedProvisions = $state<SuggestedProvision[]>([]);
   /** When set, list/graph filters to nodes from this iteration only */
   filterIteration = $state<number | null>(null);
+  scopingResult = $state<ScopingResult | null>(null);
+  totalCostUsd = $state<number>(0);
+  citationSummary = $state<Record<string, number> | null>(null);
+
+  /** Case nodes (nodes with a category) — shared derivation to avoid duplicating across components */
+  caseNodes = $derived(this.nodes.filter((n) => n.category));
+
+  /** Category counts — single computation used by ContextStrip, PhasePanel, ScreeningPanel, etc. */
+  catCounts = $derived.by(() => {
+    const counts = { A: 0, B: 0, C: 0 };
+    for (const n of this.caseNodes) {
+      if (n.category === 'A') counts.A++;
+      else if (n.category === 'B') counts.B++;
+      else if (n.category === 'C') counts.C++;
+    }
+    return counts;
+  });
+
+  /** Signal coverage stats — R/F/V counts */
+  coverageStats = $derived.by(() => {
+    const stats = { ref: 0, fts: 0, vec: 0 };
+    for (const n of this.caseNodes) {
+      if (n.signals?.ref) stats.ref++;
+      if (n.signals?.fts) stats.fts++;
+      if (n.signals?.vec) stats.vec++;
+    }
+    return stats;
+  });
 
   analysis = $state<Analysis>({
     id: crypto.randomUUID(),
@@ -112,6 +141,10 @@ class AnalysisState {
   setStatus(status: AnalysisStatus) {
     this.analysis.status = status;
     this.touch();
+  }
+
+  setScopingResult(result: ScopingResult) {
+    this.scopingResult = result;
   }
 
   toggleRead(nodeId: string) {
@@ -233,6 +266,10 @@ class AnalysisState {
       createdAt: data.created_at,
       updatedAt: data.updated_at,
     };
+
+    this.scopingResult = data.scoping_result ?? null;
+    this.totalCostUsd = data.total_cost_usd ?? 0;
+    this.citationSummary = data.citation_summary ?? null;
 
     // Delegate screening hydration
     screeningState.reset();

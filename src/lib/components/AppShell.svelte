@@ -2,6 +2,7 @@
   import type { Snippet } from 'svelte';
   import { uiState } from '$lib/stores/ui.svelte';
   import WorkspaceHeader from './WorkspaceHeader.svelte';
+  import ContextStrip from './ContextStrip.svelte';
 
   let {
     leftPanel,
@@ -16,6 +17,7 @@
 
 <div class="app-shell">
   <WorkspaceHeader />
+  <ContextStrip />
   <div class="panels">
     {#if uiState.leftPanelOpen}
       <aside class="left-panel">
@@ -27,7 +29,7 @@
       {@render middlePanel()}
     </main>
 
-    {#if uiState.selectedNodeId}
+    {#if uiState.selectedNodeId && !uiState.activeProcessView}
       <aside class="right-panel">
         {@render rightPanel()}
       </aside>
@@ -49,10 +51,10 @@
     overflow: hidden;
   }
   .left-panel {
-    width: 300px;
-    min-width: 300px;
+    width: 140px;
+    min-width: 140px;
     border-right: 1px solid var(--p-border);
-    background: var(--p-panel);
+    background: var(--p-bg);
     overflow: hidden;
     display: flex;
     flex-direction: column;

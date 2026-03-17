@@ -1,6 +1,7 @@
 export type ViewMode = 'list' | 'graph' | 'propositions' | 'synthesis';
 export type ListFilter = 'all' | 'delimitation' | 'unread';
 export type ListSort = 'category' | 'citations' | 'date';
+export type ProcessView = 'screening-delegation' | 'synthesis-review' | null;
 
 class UiState {
   selectedNodeId = $state<string | null>(null);
@@ -13,6 +14,8 @@ class UiState {
   graphSearch = $state('');
   graphCategoryFilter = $state<Set<string>>(new Set()); // empty = show all
   graphTypeFilter = $state<Set<string>>(new Set()); // empty = show all
+  activeProcessView = $state<ProcessView>(null);
+  contextStripExpanded = $state(false);
 
   private toggleSetFilter(field: 'graphCategoryFilter' | 'graphTypeFilter', value: string) {
     const next = new Set(this[field]);
@@ -87,6 +90,18 @@ class UiState {
 
   toggleAi() {
     this.aiEnabled = !this.aiEnabled;
+  }
+
+  setProcessView(view: ProcessView) {
+    this.activeProcessView = view;
+  }
+
+  clearProcessView() {
+    this.activeProcessView = null;
+  }
+
+  toggleContextStrip() {
+    this.contextStripExpanded = !this.contextStripExpanded;
   }
 }
 

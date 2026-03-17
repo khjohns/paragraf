@@ -1,12 +1,14 @@
 <script lang="ts">
   import type { PageData } from './$types';
   import AppShell from '$lib/components/AppShell.svelte';
-  import LeftPanel from '$lib/components/LeftPanel.svelte';
+  import PhasePanel from '$lib/components/PhasePanel.svelte';
   import Toolbar from '$lib/components/Toolbar.svelte';
   import NodeList from '$lib/components/NodeList.svelte';
   import GraphView from '$lib/components/GraphView.svelte';
   import PropositionRegistry from '$lib/components/PropositionRegistry.svelte';
   import SynthesisView from '$lib/components/SynthesisView.svelte';
+  import SynthesisProcessView from '$lib/components/SynthesisProcessView.svelte';
+  import ScreeningDelegation from '$lib/components/ScreeningDelegation.svelte';
   import ChatDrawer from '$lib/components/ChatDrawer.svelte';
   import NodeDetail from '$lib/components/NodeDetail.svelte';
   import ScopingOverlay from '$lib/components/ScopingOverlay.svelte';
@@ -78,23 +80,29 @@
 {:else}
   <AppShell>
     {#snippet leftPanel()}
-      <LeftPanel />
+      <PhasePanel />
     {/snippet}
 
     {#snippet middlePanel()}
-      <Toolbar />
-      <div class="middle-content">
-        {#if uiState.viewMode === 'graph'}
-          <GraphView />
-        {:else if uiState.viewMode === 'propositions'}
-          <PropositionRegistry />
-        {:else if uiState.viewMode === 'synthesis'}
-          <SynthesisView />
-        {:else}
-          <NodeList />
-        {/if}
-      </div>
-      <ChatDrawer />
+      {#if uiState.activeProcessView === 'synthesis-review'}
+        <SynthesisProcessView />
+      {:else if uiState.activeProcessView === 'screening-delegation'}
+        <ScreeningDelegation />
+      {:else}
+        <Toolbar />
+        <div class="middle-content">
+          {#if uiState.viewMode === 'graph'}
+            <GraphView />
+          {:else if uiState.viewMode === 'propositions'}
+            <PropositionRegistry />
+          {:else if uiState.viewMode === 'synthesis'}
+            <SynthesisView />
+          {:else}
+            <NodeList />
+          {/if}
+        </div>
+        <ChatDrawer />
+      {/if}
     {/snippet}
 
     {#snippet rightPanel()}

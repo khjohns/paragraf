@@ -3,6 +3,7 @@ import type {
   PostSearchSuggestion,
   SynthesisResult,
   QAReport,
+  LlmMeta,
 } from '$lib/types/analysis';
 import type { AnalysisDocuments } from '$lib/api/analyses';
 import { fetchDocuments } from '$lib/api/analyses';
@@ -18,6 +19,10 @@ class PipelineState {
   synthesisResult = $state<SynthesisResult | null>(null);
   synthesisMarkdown = $state<string>('');
   synthesisLoading = $state(false);
+
+  // ── LLM Meta (for WorkLog) ──
+  synthesisLlmMeta = $state<LlmMeta | null>(null);
+  qaLlmMeta = $state<LlmMeta | null>(null);
 
   // ── QA ──
   qaReport = $state<QAReport | null>(null);
@@ -50,7 +55,10 @@ class PipelineState {
 
   setSynthesisResult(result: SynthesisResult | null) {
     this.synthesisResult = result;
-    if (result) this.synthesisMarkdown = result.markdown;
+    if (result) {
+      this.synthesisMarkdown = result.markdown;
+      this.synthesisLlmMeta = result._llm_meta ?? null;
+    }
   }
 
   setSynthesisMarkdown(markdown: string) {
@@ -82,8 +90,10 @@ class PipelineState {
     this.synthesisResult = null;
     this.synthesisMarkdown = '';
     this.synthesisLoading = false;
+    this.synthesisLlmMeta = null;
     this.qaReport = null;
     this.qaLoading = false;
+    this.qaLlmMeta = null;
   }
 
   /** Load synthesis note and QA report from the DB */
