@@ -21,6 +21,9 @@
 
   const { data: pageData }: { data: PageData } = $props();
 
+  // Track whether we've hydrated from DB/localStorage — suppresses traversal on reload
+  let hydrated = $state(false);
+
   // Show scoping overlay when analysis is in scoping or searching status
   // Skip overlay for legacy analyses that have nodes but no explicit status
   let showScoping = $derived(
@@ -30,6 +33,9 @@
       analysisState.nodes.length === 0
   );
 
+  // Traversal query — disabled when we already have nodes (from hydration).
+  // On reload, nodes come from localStorage. Traversal only runs on first
+  // scoping (via ScopingOverlay) or explicit re-traversal.
   const traversal = createTraversalQuery(() => ({
     analysisId: analysisState.analysis.id,
     request: {
@@ -39,6 +45,7 @@
       cases: analysisState.analysis.seeds.cases,
       regulationFilter: uiState.regulationFilter ? 'new' : 'all',
     },
+    enabled: !hydrated || analysisState.nodes.length === 0,
   }));
 
   // Sync query results to store (untrack prevents cascading state updates)
@@ -63,12 +70,15 @@
       fetchAnalysis(id)
         .then((dbData) => {
           analysisState.loadFromDb(dbData);
+          hydrated = true;
         })
         .catch(() => {
           analysisState.load();
+          hydrated = true;
         });
     } else {
       analysisState.load();
+      hydrated = true;
     }
   });
 </script>
