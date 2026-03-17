@@ -445,7 +445,19 @@ def verify_screening_citations(analysis_id: str) -> dict:
 
     # Persist quote_verification per candidate
     verified_quotes = result.get("verified_quotes", [])
+
+    # Log citation status summary
     if verified_quotes:
+        from collections import Counter
+        status_counts = Counter(vq.get("status", "unknown") for vq in verified_quotes)
+        summary_parts = [f"{count} {status}" for status, count in sorted(status_counts.items())]
+        logger.info(
+            "Citation verification for %s: %d quotes — %s",
+            analysis_id,
+            len(verified_quotes),
+            ", ".join(summary_parts),
+        )
+
         # Group results by sak_nr
         per_case: dict[str, list[dict]] = {}
         for vq in verified_quotes:

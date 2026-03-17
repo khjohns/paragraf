@@ -232,9 +232,33 @@ SSE-screening fullført for alle 26 A-saker. Propositions-upsert feilet for de 5
 | 8 | FOA 2017-filter dimmer saker men ekskluderer dem ikke fra screening | Dimmede saker bør ekskluderes fra «Claude screener»-listen | Medium |
 | 9 | Adaptive thinking gir 0 thinking-tokens (screening) | Sonnet velger å ikke tenke for screening — mulig riktig oppførsel | Info |
 | 10 | Prompt caching gir 0 cache-treff | Mulig inkompatibilitet med adaptive thinking modus | Info |
-| 11 | Traversal overskriver screening-resultater | `persist_candidates` DELETE+INSERT fjerner `ai_screening` | **Kritisk** |
+| 11 | ~~Traversal overskriver screening-resultater~~ | ~~`persist_candidates` DELETE+INSERT fjerner `ai_screening`~~ | ✅ **Fikset** — upsert bevarer ai_screening (verifisert av integrasjonstest) |
 | 12 | Ingen «screen flere»-knapp etter screening er fullført | `screeningStarted=true` skjuler knappen permanent | Medium |
-| 13 | Kun 2 saker vises som screenet etter reload | Konsekvens av #11 — traversal slettet screenede kandidater | Konsekvens |
+| 13 | ~~Kun 2 saker vises som screenet etter reload~~ | ~~Konsekvens av #11~~ | ✅ Løst (konsekvens av #11-fix) |
+
+## Pipeline-integrasjonstester (2026-03-17)
+
+13/13 tester grønne (`backend/tests/test_pipeline.py`, 109s).
+
+| Test | Hva den verifiserer | Status |
+|------|---------------------|--------|
+| Traversal returns 200 | Traversal med `anskaffelsesforskriften:16-10` returnerer noder+kanter | ✅ |
+| Candidates in DB | Kandidater har category, signals, iteration | ✅ |
+| Status candidates_ready | Status satt etter traversal | ✅ |
+| Screen then retraverse | **KRITISK**: ai_screening + screening_status bevares ved re-traversal | ✅ |
+| Screening SSE format | SSE-events har factum/sak_nr + done-event | ✅ |
+| Screening persists to DB | ai_screening har factum/assessment/proposition/quotes | ✅ |
+| Propositions created | Screening oppretter propositions med source=ai_screening | ✅ |
+| Verify citations | Citation QA returnerer 200 med verified_quotes | ✅ |
+| Quote verification persisted | quote_verification satt i ai_screening jsonb | ✅ |
+| Status after citation QA | Status = screening_complete | ✅ |
+| Hydration | GET returnerer full ai_screening for frontend-hydrering | ✅ |
+| Error does not stop stream | FAKE/999 gir error-event uten å krasje SSE | ✅ |
+| Slash in sak_nr | 2022/31 i URL gir 404 (ikke 500) | ✅ |
+
+**Funn:** Seed-provision må bruke fullt law_name-format (`anskaffelsesforskriften:16-10`), ikke alias (`foa:16-10`). `parse_provision` splitter på kolon og matcher direkte mot `kofa_law_references.law_name`.
+
+**Kjør testene:** `cd backend && python -m pytest tests/test_pipeline.py -v -s` (krever backend på :5002 med secrets)
 
 ## Aggregert kostnad hittil
 

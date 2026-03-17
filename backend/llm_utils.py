@@ -83,6 +83,35 @@ def build_output_config(
 _DEFAULT_PRICING = MODEL_PRICING["claude-sonnet-4-6"]
 
 
+def _extract_cache_tokens(usage) -> tuple[int, int]:
+    """Extract cache creation and read tokens from usage object.
+
+    Handles both old format (cache_creation_input_tokens) and new SDK format
+    (cache_creation.ephemeral_1h_input_tokens + ephemeral_5m_input_tokens).
+    """
+    # Old format
+    cache_creation = getattr(usage, "cache_creation_input_tokens", 0) or 0
+    cache_read = getattr(usage, "cache_read_input_tokens", 0) or 0
+
+    # New format: usage.cache_creation is an object with sub-fields
+    if not cache_creation:
+        cc = getattr(usage, "cache_creation", None)
+        if cc and hasattr(cc, "ephemeral_1h_input_tokens"):
+            cache_creation = (
+                (getattr(cc, "ephemeral_1h_input_tokens", 0) or 0)
+                + (getattr(cc, "ephemeral_5m_input_tokens", 0) or 0)
+            )
+    if not cache_read:
+        cr = getattr(usage, "cache_read", None)
+        if cr and hasattr(cr, "ephemeral_1h_input_tokens"):
+            cache_read = (
+                (getattr(cr, "ephemeral_1h_input_tokens", 0) or 0)
+                + (getattr(cr, "ephemeral_5m_input_tokens", 0) or 0)
+            )
+
+    return cache_creation, cache_read
+
+
 def _calculate_cost(usage, model: str, is_batch: bool = False) -> tuple[float, int, int]:
     """Calculate USD cost from API usage object.
 
@@ -95,8 +124,7 @@ def _calculate_cost(usage, model: str, is_batch: bool = False) -> tuple[float, i
 
     input_tokens = usage.input_tokens
     output_tokens = usage.output_tokens
-    cache_creation = getattr(usage, "cache_creation_input_tokens", 0) or 0
-    cache_read = getattr(usage, "cache_read_input_tokens", 0) or 0
+    cache_creation, cache_read = _extract_cache_tokens(usage)
 
     # cache_read is included in input_tokens — bill separately at cache rate
     base_input = input_tokens - cache_read
@@ -117,18 +145,14 @@ def log_usage(usage, model: str, label: str, is_batch: bool = False) -> float:
     parts = model.split("-")
     short_name = parts[1] if len(parts) > 1 else model
 
-    thinking_tokens = getattr(usage, "thinking_tokens", 0) or 0
-    thinking_suffix = f" ({thinking_tokens} thinking)" if thinking_tokens > 0 else ""
-
     logger.info(
-        "%s [%s]: %d input (%d cache-write, %d cache-read), %d output%s — $%.4f",
+        "%s [%s]: %d input (%d cache-write, %d cache-read), %d output — $%.4f",
         label,
         short_name,
         usage.input_tokens,
         cache_creation,
         cache_read,
         usage.output_tokens,
-        thinking_suffix,
         cost,
     )
     return cost
@@ -177,7 +201,7 @@ def call_claude_structured(
         model: Model to use. Defaults to CLAUDE_MODEL (Sonnet).
             Effort is automatically omitted for models that don't support it.
 
-    Returns the parsed JSON response.
+    Returns the parsed JSON response. Includes _llm_meta key with usage/thinking data.
     """
     client = get_anthropic_client()
     kwargs = dict(
@@ -200,14 +224,34 @@ def call_claude_structured(
 
     # With adaptive thinking, response may contain thinking blocks before text
     text = ""
+    thinking_text = ""
     for block in response.content:
-        if block.type == "text":
+        if block.type == "thinking":
+            thinking_text = block.thinking
+        elif block.type == "text":
             text = block.text
-            break
 
-    log_usage(response.usage, model, log_label)
+    cost = log_usage(response.usage, model, log_label)
 
-    return json.loads(text)
+    result = json.loads(text)
+
+    # Attach LLM metadata for persistence (thinking, usage, cost)
+    usage = response.usage
+    cache_write, cache_read = _extract_cache_tokens(usage)
+    result["_llm_meta"] = {
+        "model": model,
+        "input_tokens": usage.input_tokens,
+        "output_tokens": usage.output_tokens,
+        "cache_read_tokens": cache_read,
+        "cache_write_tokens": cache_write,
+        "cost_usd": round(cost, 6),
+        "stop_reason": response.stop_reason,
+        "has_thinking": bool(thinking_text),
+    }
+    if thinking_text:
+        result["_llm_meta"]["thinking_summary"] = thinking_text
+
+    return result
 
 
 def load_analysis_context(
