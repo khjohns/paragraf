@@ -1,13 +1,8 @@
 <script lang="ts">
-  import { analysisState } from '$lib/stores/analysis.svelte';
 </script>
 
 <header class="workspace-header">
   <span class="brand">Paragraf</span>
-  {#if analysisState.analysis.title}
-    <span class="sep">&middot;</span>
-    <span class="context">{analysisState.analysis.title}</span>
-  {/if}
   <span class="spacer"></span>
 </header>
 
@@ -27,14 +22,6 @@
     letter-spacing: 0.06em;
     text-transform: uppercase;
     color: var(--p-ink2);
-  }
-  .sep {
-    color: var(--p-border-s);
-  }
-  .context {
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--p-ink);
   }
   .spacer {
     flex: 1;
