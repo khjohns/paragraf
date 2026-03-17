@@ -23,6 +23,8 @@ from llm_utils import (
     get_batch_results,
     log_usage,
     parse_json_response,
+    _calculate_cost,
+    _extract_cache_tokens,
 )
 
 logger = logging.getLogger(__name__)
@@ -271,7 +273,7 @@ For hvert sitat: sjekk om det finnes ordrett i kildeteksten, om det er trunkert 
         messages=[{"role": "user", "content": content_blocks}],
     )
 
-    log_usage(response.usage, HAIKU_MODEL, "Citation QA")
+    cost = log_usage(response.usage, HAIKU_MODEL, "Citation QA")
 
     # Extract text blocks (skip cite blocks — they confirm source positions)
     text_parts = [block.text for block in response.content if block.type == "text"]
@@ -281,6 +283,19 @@ For hvert sitat: sjekk om det finnes ordrett i kildeteksten, om det er trunkert 
     if result is None:
         logger.warning("Citation QA: could not parse JSON from response")
         return {"verified_quotes": [], "summary": "Kunne ikke tolke QA-respons."}
+
+    # Attach LLM metadata (Haiku does not use adaptive thinking)
+    usage = response.usage
+    cache_write, cache_read = _extract_cache_tokens(usage)
+    result["_llm_meta"] = {
+        "model": HAIKU_MODEL,
+        "input_tokens": usage.input_tokens,
+        "output_tokens": usage.output_tokens,
+        "cache_read_tokens": cache_read,
+        "cache_write_tokens": cache_write,
+        "cost_usd": round(cost, 6),
+        "has_thinking": False,
+    }
 
     return result
 
@@ -443,12 +458,12 @@ def verify_screening_citations(analysis_id: str) -> dict:
     # Reuse existing verification — pass empty note_markdown (not needed pre-synthesis)
     result = _verify_citations_with_api(ab_candidates, "")
 
-    # Persist quote_verification per candidate
+    # Link verification status directly on quote objects
     verified_quotes = result.get("verified_quotes", [])
 
     # Log citation status summary
+    from collections import Counter
     if verified_quotes:
-        from collections import Counter
         status_counts = Counter(vq.get("status", "unknown") for vq in verified_quotes)
         summary_parts = [f"{count} {status}" for status, count in sorted(status_counts.items())]
         logger.info(
@@ -458,22 +473,47 @@ def verify_screening_citations(analysis_id: str) -> dict:
             ", ".join(summary_parts),
         )
 
-        # Group results by sak_nr
-        per_case: dict[str, list[dict]] = {}
+        # Index verification results by (sak_nr, paragraph)
+        vq_index: dict[tuple[str, int], dict] = {}
         for vq in verified_quotes:
-            sak_nr = vq.get("sak_nr")
-            if sak_nr:
-                per_case.setdefault(sak_nr, []).append(vq)
+            key = (vq.get("sak_nr", ""), vq.get("paragraph", 0))
+            vq_index[key] = {"status": vq.get("status"), "issue": vq.get("issue")}
 
         for candidate in ab_candidates:
             sak_nr = candidate["sak_nr"]
-            if sak_nr not in per_case:
-                continue
             existing_screening = candidate.get("ai_screening") or {}
-            updated_screening = {**existing_screening, "quote_verification": per_case[sak_nr]}
-            client.table("analysis_candidates").update({
-                "ai_screening": updated_screening,
-            }).eq("analysis_id", analysis_id).eq("sak_nr", sak_nr).execute()
+            quotes = existing_screening.get("quotes", [])
+            changed = False
+            for quote in quotes:
+                key = (sak_nr, quote.get("p", 0))
+                if key in vq_index:
+                    quote["verification"] = vq_index[key]
+                    changed = True
+            if changed:
+                # Remove legacy quote_verification if present, write updated quotes
+                updated_screening = {**existing_screening, "quotes": quotes}
+                updated_screening.pop("quote_verification", None)
+                client.table("analysis_candidates").update({
+                    "ai_screening": updated_screening,
+                }).eq("analysis_id", analysis_id).eq("sak_nr", sak_nr).execute()
+
+    # Build and persist citation_summary on the analysis
+    all_statuses = [vq.get("status", "unknown") for vq in verified_quotes]
+    citation_summary = {
+        "total": len(all_statuses),
+        **{s: c for s, c in Counter(all_statuses).items()},
+    }
+    client.table("analyses").update({
+        "citation_summary": citation_summary,
+    }).eq("id", analysis_id).execute()
+
+    # Increment total_cost_usd with QA cost
+    qa_cost = (result.get("_llm_meta") or {}).get("cost_usd", 0)
+    if qa_cost:
+        client.rpc("increment_total_cost", {
+            "analysis_id_input": analysis_id,
+            "cost_increment": qa_cost,
+        }).execute()
 
     return result
 

@@ -226,25 +226,68 @@ class TestCitationVerification:
             )
             assert "quoted_text" in vq, f"Missing quoted_text: {vq}"
 
-    def test_quote_verification_persisted(self, api, test_analysis):
-        """After citation QA, ai_screening.quote_verification should be set with statuses."""
+    def test_quote_verification_linked(self, api, test_analysis):
+        """After citation QA, each quote in ai_screening.quotes should have verification.status."""
         aid = test_analysis["id"]
         r = api.get(f"/api/analyses/{aid}")
         candidates = r.json()["candidates"]
         screened = [c for c in candidates if c.get("ai_screening")]
 
+        # Find candidates where at least one quote has verification
         verified = [
             c for c in screened
-            if c["ai_screening"].get("quote_verification") is not None
+            if any(
+                q.get("verification") is not None
+                for q in c["ai_screening"].get("quotes", [])
+            )
         ]
-        assert len(verified) > 0, "No candidates got quote_verification after verify-citations"
+        assert len(verified) > 0, "No candidates got quote verification linked to quotes"
 
-        # Check that persisted verification has valid statuses
         for c in verified:
-            for vq in c["ai_screening"]["quote_verification"]:
-                assert vq.get("status") in self.VALID_STATUSES, (
-                    f"Invalid persisted status for {c['sak_nr']}: {vq.get('status')}"
-                )
+            for q in c["ai_screening"]["quotes"]:
+                if q.get("verification"):
+                    assert q["verification"].get("status") in self.VALID_STATUSES, (
+                        f"Invalid verification status on quote for {c['sak_nr']}: {q['verification']}"
+                    )
+            # Legacy quote_verification array should NOT be present
+            assert "quote_verification" not in c["ai_screening"], (
+                f"Legacy quote_verification array still present for {c['sak_nr']}"
+            )
+
+    def test_citation_qa_llm_meta(self, api, test_analysis):
+        """Citation QA response should include _llm_meta with model/tokens/cost."""
+        aid = test_analysis["id"]
+        r = api.post(f"/api/analyses/{aid}/verify-citations")
+        assert r.status_code == 200
+        data = r.json()
+        meta = data.get("_llm_meta")
+        assert meta is not None, f"Missing _llm_meta in citation QA response: {list(data.keys())}"
+        assert meta.get("model") == "claude-haiku-4-5-20251001", f"Unexpected model: {meta.get('model')}"
+        assert meta.get("input_tokens", 0) > 0, "Missing input_tokens"
+        assert meta.get("output_tokens", 0) > 0, "Missing output_tokens"
+        assert "cost_usd" in meta, "Missing cost_usd"
+        assert meta.get("has_thinking") is False, "Haiku should not have thinking"
+
+    def test_citation_summary_on_analysis(self, api, test_analysis):
+        """After verify-citations, analyses.citation_summary should have aggregated counts."""
+        aid = test_analysis["id"]
+        r = api.get(f"/api/analyses/{aid}")
+        data = r.json()
+        summary = data.get("citation_summary")
+        assert summary is not None, "Missing citation_summary on analysis"
+        assert summary.get("total", 0) > 0, f"citation_summary.total should be > 0: {summary}"
+        # Should have at least one status key
+        status_keys = {"verified", "truncated", "inaccurate", "not_found"}
+        found = [k for k in status_keys if k in summary]
+        assert len(found) > 0, f"No status keys in citation_summary: {summary}"
+
+    def test_cumulative_cost(self, api, test_analysis):
+        """After screening + citation QA, analyses.total_cost_usd should be > 0."""
+        aid = test_analysis["id"]
+        r = api.get(f"/api/analyses/{aid}")
+        data = r.json()
+        total_cost = data.get("total_cost_usd", 0)
+        assert total_cost > 0, f"total_cost_usd should be > 0 after screening + QA: {total_cost}"
 
 
 # ---------------------------------------------------------------------------

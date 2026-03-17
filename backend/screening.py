@@ -307,6 +307,14 @@ def _persist_screening_result(analysis_id: str, sak_nr: str, result: dict):
         "screening_status": "ai_screened",
     }).eq("analysis_id", analysis_id).eq("sak_nr", sak_nr).execute()
 
+    # Increment total_cost_usd on the analysis
+    cost = (result.get("_llm_meta") or {}).get("cost_usd", 0)
+    if cost:
+        client.rpc("increment_total_cost", {
+            "analysis_id_input": analysis_id,
+            "cost_increment": cost,
+        }).execute()
+
     # Extract proposition to analysis_propositions (upsert by source_case+source)
     if result.get("proposition"):
         try:
