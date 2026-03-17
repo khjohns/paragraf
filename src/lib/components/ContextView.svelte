@@ -15,21 +15,21 @@
     <button class="back-btn" onclick={() => uiState.clearProcessView()}
       >← Tilbake til arbeidsrom</button
     >
-    <span class="process-title">Analysekontekst</span>
+    <span class="process-title">Søkeoppsett</span>
     <span class="header-spacer"></span>
     {#if !editing}
-      <button class="header-btn" onclick={() => (editing = true)}>Rediger seeds</button>
+      <button class="header-btn" onclick={() => (editing = true)}>Rediger søkeparametre</button>
     {/if}
   </div>
 
   <div class="context-scroll">
     <div class="context-flow">
       <!-- 1. Problem — the hero -->
-      <section class="card">
+      <section class="card hero-card">
         <div class="card-label">Problemstilling</div>
         <p class="card-desc">
-          Det juridiske spørsmålet denne analysen undersøker. Claude har foreslått bestemmelser og
-          søketermer basert på dette.
+          Det juridiske spørsmålet denne analysen undersøker.{#if analysisState.scopingResult}
+            Claude har analysert spørsmålet og foreslått bestemmelser og søketermer.{/if}
         </p>
         <p class="problem-text">
           {analysisState.analysis.problemStatement || 'Ikke definert ennå'}
@@ -389,7 +389,7 @@
     max-width: 720px;
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 12px;
   }
 
   /* Cards */
@@ -399,20 +399,27 @@
     border-radius: var(--radius-lg);
     background: var(--p-surface);
   }
+  .hero-card {
+    padding: 24px 28px;
+    border-color: var(--p-border-m);
+  }
+  .hero-card .problem-text {
+    font-size: 15px;
+  }
   .card-label {
     font-size: 10px;
     font-weight: 600;
     letter-spacing: 0.06em;
     text-transform: uppercase;
     color: var(--p-ink3);
-    margin-bottom: 12px;
+    margin-bottom: 4px;
   }
 
   .card-desc {
     font-size: 11px;
     line-height: 1.5;
     color: var(--p-ink3);
-    margin: -4px 0 12px;
+    margin: 0 0 12px;
   }
 
   /* 1. Problem */
@@ -471,7 +478,7 @@
   .provision-list {
     display: flex;
     flex-wrap: wrap;
-    gap: 6px;
+    gap: 8px;
   }
   .provision-row {
     display: flex;
@@ -493,12 +500,13 @@
     cursor: pointer;
     font-size: 14px;
     color: var(--p-ink4);
-    width: 18px;
-    height: 18px;
+    width: 24px;
+    height: 24px;
     display: flex;
     align-items: center;
     justify-content: center;
     border-radius: var(--radius-sm);
+    margin: -4px -4px -4px 0;
   }
   .prov-remove:hover {
     color: var(--p-ink);
@@ -508,7 +516,7 @@
   .suggested {
     display: flex;
     flex-wrap: wrap;
-    gap: 6px;
+    gap: 8px;
     align-items: center;
     margin-top: 8px;
   }
@@ -535,7 +543,7 @@
   .term-list {
     display: flex;
     flex-wrap: wrap;
-    gap: 6px;
+    gap: 8px;
   }
   .fts-chip {
     display: inline-flex;
@@ -576,8 +584,7 @@
     color: var(--p-panel);
     font-size: 12px;
     font-weight: 600;
-    display: block;
-    text-align: center;
+    display: inline-block;
   }
   .done-btn:hover {
     opacity: 0.85;
@@ -616,20 +623,19 @@
 
   .signal-row {
     display: flex;
-    gap: 12px;
-    padding: 12px 0;
-    border-top: 1px solid var(--p-border);
-    border-bottom: 1px solid var(--p-border);
-    margin-bottom: 12px;
+    gap: 8px;
+    padding: 0;
+    margin: 4px 0 16px;
   }
   .signal-item {
     display: flex;
     align-items: flex-start;
     gap: 8px;
     flex: 1;
-    padding: 8px 10px;
+    padding: 10px 12px;
     border-radius: var(--radius-md);
-    background: var(--p-hover);
+    background: var(--p-input);
+    border: 1px solid var(--p-border);
   }
   .signal-letter {
     font-family: var(--font-data);
@@ -657,10 +663,12 @@
   }
   .signal-count {
     font-family: var(--font-data);
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 700;
     color: var(--p-ink);
     flex-shrink: 0;
+    line-height: 1;
+    align-self: center;
   }
 
   /* Gaps — compact chips */
@@ -670,7 +678,7 @@
   .gap-compact {
     display: flex;
     flex-wrap: wrap;
-    gap: 6px;
+    gap: 8px;
     margin-top: 4px;
   }
   .gap-chip {
