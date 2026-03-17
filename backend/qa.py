@@ -638,7 +638,7 @@ Sjekk om alle viktige saker er behandlet:
 </formatting_rules>"""
 
 
-MAX_QA_TOOL_TURNS = 5
+MAX_QA_TOOL_TURNS = 15
 
 
 def run_qa(analysis_id: str) -> dict:
