@@ -48,15 +48,22 @@
   let batchActive = $derived(screeningState.isBatchActive('screening'));
   let batchProgress = $derived(screeningState.getBatchProgress('screening'));
 
+  // Cases assigned to Claude that haven't been screened yet
+  let unscreenedClaudeCases = $derived(
+    cases
+      .filter(
+        (n) =>
+          screeningState.getAssignment(n.label, n.category) === 'claude' &&
+          !screeningState.screeningResults[n.label]
+      )
+      .map((n) => n.label)
+  );
+
+  let isScreeningActive = $derived(!!screeningState.streamingSakNr || batchActive);
+
   function startScreening() {
-    // Collect cases assigned to Claude
-    const claudeCases = cases
-      .filter((n) => screeningState.getAssignment(n.label, n.category) === 'claude')
-      .map((n) => n.label);
-
-    if (claudeCases.length === 0) return;
-
-    screeningState.startScreeningSSE(claudeCases);
+    if (unscreenedClaudeCases.length === 0) return;
+    screeningState.startScreeningSSE(unscreenedClaudeCases);
   }
 
   const modes: { key: ScreeningMode; label: string }[] = [
@@ -125,10 +132,14 @@
     {/if}
   </div>
 
-  {#if !screeningState.screeningStarted}
-    <button class="start-btn" onclick={startScreening} disabled={stats.claudeCount === 0}>
-      Start screening
+  {#if !isScreeningActive && unscreenedClaudeCases.length > 0}
+    <button class="start-btn" onclick={startScreening}>
+      {screeningState.screeningStarted
+        ? `Screen ${unscreenedClaudeCases.length} flere →`
+        : `Start screening (${unscreenedClaudeCases.length})`}
     </button>
+  {:else if !isScreeningActive && screeningState.screeningStarted && unscreenedClaudeCases.length === 0}
+    <div class="screening-done">✓ Alle Claude-saker er screenet</div>
   {/if}
 
   {#if batchActive}
@@ -315,6 +326,17 @@
   .start-btn:disabled {
     opacity: 0.4;
     cursor: default;
+  }
+
+  .screening-done {
+    margin-top: 4px;
+    padding: 8px 12px;
+    border-radius: var(--radius-md);
+    background: var(--p-success-bg);
+    color: var(--p-success);
+    font-size: 11px;
+    font-weight: 500;
+    text-align: center;
   }
 
   .batch-indicator {

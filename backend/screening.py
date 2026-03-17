@@ -252,14 +252,40 @@ def screen_cases(
 
     Yields (sak_nr, result_dict) tuples. Each result is also persisted to DB.
     On error, yields (sak_nr, {"error": message}).
+    Skips cases that already have ai_screening in DB (use /rescreen to force).
     """
     if max_parallel is None:
         max_parallel = int(os.environ.get("MAX_PARALLEL_SCREENING", "3"))
 
+    # Filter out already-screened cases
+    db_client = get_client()
+    already_screened = set()
+    existing = (
+        db_client.table("analysis_candidates")
+        .select("sak_nr")
+        .eq("analysis_id", analysis_id)
+        .not_.is_("ai_screening", "null")
+        .in_("sak_nr", sak_nrs)
+        .execute()
+        .data
+    ) or []
+    already_screened = {r["sak_nr"] for r in existing}
+
+    to_screen = [s for s in sak_nrs if s not in already_screened]
+    if already_screened:
+        logger.info(
+            "Skipping %d already-screened cases for %s: %s",
+            len(already_screened), analysis_id, already_screened,
+        )
+
+    if not to_screen:
+        logger.info("All %d cases already screened for %s", len(sak_nrs), analysis_id)
+        return
+
     problem, sub_problems, provisions = _load_screening_context(analysis_id)
 
     # Pre-fetch all case texts in a single DB query to avoid per-case fetches
-    case_texts = _fetch_case_texts_batch(sak_nrs, ["vurdering"])
+    case_texts = _fetch_case_texts_batch(to_screen, ["vurdering"])
 
     with ThreadPoolExecutor(max_workers=max_parallel) as executor:
         futures = {
@@ -269,7 +295,7 @@ def screen_cases(
                 screen_single_case, sak_nr, problem, sub_problems, provisions,
                 case_text=case_texts.get(sak_nr),
             ): sak_nr
-            for sak_nr in sak_nrs
+            for sak_nr in to_screen
         }
 
         for future in as_completed(futures):
