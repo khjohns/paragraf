@@ -53,10 +53,7 @@
       num: 2,
       label: 'Kandidater',
       state: sn > 2 ? 'done' : sn === 2 ? 'active' : 'pending',
-      detail:
-        totalCases > 0
-          ? `${totalCases} (${analysisState.catCounts.A}A ${analysisState.catCounts.B}B ${analysisState.catCounts.C}C)`
-          : null,
+      detail: totalCases > 0 ? `${totalCases} saker` : null,
       processView: 'context' as ProcessView,
     },
     {
@@ -104,65 +101,45 @@
 </script>
 
 <div class="phase-panel">
-  <!-- Phase indicators -->
-  <div class="panel-eyebrow">Metode</div>
-
   <nav class="phases">
-    {#each phases as phase, i}
+    {#each phases as phase}
       {@const isActiveView =
         uiState.activeProcessView === phase.processView && phase.processView !== null}
       <button
-        class="phase-item"
+        class="phase-row"
         class:active-view={isActiveView}
         class:clickable={phase.processView !== null}
+        class:current={phase.state === 'active'}
         onclick={() => handlePhaseClick(phase.processView)}
         disabled={phase.processView === null}
       >
-        <div class="phase-track">
-          <div
-            class="phase-circle"
-            class:done={phase.state === 'done'}
-            class:active={phase.state === 'active'}
-          >
-            {#if phase.state === 'done'}
-              <svg width="10" height="10" viewBox="0 0 10 10">
-                <path
-                  d="M2 5L4.5 7.5L8 3"
-                  stroke="currentColor"
-                  stroke-width="1.5"
-                  fill="none"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                />
-              </svg>
-            {:else}
-              <span class="phase-num">{phase.num}</span>
-            {/if}
-          </div>
-          {#if i < phases.length - 1}
-            <div class="phase-connector" class:done={phase.state === 'done'}></div>
+        <span class="phase-label">{phase.label}</span>
+        <span class="phase-status">
+          {#if phase.state === 'done'}
+            <span class="status-done">✓</span>
+          {:else if phase.state === 'active'}
+            <span class="status-active">◐</span>
           {/if}
-        </div>
-        <div class="phase-text">
-          <span class="phase-label">{phase.label}</span>
           {#if phase.detail}
-            <span class="phase-detail">{phase.detail}</span>
+            <span class="status-detail">{phase.detail}</span>
           {/if}
-        </div>
+        </span>
       </button>
 
       {#if phase.children?.length}
         {#each phase.children as child}
-          <div class="phase-child">
-            <span
-              class="child-icon"
-              class:done={child.state === 'done'}
-              class:warning={child.state === 'warning'}
-            >
-              {child.state === 'done' ? '✓' : child.state === 'warning' ? '⚠' : '○'}
+          <div class="phase-sub">
+            <span class="sub-label">{child.label}</span>
+            <span class="phase-status">
+              <span
+                class="sub-icon"
+                class:done={child.state === 'done'}
+                class:warning={child.state === 'warning'}
+              >
+                {child.state === 'done' ? '✓' : child.state === 'warning' ? '⚠' : '—'}
+              </span>
+              <span class="status-detail">{child.detail}</span>
             </span>
-            <span class="child-label">{child.label}</span>
-            <span class="child-detail">{child.detail}</span>
           </div>
         {/each}
       {/if}
@@ -204,143 +181,105 @@
     flex-direction: column;
     height: 100%;
     overflow-y: auto;
-    padding: 12px 10px;
-  }
-
-  .panel-eyebrow {
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--p-ink3);
-    padding: 0 4px;
-    margin-bottom: 12px;
+    padding: 8px 10px;
   }
 
   .phases {
     display: flex;
     flex-direction: column;
+    gap: 1px;
     padding-bottom: 8px;
     margin-bottom: 4px;
     border-bottom: 1px solid var(--p-border);
   }
 
-  .phase-item {
+  .phase-row {
     all: unset;
     display: flex;
-    align-items: flex-start;
+    align-items: center;
+    justify-content: space-between;
     gap: 8px;
-    padding: 3px 4px;
+    padding: 6px 8px;
     border-radius: var(--radius-md);
     cursor: default;
   }
-  .phase-item.clickable {
+  .phase-row.clickable {
     cursor: pointer;
   }
-  .phase-item.clickable:hover {
+  .phase-row.clickable:hover {
     background: var(--p-hover);
   }
-  .phase-item.active-view {
+  .phase-row.active-view {
     background: var(--p-active);
   }
-
-  .phase-track {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    flex-shrink: 0;
-    width: 18px;
-  }
-  .phase-circle {
-    width: 18px;
-    height: 18px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border: 1.5px solid var(--p-ink4);
-    color: var(--p-ink4);
-    background: transparent;
-    flex-shrink: 0;
-  }
-  .phase-circle.done {
-    background: var(--p-ink);
-    border-color: var(--p-ink);
-    color: var(--p-panel);
-  }
-  .phase-circle.active {
-    border-color: var(--p-kofa-accent);
-    color: var(--p-kofa-accent);
-    background: var(--p-ai-bg);
-  }
-  .phase-num {
-    font-size: 9px;
-    font-weight: 700;
-    line-height: 1;
+  .phase-row.current {
+    border-left: 2px solid var(--p-kofa-accent);
+    padding-left: 6px;
   }
 
-  .phase-connector {
-    width: 1.5px;
-    height: 8px;
-    background: var(--p-input);
-    flex-shrink: 0;
-  }
-  .phase-connector.done {
-    background: var(--p-ink);
-  }
-
-  .phase-text {
-    display: flex;
-    flex-direction: column;
-    gap: 1px;
-    min-width: 0;
-  }
   .phase-label {
     font-size: 12px;
     font-weight: 500;
     color: var(--p-ink2);
-    line-height: 18px;
   }
-  .phase-item.active-view .phase-label {
+  .phase-row.active-view .phase-label,
+  .phase-row.current .phase-label {
     color: var(--p-ink);
     font-weight: 600;
   }
-  .phase-detail {
+
+  .phase-status {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+  .status-done {
+    font-size: 11px;
+    color: var(--p-success);
+    font-weight: 700;
+  }
+  .status-active {
+    font-size: 11px;
+    color: var(--p-kofa-accent);
+    animation: pulse 1.2s ease-in-out infinite;
+  }
+  .status-detail {
     font-size: 10px;
     font-family: var(--font-data);
     color: var(--p-ink3);
-    line-height: 1.3;
   }
 
-  .phase-child {
+  .phase-sub {
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 2px 4px 2px 30px;
+    justify-content: space-between;
+    padding: 3px 8px 3px 20px;
   }
-  .child-icon {
-    font-size: 10px;
-    flex-shrink: 0;
-    width: 14px;
-    text-align: center;
-    color: var(--p-ink4);
-  }
-  .child-icon.done {
-    color: var(--p-success);
-  }
-  .child-icon.warning {
-    color: var(--p-warn);
-  }
-  .child-label {
+  .sub-label {
     font-size: 11px;
     color: var(--p-ink3);
     font-weight: 500;
   }
-  .child-detail {
+  .sub-icon {
     font-size: 10px;
-    font-family: var(--font-data);
     color: var(--p-ink4);
-    margin-left: auto;
+  }
+  .sub-icon.done {
+    color: var(--p-success);
+  }
+  .sub-icon.warning {
+    color: var(--p-warn);
+  }
+
+  @keyframes pulse {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.4;
+    }
   }
 
   /* Phase-contextual controls */
