@@ -85,7 +85,9 @@
 
 <KeyboardShortcuts />
 
-{#if showScoping}
+{#if !hydrated}
+  <!-- Wait for DB/localStorage hydration before rendering -->
+{:else if showScoping}
   <ScopingOverlay />
 {:else}
   <AppShell>
