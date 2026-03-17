@@ -11,6 +11,11 @@
       ? formatProvision(analysisState.analysis.seeds.provisions[0])
       : null
   );
+
+  let ftsTerms = $derived(analysisState.analysis.seeds.ftsTerms);
+  let vectorQuery = $derived(analysisState.analysis.seeds.vectorQuery);
+  let suggestions = $derived(analysisState.suggestedProvisions);
+  let zeroGaps = $derived(analysisState.gaps.filter((g) => g.count === 0));
 </script>
 
 <div class="context-strip" class:expanded={uiState.contextStripExpanded}>
@@ -41,6 +46,7 @@
 
   {#if uiState.contextStripExpanded}
     <div class="strip-content">
+      <!-- Left column: Problem + Seeds -->
       <div class="strip-left">
         {#if analysisState.analysis.problemStatement}
           <div class="strip-section">
@@ -56,7 +62,44 @@
               <span class="strip-prov-badge">{formatProvision(prov)}</span>
             {/each}
           </div>
+          {#if suggestions.length > 0}
+            <div class="suggested-row">
+              <span class="suggested-label">Foreslåtte:</span>
+              {#each suggestions as s}
+                <button
+                  class="suggested-btn"
+                  onclick={() => {
+                    const current = analysisState.analysis.seeds.provisions;
+                    if (!current.includes(s.id)) {
+                      analysisState.setSeeds({
+                        ...analysisState.analysis.seeds,
+                        provisions: [...current, s.id],
+                      });
+                    }
+                  }}>+ {formatProvision(s.id)}</button
+                >
+              {/each}
+            </div>
+          {/if}
         </div>
+
+        {#if ftsTerms.length > 0}
+          <div class="strip-section">
+            <div class="strip-label">Fulltekstsøk</div>
+            <div class="strip-terms">
+              {#each ftsTerms as term}
+                <span class="strip-term-badge">«{term}»</span>
+              {/each}
+            </div>
+          </div>
+        {/if}
+
+        {#if vectorQuery}
+          <div class="strip-section">
+            <div class="strip-label">Semantisk søk</div>
+            <div class="strip-text vector-text">{vectorQuery}</div>
+          </div>
+        {/if}
 
         {#if analysisState.scopingResult?.reasoning}
           <div class="strip-section ai-section">
@@ -65,6 +108,7 @@
         {/if}
       </div>
 
+      <!-- Right column: Coverage + Gaps + Iterations -->
       <div class="strip-right">
         {#if totalCount > 0}
           <div class="strip-section">
@@ -72,15 +116,18 @@
             <div class="coverage-rows">
               <div class="coverage-row">
                 <span class="coverage-signal">R</span>
-                <span class="coverage-count">{analysisState.coverageStats.ref} treff</span>
+                <span class="coverage-desc">Referansetabell</span>
+                <span class="coverage-count">{analysisState.coverageStats.ref}</span>
               </div>
               <div class="coverage-row">
                 <span class="coverage-signal">F</span>
-                <span class="coverage-count">{analysisState.coverageStats.fts} treff</span>
+                <span class="coverage-desc">Fulltekstsøk</span>
+                <span class="coverage-count">{analysisState.coverageStats.fts}</span>
               </div>
               <div class="coverage-row">
                 <span class="coverage-signal">V</span>
-                <span class="coverage-count">{analysisState.coverageStats.vec} treff</span>
+                <span class="coverage-desc">Vektor</span>
+                <span class="coverage-count">{analysisState.coverageStats.vec}</span>
               </div>
               <div class="coverage-divider"></div>
               <div class="coverage-row">
@@ -96,16 +143,64 @@
         {#if analysisState.gaps.length > 0}
           <div class="strip-section">
             <div class="strip-label">Gap-matrise</div>
-            {#each analysisState.gaps.slice(0, 5) as gap}
-              <div class="gap-row" class:is-zero={gap.count === 0}>
-                <span class="gap-prov">{gap.provision1}</span>
-                <span class="gap-sep">∩</span>
-                <span class="gap-prov">{gap.provision2}</span>
-                <span class="gap-val">{gap.count === 0 ? '⚠' : gap.count}</span>
-              </div>
+            {#each analysisState.gaps.slice(0, 6) as gap}
+              {#if gap.count === 0 && gap.id1 && gap.id2}
+                {@const id1 = gap.id1}
+                {@const id2 = gap.id2}
+                <button
+                  class="gap-row is-zero"
+                  onclick={() => analysisState.addSeedsFromGap(id1, id2)}
+                >
+                  <span class="gap-prov">{gap.provision1}</span>
+                  <span class="gap-sep">∩</span>
+                  <span class="gap-prov">{gap.provision2}</span>
+                  <span class="gap-val">∅</span>
+                </button>
+              {:else}
+                <div class="gap-row">
+                  <span class="gap-prov">{gap.provision1}</span>
+                  <span class="gap-sep">∩</span>
+                  <span class="gap-prov">{gap.provision2}</span>
+                  <span class="gap-val">{gap.count}</span>
+                </div>
+              {/if}
             {/each}
+            {#if zeroGaps.length > 0}
+              <div class="gap-hint">{zeroGaps.length} hull — klikk for å legge til som seeds</div>
+            {/if}
           </div>
         {/if}
+
+        <!-- Iteration history -->
+        {#if analysisState.analysis.iterationHistory?.length}
+          <div class="strip-section">
+            <div class="strip-label">Søkerunder</div>
+            {#each analysisState.analysis.iterationHistory as entry}
+              <button
+                class="round-row"
+                class:active={analysisState.filterIteration === entry.iteration}
+                onclick={() => analysisState.toggleFilterIteration(entry.iteration)}
+              >
+                <span class="round-num">{entry.iteration}</span>
+                <span class="round-seeds">
+                  + {entry.addedSeeds
+                    .map((s) => (s.includes(':') ? `§${s.split(':')[1]}` : `«${s}»`))
+                    .join(', ') || '—'}
+                </span>
+                <span class="round-count">+{entry.newNodeCount}</span>
+              </button>
+            {/each}
+            {#if analysisState.filterIteration !== null}
+              <button class="clear-filter" onclick={() => analysisState.clearFilterIteration()}>
+                Vis alle runder
+              </button>
+            {/if}
+          </div>
+        {/if}
+
+        <button class="new-iter-btn" onclick={() => analysisState.startNewIteration()}>
+          + Ny iterasjon
+        </button>
       </div>
     </div>
   {/if}
@@ -195,6 +290,9 @@
   .strip-section {
     margin-bottom: 12px;
   }
+  .strip-section:last-child {
+    margin-bottom: 0;
+  }
   .strip-label {
     font-size: 10px;
     font-weight: 600;
@@ -221,6 +319,7 @@
     font-style: italic;
   }
 
+  /* Provisions */
   .strip-provisions {
     display: flex;
     flex-wrap: wrap;
@@ -235,6 +334,59 @@
     border: 1px solid var(--p-provision-border);
     padding: 2px 6px;
     border-radius: var(--radius-badge);
+  }
+
+  /* Suggested provisions */
+  .suggested-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 6px;
+  }
+  .suggested-label {
+    font-size: 10px;
+    color: var(--p-ink4);
+    font-weight: 500;
+  }
+  .suggested-btn {
+    all: unset;
+    cursor: pointer;
+    font-family: var(--font-data);
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--p-ink3);
+    padding: 1px 6px;
+    border-radius: var(--radius-badge);
+    border: 1px dashed var(--p-border-m);
+  }
+  .suggested-btn:hover {
+    border-color: var(--p-provision-accent);
+    color: var(--p-provision-accent);
+    background: var(--p-provision-bg);
+  }
+
+  /* FTS terms */
+  .strip-terms {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  .strip-term-badge {
+    font-family: var(--font-data);
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--p-ink2);
+    background: var(--p-hover);
+    padding: 2px 6px;
+    border-radius: var(--radius-badge);
+  }
+
+  /* Vector query */
+  .vector-text {
+    font-size: 12px;
+    color: var(--p-ink2);
+    font-style: italic;
   }
 
   /* Coverage stats */
@@ -256,9 +408,15 @@
     color: var(--p-ink3);
     width: 12px;
   }
+  .coverage-desc {
+    font-size: 10px;
+    color: var(--p-ink3);
+    flex: 1;
+  }
   .coverage-count {
     font-family: var(--font-data);
     color: var(--p-ink2);
+    font-weight: 600;
   }
   .coverage-divider {
     height: 1px;
@@ -274,16 +432,25 @@
 
   /* Gap rows */
   .gap-row {
+    all: unset;
     display: flex;
     align-items: center;
     gap: 4px;
     font-size: 11px;
     font-family: var(--font-data);
     color: var(--p-ink2);
-    padding: 2px 0;
+    padding: 2px 4px;
+    border-radius: var(--radius-md);
+    width: 100%;
+    box-sizing: border-box;
   }
   .gap-row.is-zero {
     color: var(--p-gap);
+    cursor: pointer;
+    background: var(--p-gap-bg);
+  }
+  .gap-row.is-zero:hover {
+    background: rgba(155, 77, 202, 0.08);
   }
   .gap-prov {
     min-width: 48px;
@@ -295,5 +462,94 @@
   .gap-val {
     margin-left: auto;
     font-weight: 600;
+  }
+  .gap-hint {
+    font-size: 10px;
+    color: var(--p-gap);
+    font-style: italic;
+    margin-top: 4px;
+  }
+
+  /* Iteration history */
+  .round-row {
+    all: unset;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 6px;
+    border-radius: var(--radius-md);
+    font-size: 11px;
+    color: var(--p-ink2);
+    width: 100%;
+    box-sizing: border-box;
+  }
+  .round-row:hover {
+    background: var(--p-hover);
+  }
+  .round-row.active {
+    background: var(--p-active);
+  }
+  .round-num {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--p-input);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+    font-weight: 600;
+    color: var(--p-ink3);
+    flex-shrink: 0;
+  }
+  .round-row.active .round-num {
+    background: var(--p-ink);
+    color: var(--p-panel);
+  }
+  .round-seeds {
+    flex: 1;
+    font-family: var(--font-data);
+    font-size: 10px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .round-count {
+    font-family: var(--font-data);
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--p-ink3);
+    flex-shrink: 0;
+  }
+  .clear-filter {
+    all: unset;
+    cursor: pointer;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--p-ink2);
+    text-decoration: underline;
+    margin-top: 2px;
+  }
+  .clear-filter:hover {
+    color: var(--p-ink);
+  }
+
+  .new-iter-btn {
+    all: unset;
+    cursor: pointer;
+    width: 100%;
+    padding: 6px 8px;
+    border-radius: var(--radius-md);
+    border: 1px dashed var(--p-border-m);
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--p-ink3);
+    text-align: center;
+    box-sizing: border-box;
+  }
+  .new-iter-btn:hover {
+    border-color: var(--p-border-s);
+    color: var(--p-ink);
   }
 </style>
