@@ -12,6 +12,8 @@ from concurrent.futures import ThreadPoolExecutor
 
 from db import get_client
 from synthesis import DOC_TYPE_NOTE, DOC_TYPE_QA_REPORT
+import time
+
 from llm_utils import (
     HAIKU_MODEL,
     get_anthropic_client,
@@ -258,6 +260,7 @@ For hvert sitat: sjekk om det finnes ordrett i kildeteksten, om det er trunkert 
     # combining them returns 400. We use citations for machine-verified text
     # matching and ask the model to return JSON via prompt instruction instead.
     anthropic_client = get_anthropic_client()
+    t0 = time.monotonic()
     response = anthropic_client.messages.create(
         model=HAIKU_MODEL,
         max_tokens=4000,
@@ -272,8 +275,9 @@ For hvert sitat: sjekk om det finnes ordrett i kildeteksten, om det er trunkert 
         ],
         messages=[{"role": "user", "content": content_blocks}],
     )
+    elapsed_ms = int((time.monotonic() - t0) * 1000)
 
-    cost = log_usage(response.usage, HAIKU_MODEL, "Citation QA")
+    cost = log_usage(response.usage, HAIKU_MODEL, "Citation QA", elapsed_ms=elapsed_ms)
 
     # Extract text blocks (skip cite blocks — they confirm source positions)
     text_parts = [block.text for block in response.content if block.type == "text"]
@@ -294,6 +298,7 @@ For hvert sitat: sjekk om det finnes ordrett i kildeteksten, om det er trunkert 
         "cache_read_tokens": cache_read,
         "cache_write_tokens": cache_write,
         "cost_usd": round(cost, 6),
+        "elapsed_ms": elapsed_ms,
         "has_thinking": False,
     }
 

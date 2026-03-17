@@ -3,8 +3,13 @@ import json
 import logging
 import os
 import re
+import time
+from contextvars import ContextVar
 
 import anthropic
+
+# Per-request ID for log correlation (set by Flask before_request hook)
+current_request_id: ContextVar[str] = ContextVar("current_request_id", default="")
 
 from db import get_client
 
@@ -137,7 +142,14 @@ def _calculate_cost(usage, model: str, is_batch: bool = False) -> tuple[float, i
     return cost, cache_creation, cache_read
 
 
-def log_usage(usage, model: str, label: str, is_batch: bool = False) -> float:
+def _fmt_tokens(n: int) -> str:
+    """Format token count: use 'k' suffix for counts >= 1000."""
+    if n >= 1000:
+        return f"{n / 1000:.1f}k"
+    return str(n)
+
+
+def log_usage(usage, model: str, label: str, is_batch: bool = False, elapsed_ms: int | None = None) -> float:
     """Log token usage with cost breakdown. Returns cost in USD."""
     cost, cache_creation, cache_read = _calculate_cost(usage, model, is_batch)
 
@@ -145,15 +157,30 @@ def log_usage(usage, model: str, label: str, is_batch: bool = False) -> float:
     parts = model.split("-")
     short_name = parts[1] if len(parts) > 1 else model
 
+    in_str = _fmt_tokens(usage.input_tokens)
+    out_str = _fmt_tokens(usage.output_tokens)
+
+    if cache_read:
+        in_part = f"{in_str} in ({_fmt_tokens(cache_read)} cached)"
+    else:
+        in_part = f"{in_str} in"
+
+    if elapsed_ms is not None:
+        time_part = f" {elapsed_ms / 1000:.1f}s" if elapsed_ms >= 1000 else f" {elapsed_ms}ms"
+    else:
+        time_part = ""
+    req_id = current_request_id.get()
+    id_part = f" [{req_id}]" if req_id else ""
+
     logger.info(
-        "%s [%s]: %d input (%d cache-write, %d cache-read), %d output — $%.4f",
+        "%s [%s]%s — %s, %s out — $%.4f%s",
         label,
         short_name,
-        usage.input_tokens,
-        cache_creation,
-        cache_read,
-        usage.output_tokens,
+        id_part,
+        in_part,
+        out_str,
         cost,
+        time_part,
     )
     return cost
 
@@ -220,7 +247,9 @@ def call_claude_structured(
     if _supports_effort(model):
         kwargs["thinking"] = {"type": "adaptive"}
 
+    t0 = time.monotonic()
     response = client.messages.create(**kwargs)
+    elapsed_ms = int((time.monotonic() - t0) * 1000)
 
     # With adaptive thinking, response may contain thinking blocks before text
     text = ""
@@ -231,7 +260,7 @@ def call_claude_structured(
         elif block.type == "text":
             text = block.text
 
-    cost = log_usage(response.usage, model, log_label)
+    cost = log_usage(response.usage, model, log_label, elapsed_ms=elapsed_ms)
 
     result = json.loads(text)
 
@@ -245,6 +274,7 @@ def call_claude_structured(
         "cache_read_tokens": cache_read,
         "cache_write_tokens": cache_write,
         "cost_usd": round(cost, 6),
+        "elapsed_ms": elapsed_ms,
         "stop_reason": response.stop_reason,
         "has_thinking": bool(thinking_text),
     }

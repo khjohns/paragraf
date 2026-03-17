@@ -3,6 +3,7 @@
 Sends case decision text + analysis context to Claude for structured screening.
 Returns proposition, factum, assessment, quotes, nuances, and relevance per case.
 """
+import contextvars
 import logging
 import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -263,6 +264,8 @@ def screen_cases(
     with ThreadPoolExecutor(max_workers=max_parallel) as executor:
         futures = {
             executor.submit(
+                # Copy context per thread so child inherits request_id for log correlation
+                contextvars.copy_context().run,
                 screen_single_case, sak_nr, problem, sub_problems, provisions,
                 case_text=case_texts.get(sak_nr),
             ): sak_nr

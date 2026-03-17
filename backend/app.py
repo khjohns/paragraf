@@ -1,6 +1,8 @@
 import json
 import logging
 import os
+import sys
+import uuid
 
 from flask import Flask, Response, jsonify, request, send_from_directory
 from flask_cors import CORS
@@ -21,12 +23,59 @@ from qa import run_qa, submit_qa_batch, process_qa_batch_results, verify_screeni
 from llm_utils import poll_batch_status, cancel_batch
 from chat import chat_stream, ChatError
 
-logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
+class _ColorFormatter(logging.Formatter):
+    """ANSI-colored log formatter. Colors are only applied when stderr is a TTY."""
+
+    _RESET = "\x1b[0m"
+    _LEVEL_COLORS = {
+        logging.DEBUG: "\x1b[2m",      # dim/gray
+        logging.INFO: "\x1b[32m",      # green
+        logging.WARNING: "\x1b[33m",   # yellow
+        logging.ERROR: "\x1b[31m",     # red
+        logging.CRITICAL: "\x1b[31;1m",  # bold red
+    }
+    _USE_COLOR = sys.stderr.isatty()
+
+    def format(self, record: logging.LogRecord) -> str:
+        # Truncate module name to 10 chars
+        name = record.name
+        if len(name) > 10:
+            name = name[:9] + "…"
+
+        time_str = self.formatTime(record, "%H:%M:%S")
+        level = record.levelname
+
+        if self._USE_COLOR:
+            color = self._LEVEL_COLORS.get(record.levelno, "")
+            level_str = f"{color}{level}{self._RESET}"
+        else:
+            level_str = level
+
+        msg = record.getMessage()
+        if record.exc_info:
+            msg = msg + "\n" + self.formatException(record.exc_info)
+
+        return f"{time_str} {level_str} {name}: {msg}"
+
+
+_handler = logging.StreamHandler()
+_handler.setFormatter(_ColorFormatter())
+logging.root.setLevel(logging.INFO)
+logging.root.handlers = [_handler]
+logging.getLogger("httpx").setLevel(logging.WARNING)
+
 logger = logging.getLogger(__name__)
 
 STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
 
 app = Flask(__name__)
+
+
+@app.before_request
+def _set_request_id():
+    """Generate a short request ID for log correlation."""
+    from llm_utils import current_request_id
+    current_request_id.set(uuid.uuid4().hex[:8])
 
 
 def sse_response(generator_fn, error_class):
