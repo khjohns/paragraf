@@ -63,7 +63,8 @@ class ScreeningState {
   getAssignment(sakNr: string, category: string | undefined | null): ScreeningAssignment {
     const cat = category ?? 'C';
     const mode = this.screeningModes[cat] ?? 'claude';
-    if (mode === 'pick') return this.screeningAssignments[sakNr] ?? 'claude';
+    if (mode === 'pick')
+      return this.screeningAssignments[sakNr] ?? this.previousModes[cat] ?? 'claude';
     return mode as ScreeningAssignment;
   }
 
@@ -75,7 +76,14 @@ class ScreeningState {
     this.screeningAssignments[sakNr] = value;
   }
 
+  private previousModes: Record<string, ScreeningAssignment> = {};
+
   setCategoryMode(category: string, mode: ScreeningMode) {
+    // Remember previous mode so "Velg per sak" defaults to it
+    const prev = this.screeningModes[category];
+    if (prev === 'claude' || prev === 'me') {
+      this.previousModes[category] = prev;
+    }
     this.screeningModes[category] = mode;
   }
 

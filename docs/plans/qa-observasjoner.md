@@ -214,7 +214,9 @@ SSE-screening fullført for alle 26 A-saker. Propositions-upsert feilet for de 5
 | 10 | Traversal kjøres 3x ved sideload | `enabled: analysisState.nodes.length === 0` på query | `64caf52` |
 | 11 | Pre-syntese sitatverifisering mangler | Ny `verify_screening_citations()` + endepunkt | `64caf52` |
 | 12 | Adaptive thinking ikke aktivert | `thinking: {"type": "adaptive"}` på Sonnet/Opus-kall | `7fc63df` |
-| 13 | Sitatverifisering kjøres automatisk + vises i UI | Auto-trigger etter SSE, badges per sitat | (pågår) |
+| 13 | Sitatverifisering kjøres automatisk + vises i UI | Auto-trigger etter SSE, badges per sitat | `abcb283` |
+| 14 | Infinite loop i traversal-query (effect_update_depth_exceeded) | Fjern syklisk enabled, bruk staleTime: Infinity | `6d1bac0` |
+| 15 | «Velg per sak» defaulter til Claude uansett forrige valg | Husk previousMode, bruk som fallback | (uncommitted) |
 
 ## Gjenstående bugs/forbedringer (ikke fikset)
 
