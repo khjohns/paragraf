@@ -3,7 +3,22 @@
   import { screeningState } from '$lib/stores/screening.svelte';
   import { uiState } from '$lib/stores/ui.svelte';
   import CategoryBadge from './CategoryBadge.svelte';
+  import PostSearchPanel from './PostSearchPanel.svelte';
+  import EuScreeningPanel from './EuScreeningPanel.svelte';
   import type { ScreeningMode } from '$lib/types/analysis';
+
+  let showPostSearch = $derived(
+    analysisState.isScreeningPhase ||
+      analysisState.analysis.status === 'screening_complete' ||
+      analysisState.analysis.status === 'post_search'
+  );
+  let showEuScreening = $derived(
+    analysisState.isScreeningPhase ||
+      analysisState.analysis.status === 'screening_complete' ||
+      analysisState.analysis.status === 'post_search' ||
+      analysisState.analysis.status === 'synthesis' ||
+      analysisState.analysis.status === 'qa'
+  );
 
   let cases = $derived(analysisState.caseNodes);
   let stats = $derived.by(() => {
@@ -115,6 +130,22 @@
       <button class="back-work-btn" onclick={() => uiState.clearProcessView()}>
         Tilbake til arbeidsrom →
       </button>
+    {/if}
+
+    <!-- Ettersøk (AI suggestions for new searches) -->
+    {#if showPostSearch}
+      <div class="sub-panel">
+        <div class="sub-panel-label">Ettersøk — AI-forslag</div>
+        <PostSearchPanel />
+      </div>
+    {/if}
+
+    <!-- EU-dommer -->
+    {#if showEuScreening}
+      <div class="sub-panel">
+        <div class="sub-panel-label">EU-dommer</div>
+        <EuScreeningPanel />
+      </div>
     {/if}
   </div>
 </div>
@@ -330,5 +361,19 @@
     border-top-color: var(--p-kofa-accent);
     animation: spin 0.8s linear infinite;
     flex-shrink: 0;
+  }
+
+  .sub-panel {
+    padding-top: 16px;
+    border-top: 1px solid var(--p-border);
+    margin-top: 8px;
+  }
+  .sub-panel-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--p-ink3);
+    margin-bottom: 8px;
   }
 </style>

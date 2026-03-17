@@ -317,13 +317,19 @@
   .strip-content {
     display: grid;
     grid-template-columns: 3fr 2fr;
-    gap: 32px;
-    padding: 12px 16px 16px;
+    gap: 24px;
+    padding: 8px 16px 12px;
     border-top: 1px solid rgba(26, 24, 20, 0.05);
+    max-height: 50vh;
+    overflow-y: auto;
+  }
+  .strip-left,
+  .strip-right {
+    min-width: 0; /* prevent grid overflow */
   }
 
   .strip-section {
-    margin-bottom: 12px;
+    margin-bottom: 8px;
   }
   .strip-section:last-child {
     margin-bottom: 0;
@@ -337,8 +343,8 @@
     margin-bottom: 4px;
   }
   .strip-text {
-    font-size: 13px;
-    line-height: 1.55;
+    font-size: 12px;
+    line-height: 1.5;
     color: var(--p-ink);
   }
 
@@ -542,7 +548,10 @@
     background: rgba(155, 77, 202, 0.08);
   }
   .gap-prov {
-    min-width: 48px;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .gap-sep {
     color: var(--p-ink4);
