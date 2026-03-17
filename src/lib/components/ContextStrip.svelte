@@ -2,6 +2,9 @@
   import { analysisState } from '$lib/stores/analysis.svelte';
   import { uiState } from '$lib/stores/ui.svelte';
   import { formatProvision } from '$lib/utils/provisions';
+  import SeedInput from './SeedInput.svelte';
+
+  let editing = $state(false);
 
   let readCount = $derived(Object.values(analysisState.analysis.readStatus).filter(Boolean).length);
   let totalCount = $derived(analysisState.caseNodes.length);
@@ -16,6 +19,20 @@
   let vectorQuery = $derived(analysisState.analysis.seeds.vectorQuery);
   let suggestions = $derived(analysisState.suggestedProvisions);
   let zeroGaps = $derived(analysisState.gaps.filter((g) => g.count === 0));
+
+  function removeProvision(index: number) {
+    analysisState.setSeeds({
+      ...analysisState.analysis.seeds,
+      provisions: analysisState.analysis.seeds.provisions.filter((_, i) => i !== index),
+    });
+  }
+
+  function removeFtsTerm(index: number) {
+    analysisState.setSeeds({
+      ...analysisState.analysis.seeds,
+      ftsTerms: ftsTerms.filter((_, i) => i !== index),
+    });
+  }
 </script>
 
 <div class="context-strip" class:expanded={uiState.contextStripExpanded}>
@@ -55,56 +72,74 @@
           </div>
         {/if}
 
-        <div class="strip-section">
-          <div class="strip-label">Bestemmelser</div>
-          <div class="strip-provisions">
-            {#each analysisState.analysis.seeds.provisions as prov}
-              <span class="strip-prov-badge">{formatProvision(prov)}</span>
-            {/each}
+        {#if editing}
+          <!-- Full seed editor -->
+          <div class="strip-section">
+            <SeedInput />
+            <button class="edit-done-btn" onclick={() => (editing = false)}>Ferdig</button>
           </div>
-          {#if suggestions.length > 0}
-            <div class="suggested-row">
-              <span class="suggested-label">Foreslåtte:</span>
-              {#each suggestions as s}
-                <button
-                  class="suggested-btn"
-                  onclick={() => {
-                    const current = analysisState.analysis.seeds.provisions;
-                    if (!current.includes(s.id)) {
-                      analysisState.setSeeds({
-                        ...analysisState.analysis.seeds,
-                        provisions: [...current, s.id],
-                      });
-                    }
-                  }}>+ {formatProvision(s.id)}</button
-                >
+        {:else}
+          <!-- Read-only seeds with remove buttons -->
+          <div class="strip-section">
+            <div class="strip-label-row">
+              <div class="strip-label">Bestemmelser</div>
+              <button class="edit-seeds-btn" onclick={() => (editing = true)}>Rediger seeds</button>
+            </div>
+            <div class="strip-provisions">
+              {#each analysisState.analysis.seeds.provisions as prov, i}
+                <span class="strip-prov-badge">
+                  {formatProvision(prov)}
+                  <button class="badge-remove" onclick={() => removeProvision(i)}>×</button>
+                </span>
               {/each}
+            </div>
+            {#if suggestions.length > 0}
+              <div class="suggested-row">
+                <span class="suggested-label">Foreslåtte:</span>
+                {#each suggestions as s}
+                  <button
+                    class="suggested-btn"
+                    onclick={() => {
+                      const current = analysisState.analysis.seeds.provisions;
+                      if (!current.includes(s.id)) {
+                        analysisState.setSeeds({
+                          ...analysisState.analysis.seeds,
+                          provisions: [...current, s.id],
+                        });
+                      }
+                    }}>+ {formatProvision(s.id)}</button
+                  >
+                {/each}
+              </div>
+            {/if}
+          </div>
+
+          {#if ftsTerms.length > 0}
+            <div class="strip-section">
+              <div class="strip-label">Fulltekstsøk</div>
+              <div class="strip-terms">
+                {#each ftsTerms as term, i}
+                  <span class="strip-term-badge">
+                    «{term}»
+                    <button class="badge-remove" onclick={() => removeFtsTerm(i)}>×</button>
+                  </span>
+                {/each}
+              </div>
             </div>
           {/if}
-        </div>
 
-        {#if ftsTerms.length > 0}
-          <div class="strip-section">
-            <div class="strip-label">Fulltekstsøk</div>
-            <div class="strip-terms">
-              {#each ftsTerms as term}
-                <span class="strip-term-badge">«{term}»</span>
-              {/each}
+          {#if vectorQuery}
+            <div class="strip-section">
+              <div class="strip-label">Semantisk søk</div>
+              <div class="strip-text vector-text">{vectorQuery}</div>
             </div>
-          </div>
-        {/if}
+          {/if}
 
-        {#if vectorQuery}
-          <div class="strip-section">
-            <div class="strip-label">Semantisk søk</div>
-            <div class="strip-text vector-text">{vectorQuery}</div>
-          </div>
-        {/if}
-
-        {#if analysisState.scopingResult?.reasoning}
-          <div class="strip-section ai-section">
-            <div class="strip-text ai-text">{analysisState.scopingResult.reasoning}</div>
-          </div>
+          {#if analysisState.scopingResult?.reasoning}
+            <div class="strip-section ai-section">
+              <div class="strip-text ai-text">{analysisState.scopingResult.reasoning}</div>
+            </div>
+          {/if}
         {/if}
       </div>
 
@@ -317,6 +352,60 @@
     font-size: 12px;
     color: var(--p-ink2);
     font-style: italic;
+  }
+
+  /* Label row with edit button */
+  .strip-label-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 4px;
+  }
+  .strip-label-row .strip-label {
+    margin-bottom: 0;
+  }
+  .edit-seeds-btn {
+    all: unset;
+    cursor: pointer;
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--p-ink3);
+    padding: 2px 6px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--p-border);
+  }
+  .edit-seeds-btn:hover {
+    background: var(--p-hover);
+    color: var(--p-ink);
+  }
+  .edit-done-btn {
+    all: unset;
+    cursor: pointer;
+    margin-top: 8px;
+    padding: 6px 16px;
+    border-radius: var(--radius-md);
+    background: var(--p-ink);
+    color: var(--p-panel);
+    font-size: 12px;
+    font-weight: 600;
+    display: block;
+    text-align: center;
+  }
+  .edit-done-btn:hover {
+    opacity: 0.85;
+  }
+
+  /* Badge remove button */
+  .badge-remove {
+    all: unset;
+    cursor: pointer;
+    font-size: 12px;
+    line-height: 1;
+    opacity: 0.4;
+    margin-left: 2px;
+  }
+  .badge-remove:hover {
+    opacity: 1;
   }
 
   /* Provisions */
