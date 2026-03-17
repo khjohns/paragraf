@@ -115,3 +115,46 @@ Opprett en dedikert testanalyse i `setUp`:
 3. Slett testanalysen i `tearDown`
 
 Alternativt: bruk fixtures med mock av Anthropic API for raskere/billigere tester. Men minst én "smoke test" bør kjøre mot live API.
+
+## Bruk av codegrasp MCP
+
+Codegrasp er tilgjengelig som MCP-server og bør brukes aktivt under testing.
+
+### Før du begynner
+
+```
+mcp__codegrasp__reindex          # Oppdater indeksen (vi har pushet mye kode)
+mcp__codegrasp__get_session_context  # Hent eksisterende observasjoner — det er 4 stk fra QA-sesjonen
+```
+
+De 4 lagrede observasjonene dekker:
+1. `persist_candidates` upsert-invariant (IKKE send screening_status/ai_screening)
+2. To traversal-endepunkter (gammel /api/traverse bør fjernes)
+3. Adaptive thinking — response parsing og modell-kompatibilitet
+4. screeningStarted hydration — hva som overlever reload og hva som ikke gjør det
+
+### Under testing
+
+- **`get_session_context(symbol_fqns)`** — sjekk observasjoner før du endrer en funksjon
+- **`save_observation`** — dokumenter testresultater og edge cases du finner, lenket til symboler
+- **`get_diff_impact`** — kjør etter endringer for å se hva som påvirkes (NB: grafen har kun 9 edges — prøv `reindex` først)
+- **`find_dead_code`** — etter testing, identifiser gammel kode som kan fjernes (f.eks. gammel `/api/traverse`-rute, batch-relatert kode som er nedprioritert)
+- **`get_skeleton`** — bruk for å forstå filer uten å lese hele implementasjonen (70-90% token-reduksjon)
+
+### Etter testing
+
+Lagre viktige observasjoner om testresultater:
+```
+save_observation(
+  text="Pipeline smoke test: screening → citation QA → cross-props fungerer E2E. Citation QA fanger trunkerte sitater korrekt.",
+  linked_symbols=["backend/qa.py::verify_screening_citations", "backend/screening.py::screen_cases"]
+)
+```
+
+### Vurdering av codegrasp (fra QA-sesjonen)
+
+**Mest nyttig:** `save_observation` + `get_session_context` — observasjoner overlever mellom sesjoner og flagges som stale ved kodeendring. Perfekt for å kommunisere invarianter og subtile bugs mellom instanser.
+
+**Begrenset:** `get_diff_impact` og `search_logic_flow` — avhenger av edge-grafen som er sparsom (9 edges). Python-imports fanges dårlig. `reindex` kan forbedre dette.
+
+**Nyttig for opprydding:** `find_dead_code` fant 146 symboler — mange er false positives (Flask-ruter), men nyttig for å finne genuint ubrukt kode.
