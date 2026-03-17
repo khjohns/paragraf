@@ -21,7 +21,7 @@ from eu_screening import identify_eu_cases, screen_eu_cases, screen_eu_cases_bat
 from synthesis import generate_synthesis, generate_synthesis_stream, update_synthesis, SynthesisError
 from qa import run_qa, run_qa_stream, submit_qa_batch, process_qa_batch_results, verify_screening_citations, QAError
 from llm_utils import poll_batch_status, cancel_batch
-from chat import chat_stream, ChatError
+from chat import chat_stream, load_chat_history
 
 class _ColorFormatter(logging.Formatter):
     """ANSI-colored log formatter. Colors are only applied when stderr is a TTY."""
@@ -578,16 +578,25 @@ def complete_route(analysis_id):
     return jsonify({"ok": True})
 
 
+@app.route("/api/analyses/<analysis_id>/chat/messages", methods=["GET"])
+def chat_history_route(analysis_id):
+    """Return persisted chat history for an analysis."""
+    try:
+        messages = load_chat_history(analysis_id)
+        return jsonify(messages)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route("/api/analyses/<analysis_id>/chat", methods=["POST"])
 def chat_route(analysis_id):
-    """Free-form chat with analysis context. Streams response via SSE."""
+    """Free-form chat with analysis context. Streams response via typed SSE."""
     body = request.get_json()
     if not body or not body.get("messages"):
         return jsonify({"error": "messages required"}), 400
 
-    return sse_response(
+    return sse_typed_response(
         lambda: chat_stream(analysis_id, body["messages"]),
-        ChatError,
     )
 
 

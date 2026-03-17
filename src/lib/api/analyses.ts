@@ -235,7 +235,7 @@ export function synthesize(analysisId: string): Promise<SynthesisResult> {
 
 /** SSE event types for synthesis/QA streaming (ADR-004 Fase 2) */
 export interface StreamEvent {
-  type: 'status' | 'tool_call' | 'tool_result' | 'result' | 'error' | 'done';
+  type: 'status' | 'chunk' | 'tool_call' | 'tool_result' | 'result' | 'error' | 'done';
   data: Record<string, unknown>;
 }
 
@@ -247,7 +247,8 @@ function streamTypedSSE(
   url: string,
   onEvent: (event: StreamEvent) => void,
   onDone: () => void,
-  onError: (error: string) => void
+  onError: (error: string) => void,
+  body?: Record<string, unknown>
 ): AbortController {
   const controller = new AbortController();
 
@@ -255,6 +256,7 @@ function streamTypedSSE(
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     signal: controller.signal,
+    ...(body && { body: JSON.stringify(body) }),
   })
     .then(async (response) => {
       if (!response.ok) {
@@ -432,28 +434,44 @@ export function fetchBatchResults(
 export interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
+  timestamp?: number;
+}
+
+/** Load persisted chat history from the database. */
+export async function fetchChatHistory(analysisId: string): Promise<ChatMessage[]> {
+  const rows = await apiFetch<
+    { role: 'user' | 'assistant'; content: string; created_at: string }[]
+  >(`/api/analyses/${analysisId}/chat/messages`);
+  return rows.map((r) => ({
+    role: r.role,
+    content: r.content,
+    timestamp: new Date(r.created_at).getTime(),
+  }));
 }
 
 /**
- * Stream a chat response via SSE. Returns AbortController for cancellation.
- * Reuses streamSSE — maps {text} chunks to onChunk calls.
+ * Stream a chat response via typed SSE. Returns AbortController for cancellation.
+ * Uses streamTypedSSE — supports status events (loading_context, streaming) and text chunks.
  */
 export function streamChat(
   analysisId: string,
   messages: ChatMessage[],
   onChunk: (text: string) => void,
   onDone: () => void,
-  onError: (error: string) => void
+  onError: (error: string) => void,
+  onStatus?: (phase: string) => void
 ): AbortController {
-  return streamSSE<{ text?: string }>(
+  return streamTypedSSE(
     `/api/analyses/${analysisId}/chat`,
-    { messages },
-    'Chat feilet',
-    (result) => {
-      if (result.error) onError(result.error);
-      else if (result.text) onChunk(result.text);
+    (event) => {
+      if (event.type === 'status' && onStatus) {
+        onStatus(event.data.phase as string);
+      } else if (event.type === 'chunk') {
+        onChunk(event.data.text as string);
+      }
     },
     onDone,
-    onError
+    onError,
+    { messages: messages.map(({ role, content }) => ({ role, content })) }
   );
 }

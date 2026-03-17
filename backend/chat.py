@@ -172,14 +172,49 @@ Du har tilgang til brukerens pågående rettskildeanalyse:
 </constraints>"""
 
 
+def _persist_message(analysis_id: str, role: str, content: str) -> None:
+    """Persist a single chat message to the database."""
+    try:
+        client = get_client()
+        client.table("analysis_chat_messages").insert({
+            "analysis_id": analysis_id,
+            "role": role,
+            "content": content,
+        }).execute()
+    except Exception as e:
+        logger.warning("Failed to persist chat message: %s", e)
+
+
+def load_chat_history(analysis_id: str) -> list[dict]:
+    """Load chat history from the database, ordered by created_at ASC."""
+    client = get_client()
+    rows = (
+        client.table("analysis_chat_messages")
+        .select("role, content, created_at")
+        .eq("analysis_id", analysis_id)
+        .order("created_at")
+        .execute()
+        .data
+    ) or []
+    return [{"role": r["role"], "content": r["content"], "created_at": r["created_at"]} for r in rows]
+
+
 def chat_stream(analysis_id: str, messages: list[dict]):
     """Stream a chat response given message history.
 
-    Yields (event_type, data) tuples for SSE.
+    Yields (event_type, data) tuples for typed SSE.
     Messages should be [{role: "user"|"assistant", content: str}, ...].
     """
     if not messages:
         raise ChatError("Ingen meldinger")
+
+    # Persist the latest user message (always the last in the array)
+    last_msg = messages[-1]
+    if last_msg.get("role") == "user":
+        _persist_message(analysis_id, "user", last_msg["content"])
+
+    # Signal context loading phase
+    yield "status", {"phase": "loading_context"}
 
     # Load analysis context
     try:
@@ -187,10 +222,13 @@ def chat_stream(analysis_id: str, messages: list[dict]):
     except Exception as e:
         raise ChatError(f"Kunne ikke laste analysekontekst: {e}")
 
+    yield "status", {"phase": "streaming"}
+
     system_prompt = SYSTEM_PROMPT.format(context=context)
 
     client = get_anthropic_client()
 
+    full_response = []
     try:
         with client.messages.stream(
             model=CLAUDE_MODEL,
@@ -206,9 +244,13 @@ def chat_stream(analysis_id: str, messages: list[dict]):
             messages=messages,
         ) as stream:
             for text in stream.text_stream:
+                full_response.append(text)
                 yield "chunk", {"text": text}
 
             response = stream.get_final_message()
             log_usage(response.usage, CLAUDE_MODEL, "Chat")
+
+        # Persist assistant response after successful stream
+        _persist_message(analysis_id, "assistant", "".join(full_response))
     except Exception as e:
         raise ChatError(f"Claude-feil: {e}")

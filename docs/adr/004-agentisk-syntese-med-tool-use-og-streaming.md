@@ -1,7 +1,7 @@
 # ADR-004: Agentisk syntese med tool use, streaming og strukturert output
 
 **Dato:** 2026-03-17
-**Status:** Foreslått
+**Status:** Implementert (Fase 1+2+3)
 **Kontekst:** Oppfølging av ADR-001 (API-optimalisering) og ADR-002 (Haiku QA). Vurderer overgang fra enkelt strukturert kall til agentisk mønster med tool use for syntese-modulen.
 
 ---

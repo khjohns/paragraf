@@ -1,21 +1,37 @@
 <script lang="ts">
   import { analysisState } from '$lib/stores/analysis.svelte';
   import { uiState } from '$lib/stores/ui.svelte';
-  import { streamChat, type ChatMessage } from '$lib/api/analyses';
+  import { streamChat, fetchChatHistory, type ChatMessage } from '$lib/api/analyses';
   import { toastState } from '$lib/stores/toast.svelte';
+  import { onMount } from 'svelte';
 
   type DrawerState = 'closed' | 'half' | 'full';
+  type ChatPhase = 'idle' | 'loading_context' | 'streaming';
 
   let drawerState = $state<DrawerState>('closed');
   let messages = $state<ChatMessage[]>([]);
   let inputText = $state('');
   let streaming = $state(false);
   let streamingText = $state('');
+  let chatPhase = $state<ChatPhase>('idle');
+  let historyLoaded = $state(false);
   let messagesEl: HTMLDivElement | undefined = $state();
   let messagesEndEl: HTMLDivElement | undefined = $state();
   let textareaEl: HTMLTextAreaElement | undefined = $state();
   let abortController: AbortController | null = null;
   let hasInput = $derived(inputText.trim().length > 0);
+
+  // Load persisted chat history on mount
+  onMount(() => {
+    fetchChatHistory(analysisState.analysis.id)
+      .then((history) => {
+        if (history.length > 0) messages = history;
+        historyLoaded = true;
+      })
+      .catch(() => {
+        historyLoaded = true;
+      });
+  });
 
   // Abort streaming on component destroy + messages click delegation
   $effect(() => {
@@ -39,15 +55,21 @@
     textareaEl.style.height = Math.min(textareaEl.scrollHeight, 120) + 'px';
   }
 
+  function formatTime(ts: number): string {
+    const d = new Date(ts);
+    return d.toLocaleTimeString('nb-NO', { hour: '2-digit', minute: '2-digit' });
+  }
+
   function sendMessage() {
     const text = inputText.trim();
     if (!text || streaming) return;
 
-    messages = [...messages, { role: 'user', content: text }];
+    messages = [...messages, { role: 'user', content: text, timestamp: Date.now() }];
     inputText = '';
     if (textareaEl) textareaEl.style.height = 'auto';
     streaming = true;
     streamingText = '';
+    chatPhase = 'idle';
     scrollToBottom();
 
     abortController = streamChat(
@@ -58,15 +80,23 @@
         scrollToBottom();
       },
       () => {
-        messages = [...messages, { role: 'assistant', content: streamingText }];
+        messages = [
+          ...messages,
+          { role: 'assistant', content: streamingText, timestamp: Date.now() },
+        ];
         streamingText = '';
         streaming = false;
+        chatPhase = 'idle';
         scrollToBottom();
       },
       (error) => {
         toastState.show(`Chat-feil: ${error}`, 'error');
         streaming = false;
         streamingText = '';
+        chatPhase = 'idle';
+      },
+      (phase) => {
+        chatPhase = phase as ChatPhase;
       }
     );
   }
@@ -93,6 +123,7 @@
       abortController = null;
       streaming = false;
       streamingText = '';
+      chatPhase = 'idle';
     }
   }
 
@@ -202,7 +233,7 @@
 
     <!-- Messages -->
     <div class="messages" bind:this={messagesEl} role="log">
-      {#if messages.length === 0 && !streaming}
+      {#if messages.length === 0 && !streaming && historyLoaded}
         <div class="empty-chat">
           <div class="empty-chat-title">Still et spørsmål om rettskildebildet</div>
           <div class="empty-chat-desc">
@@ -215,22 +246,37 @@
       {#each messages as msg}
         {#if msg.role === 'user'}
           <div class="msg-user">
+            <span class="msg-label msg-label-user">Du</span>
             <div class="msg-user-bubble">{msg.content}</div>
+            {#if msg.timestamp}
+              <span class="msg-timestamp msg-timestamp-right">{formatTime(msg.timestamp)}</span>
+            {/if}
           </div>
         {:else}
           <div class="msg-assistant">
+            <span class="msg-label msg-label-assistant">Claude</span>
             {@render assistantBlocks(msg.content)}
+            {#if msg.timestamp}
+              <span class="msg-timestamp">{formatTime(msg.timestamp)}</span>
+            {/if}
           </div>
         {/if}
       {/each}
 
-      {#if streaming && streamingText}
+      {#if streaming && chatPhase === 'loading_context'}
+        <div class="msg-status">
+          <span class="status-spinner"></span>
+          <span class="status-text">Laster analysekontekst…</span>
+        </div>
+      {:else if streaming && streamingText}
         <div class="msg-assistant">
+          <span class="msg-label msg-label-assistant">Claude</span>
           {@render assistantBlocks(streamingText)}
           <span class="streaming-cursor"></span>
         </div>
       {:else if streaming}
         <div class="msg-assistant">
+          <span class="msg-label msg-label-assistant">Claude</span>
           <span class="streaming-spinner"></span>
         </div>
       {/if}
@@ -403,14 +449,41 @@
     max-width: 360px;
   }
 
+  /* Message labels */
+  .msg-label {
+    display: block;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    margin-bottom: 4px;
+  }
+  .msg-label-user {
+    text-align: right;
+    color: var(--p-ink3);
+  }
+  .msg-label-assistant {
+    color: var(--p-kofa-accent);
+  }
+
+  /* Timestamps */
+  .msg-timestamp {
+    display: block;
+    font-size: 11px;
+    font-family: var(--font-data);
+    color: var(--p-ink4);
+    margin-top: 4px;
+  }
+  .msg-timestamp-right {
+    text-align: right;
+  }
+
   /* User message */
   .msg-user {
-    display: flex;
-    justify-content: flex-end;
     margin-bottom: 20px;
   }
   .msg-user-bubble {
     max-width: 85%;
+    margin-left: auto;
     padding: 12px 16px;
     border-radius: 14px 14px 4px 14px;
     background: var(--p-ink);
@@ -435,6 +508,32 @@
     line-height: 1.65;
     color: var(--p-ink);
     letter-spacing: -0.01em;
+  }
+
+  /* Status message (context loading) */
+  .msg-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 20px;
+    padding: 10px 16px;
+    border-radius: var(--radius-md);
+    background: var(--p-highlight, #fbf5e8);
+    border: 1px solid var(--p-ai-border-subtle);
+  }
+  .status-spinner {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 2px solid var(--p-ai-border-subtle);
+    border-top-color: var(--p-kofa-accent);
+    animation: spin 0.8s linear infinite;
+    flex-shrink: 0;
+  }
+  .status-text {
+    font-size: 12px;
+    color: var(--p-ink3);
+    font-style: italic;
   }
 
   /* Challenge block */
@@ -516,6 +615,11 @@
     border-top-color: var(--p-kofa-accent);
     animation: spin 0.8s linear infinite;
     display: inline-block;
+  }
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
   }
 
   /* Input area */
