@@ -86,7 +86,9 @@
 <KeyboardShortcuts />
 
 {#if !hydrated}
-  <!-- Wait for DB/localStorage hydration before rendering -->
+  <div class="loading-state">
+    <span class="loading-label">Laster analyse…</span>
+  </div>
 {:else if showScoping}
   <ScopingOverlay />
 {:else}
@@ -124,6 +126,18 @@
 {/if}
 
 <style>
+  .loading-state {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    background: var(--p-bg);
+  }
+  .loading-label {
+    font-size: 13px;
+    color: var(--p-ink3);
+    font-weight: 500;
+  }
   .middle-content {
     flex: 1;
     overflow-y: auto;
