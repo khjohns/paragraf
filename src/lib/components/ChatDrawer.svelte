@@ -21,6 +21,41 @@
   let abortController: AbortController | null = null;
   let hasInput = $derived(inputText.trim().length > 0);
 
+  // --- Typewriter: buffer chunks, reveal at smooth constant rate ---
+  const TYPEWRITER_BASE_RATE = 4; // chars per frame at 60fps ≈ 240 chars/sec
+  let chunkQueue = '';
+  let typewriterRafId: number | null = null;
+
+  function appendChunk(chunk: string) {
+    chunkQueue += chunk;
+    if (typewriterRafId === null) {
+      typewriterRafId = requestAnimationFrame(typewriterTick);
+    }
+  }
+
+  function typewriterTick() {
+    typewriterRafId = null;
+    if (!chunkQueue) return;
+    // Adaptive rate: base 4, scales up when buffer grows to stay close to real-time
+    const rate = Math.max(TYPEWRITER_BASE_RATE, Math.floor(chunkQueue.length / 8));
+    const reveal = chunkQueue.slice(0, rate);
+    chunkQueue = chunkQueue.slice(rate);
+    streamingText += reveal;
+    scrollToBottom();
+    if (chunkQueue) {
+      typewriterRafId = requestAnimationFrame(typewriterTick);
+    }
+  }
+
+  function stopTypewriter() {
+    if (typewriterRafId !== null) {
+      cancelAnimationFrame(typewriterRafId);
+      typewriterRafId = null;
+    }
+    streamingText += chunkQueue;
+    chunkQueue = '';
+  }
+
   // Load persisted chat history on mount
   onMount(() => {
     fetchChatHistory(analysisState.analysis.id)
@@ -39,14 +74,13 @@
     if (el) el.addEventListener('click', handleRefClick);
     return () => {
       abortController?.abort();
+      stopTypewriter();
       if (el) el.removeEventListener('click', handleRefClick);
     };
   });
 
   function scrollToBottom() {
-    requestAnimationFrame(() => {
-      messagesEndEl?.scrollIntoView({ behavior: 'smooth' });
-    });
+    messagesEndEl?.scrollIntoView({ behavior: 'smooth' });
   }
 
   function autoResize() {
@@ -69,6 +103,7 @@
     if (textareaEl) textareaEl.style.height = 'auto';
     streaming = true;
     streamingText = '';
+    chunkQueue = '';
     chatPhase = 'idle';
     scrollToBottom();
 
@@ -76,10 +111,10 @@
       analysisState.analysis.id,
       messages,
       (chunk) => {
-        streamingText += chunk;
-        scrollToBottom();
+        appendChunk(chunk);
       },
       () => {
+        stopTypewriter();
         messages = [
           ...messages,
           { role: 'assistant', content: streamingText, timestamp: Date.now() },
@@ -90,6 +125,7 @@
         scrollToBottom();
       },
       (error) => {
+        stopTypewriter();
         toastState.show(`Chat-feil: ${error}`, 'error');
         streaming = false;
         streamingText = '';
@@ -118,6 +154,7 @@
 
   function closeDrawer() {
     drawerState = 'closed';
+    stopTypewriter();
     if (abortController) {
       abortController.abort();
       abortController = null;
@@ -127,23 +164,28 @@
     }
   }
 
-  /** Parse {ref:kofa:id:§paragraph} references into HTML */
+  /** Parse markdown + {ref:...} references into HTML.
+   *  Assumes input is a single paragraph (no \n\n) — parseBlocks splits upstream. */
   function parseRefs(text: string): string {
     // Escape HTML first
-    let escaped = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    // Bold
-    escaped = escaped.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    let s = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    // Headings (### before ##)
+    s = s.replace(/^###\s+(.+)$/gm, '<span class="msg-h3">$1</span>');
+    s = s.replace(/^##\s+(.+)$/gm, '<span class="msg-h2">$1</span>');
+    // Bold (before italic)
+    s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    // Italic (single * not part of **)
+    s = s.replace(/(?<!\*)\*([^*]+?)\*(?!\*)/g, '<em>$1</em>');
+    // Line breaks (single newline within block)
+    s = s.replace(/\n/g, '<br>');
     // References
-    const escAttr = (s: string) => s.replace(/"/g, '&quot;');
-    escaped = escaped.replace(
-      /\{ref:(\w+):([^:}]+)(?::([^}]+))?\}/g,
-      (_match, type, id, paragraph) => {
-        const label = paragraph ? `${id} ${paragraph}` : id;
-        const nodeId = escAttr(`${type}:${id}`);
-        return `<button class="ref-link ref-${escAttr(type)}" data-node-id="${nodeId}">${label}</button>`;
-      }
-    );
-    return escaped;
+    const escAttr = (v: string) => v.replace(/"/g, '&quot;');
+    s = s.replace(/\{ref:(\w+):([^:}]+)(?::([^}]+))?\}/g, (_match, type, id, paragraph) => {
+      const label = paragraph ? `${id} ${paragraph}` : id;
+      const nodeId = escAttr(`${type}:${id}`);
+      return `<button class="ref-link ref-${escAttr(type)}" data-node-id="${nodeId}">${label}</button>`;
+    });
+    return s;
   }
 
   function handleRefClick(e: MouseEvent) {
@@ -202,7 +244,7 @@
     <span class="ai-dot"></span>
   </div>
 {:else}
-  <div class="drawer-open" style:height={drawerState === 'half' ? '45%' : '100%'}>
+  <div class="drawer-open" class:drawer-full={drawerState === 'full'}>
     <!-- Header -->
     <div class="drawer-header">
       <div class="drawer-drag-handle"></div>
@@ -286,28 +328,26 @@
 
     <!-- Input -->
     <div class="chat-input-area">
-      <div class="chat-input-row">
-        <textarea
-          bind:this={textareaEl}
-          bind:value={inputText}
-          oninput={autoResize}
-          onkeydown={handleKeyDown}
-          placeholder="Still et spørsmål om rettskildebildet…"
-          rows="1"
-          disabled={streaming}
-        ></textarea>
-        <button
-          class="send-btn"
-          class:active={hasInput}
-          onclick={sendMessage}
-          disabled={!hasInput || streaming}
-          aria-label="Send melding"
-        >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-            <path d="M3 13L13 8L3 3V7L9 8L3 9V13Z" fill="currentColor" />
-          </svg>
-        </button>
-      </div>
+      <textarea
+        bind:this={textareaEl}
+        bind:value={inputText}
+        oninput={autoResize}
+        onkeydown={handleKeyDown}
+        placeholder="Still et spørsmål om rettskildebildet…"
+        rows="1"
+        disabled={streaming}
+      ></textarea>
+      <button
+        class="send-btn"
+        class:active={hasInput}
+        onclick={sendMessage}
+        disabled={!hasInput || streaming}
+        aria-label="Send melding"
+      >
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <path d="M3 13L13 8L3 3V7L9 8L3 9V13Z" fill="currentColor" />
+        </svg>
+      </button>
     </div>
   </div>
 {/if}
@@ -346,13 +386,20 @@
 
   /* Open state */
   .drawer-open {
+    height: 45%;
     border-top: 1px solid var(--p-border-m, rgba(26, 24, 20, 0.13));
     background: var(--p-panel);
     display: flex;
     flex-direction: column;
-    transition: height 0.25s ease;
+    transition:
+      height 0.25s ease,
+      flex 0.25s ease;
     flex-shrink: 0;
     min-height: 200px;
+  }
+  .drawer-full {
+    height: 100%;
+    flex-shrink: 1;
   }
 
   /* Header */
@@ -426,6 +473,7 @@
     flex: 1;
     overflow-y: auto;
     padding: 16px 20px;
+    min-height: 0;
   }
 
   .empty-chat {
@@ -508,6 +556,21 @@
     line-height: 1.65;
     color: var(--p-ink);
     letter-spacing: -0.01em;
+  }
+  /* Markdown headings in assistant messages */
+  :global(.msg-h2) {
+    display: block;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--p-ink);
+    margin-bottom: 4px;
+  }
+  :global(.msg-h3) {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--p-ink2);
+    margin-bottom: 2px;
   }
 
   /* Status message (context loading) */
@@ -622,27 +685,17 @@
     }
   }
 
-  /* Input area */
+  /* Input area — flat, single border, aligned */
   .chat-input-area {
-    padding: 12px 16px;
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+    padding: 8px 16px;
     border-top: 1px solid var(--p-border);
     background: var(--p-panel);
     flex-shrink: 0;
   }
-  .chat-input-row {
-    display: flex;
-    align-items: flex-end;
-    gap: 8px;
-    padding: 8px 12px;
-    border-radius: 10px;
-    background: var(--p-input);
-    border: 1px solid var(--p-border-m, rgba(26, 24, 20, 0.13));
-    transition: border-color 0.15s ease;
-  }
-  .chat-input-row:focus-within {
-    border-color: var(--p-border-s, rgba(26, 24, 20, 0.22));
-  }
-  .chat-input-row textarea {
+  .chat-input-area textarea {
     flex: 1;
     border: none;
     background: transparent;
@@ -652,16 +705,16 @@
     color: var(--p-ink);
     resize: none;
     font-family: var(--font-ui);
-    padding: 0;
+    padding: 4px 0;
     max-height: 120px;
   }
-  .chat-input-row textarea::placeholder {
+  .chat-input-area textarea::placeholder {
     color: var(--p-ink4);
   }
   .send-btn {
-    width: 32px;
-    height: 32px;
-    border-radius: var(--radius-lg);
+    width: 28px;
+    height: 28px;
+    border-radius: var(--radius-md);
     border: none;
     background: transparent;
     color: var(--p-ink4);
@@ -671,6 +724,7 @@
     justify-content: center;
     transition: all 0.15s ease;
     flex-shrink: 0;
+    margin-bottom: 2px;
   }
   .send-btn.active {
     background: var(--p-ink);

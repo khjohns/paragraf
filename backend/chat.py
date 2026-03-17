@@ -8,7 +8,7 @@ import logging
 import os
 from concurrent.futures import ThreadPoolExecutor
 
-from db import get_client
+from db import db_query_with_retry
 from llm_utils import (
     CLAUDE_MODEL,
     build_output_config,
@@ -68,38 +68,37 @@ def _load_chat_context(analysis_id: str) -> str:
     ctx = load_analysis_context(analysis_id, extra_columns=["gaps"])
 
     def _fetch_candidates():
-        client = get_client()
-        return (
-            client.table("analysis_candidates")
+        return db_query_with_retry(lambda c: (
+            c.table("analysis_candidates")
             .select("sak_nr, category, ai_screening, user_notes, is_delimitation")
             .eq("analysis_id", analysis_id)
             .order("category")
             .execute()
             .data
-        ) or []
+        ) or [])
 
     def _fetch_propositions():
-        client = get_client()
-        return (
-            client.table("analysis_propositions")
+        return db_query_with_retry(lambda c: (
+            c.table("analysis_propositions")
             .select("proposition_text, theme, source_case, evolution_type, tension_with_id")
             .eq("analysis_id", analysis_id)
             .execute()
             .data
-        ) or []
+        ) or [])
 
     def _fetch_synthesis_note():
-        client = get_client()
-        doc = (
-            client.table("analysis_documents")
-            .select("content")
-            .eq("analysis_id", analysis_id)
-            .eq("doc_type", "note")
-            .limit(1)
-            .execute()
-            .data
-        )
-        return doc[0]["content"] if doc else None
+        def _query(c):
+            doc = (
+                c.table("analysis_documents")
+                .select("content")
+                .eq("analysis_id", analysis_id)
+                .eq("doc_type", "note")
+                .limit(1)
+                .execute()
+                .data
+            )
+            return doc[0]["content"] if doc else None
+        return db_query_with_retry(_query)
 
     candidates_future = _db_executor.submit(_fetch_candidates)
     propositions_future = _db_executor.submit(_fetch_propositions)
@@ -175,27 +174,25 @@ Du har tilgang til brukerens pågående rettskildeanalyse:
 def _persist_message(analysis_id: str, role: str, content: str) -> None:
     """Persist a single chat message to the database."""
     try:
-        client = get_client()
-        client.table("analysis_chat_messages").insert({
+        db_query_with_retry(lambda c: c.table("analysis_chat_messages").insert({
             "analysis_id": analysis_id,
             "role": role,
             "content": content,
-        }).execute()
+        }).execute())
     except Exception as e:
         logger.warning("Failed to persist chat message: %s", e)
 
 
 def load_chat_history(analysis_id: str) -> list[dict]:
     """Load chat history from the database, ordered by created_at ASC."""
-    client = get_client()
-    rows = (
-        client.table("analysis_chat_messages")
+    rows = db_query_with_retry(lambda c: (
+        c.table("analysis_chat_messages")
         .select("role, content, created_at")
         .eq("analysis_id", analysis_id)
         .order("created_at")
         .execute()
         .data
-    ) or []
+    )) or []
     return [{"role": r["role"], "content": r["content"], "created_at": r["created_at"]} for r in rows]
 
 
