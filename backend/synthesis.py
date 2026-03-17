@@ -368,18 +368,20 @@ def _run_agentic_loop(
                         block.name,
                         json_module.dumps(block.input, ensure_ascii=False)[:200],
                     )
+                    success = True
                     try:
                         tool_result = _execute_tool(block.name, block.input)
                         content = json_module.dumps(tool_result, ensure_ascii=False)
                     except Exception as e:
                         logger.error("Tool execution failed: %s", e)
                         content = json_module.dumps({"error": str(e)})
+                        success = False
 
                     tool_entry = {
                         "turn": turn,
                         "tool": block.name,
                         "input": block.input,
-                        "success": "error" not in content,
+                        "success": success,
                     }
                     tools_called.append(tool_entry)
                     turn_tool_calls.append(tool_entry)
@@ -710,8 +712,8 @@ def generate_synthesis_stream(analysis_id: str):
     # Check cache
     cached = get_cached(analysis_id, "synthesis", content_hash)
     if cached:
-        cached["markdown"] = _to_markdown(cached)
-        yield ("result", {"synthesis": cached, "markdown": cached["markdown"]})
+        markdown = cached.get("markdown") or _to_markdown(cached)
+        yield ("result", {"synthesis": cached, "markdown": markdown})
         return
 
     # Run agentic loop with SSE events
@@ -756,7 +758,7 @@ def generate_synthesis_stream(analysis_id: str):
 
         if response.stop_reason == "end_turn":
             text = next(
-                (b.text for b in response.content if hasattr(b, "text")), None,
+                (b.text for b in response.content if b.type == "text"), None,
             )
             if not text:
                 yield ("error", {"message": "Agentisk loop ga ingen tekst-output"})

@@ -92,8 +92,7 @@ class PipelineState {
   }
 
   addSynthesisProgress(item: StreamProgressItem) {
-    // Mark previous non-done items as done if same type
-    this.synthesisProgress = [...this.synthesisProgress, item];
+    this.synthesisProgress.push(item);
   }
 
   markLastProgressDone(target: 'synthesis' | 'qa') {
@@ -116,7 +115,7 @@ class PipelineState {
   }
 
   addQaProgress(item: StreamProgressItem) {
-    this.qaProgress = [...this.qaProgress, item];
+    this.qaProgress.push(item);
   }
 
   endQaStream() {
@@ -127,8 +126,9 @@ class PipelineState {
 
   // ── QA methods ──
 
-  setQaReport(report: QAReport | null) {
+  setQaReport(report: QAReport | null, llmMeta?: LlmMeta | null) {
     this.qaReport = report;
+    if (llmMeta !== undefined) this.qaLlmMeta = llmMeta;
   }
 
   setQaLoading(loading: boolean) {

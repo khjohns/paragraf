@@ -5,7 +5,7 @@
   import type { ScreeningMode } from '$lib/types/analysis';
 
   // Derive all counts in a single pass
-  let cases = $derived(analysisState.nodes.filter((n) => n.category));
+  let cases = $derived(analysisState.caseNodes);
   let stats = $derived.by(() => {
     const catCounts = { A: 0, B: 0, C: 0 };
     const catScreened = { A: 0, B: 0, C: 0 };

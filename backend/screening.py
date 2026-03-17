@@ -259,7 +259,6 @@ def screen_cases(
 
     # Filter out already-screened cases
     db_client = get_client()
-    already_screened = set()
     existing = (
         db_client.table("analysis_candidates")
         .select("sak_nr")

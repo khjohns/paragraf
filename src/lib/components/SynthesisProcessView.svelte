@@ -168,8 +168,7 @@
       pipelineState.markLastProgressDone('qa');
     } else if (event.type === 'result') {
       const qaReport = event.data.qa_report as Record<string, unknown>;
-      pipelineState.setQaReport(qaReport as never);
-      pipelineState.qaLlmMeta = (qaReport._llm_meta as never) ?? null;
+      pipelineState.setQaReport(qaReport as never, (qaReport._llm_meta as never) ?? null);
       analysisState.setStatus('qa');
     }
   }

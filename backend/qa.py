@@ -6,14 +6,13 @@ Single agentic QA call with tool use that checks:
 3. Coverage — ensures all A-candidates are treated in the note
 """
 import json
-import json as json_module
 import logging
 import os
 import time
 from concurrent.futures import ThreadPoolExecutor
 
 from db import get_client
-from synthesis import DOC_TYPE_NOTE, DOC_TYPE_QA_REPORT, SYNTHESIS_TOOLS, _execute_tool
+from synthesis import DOC_TYPE_NOTE, DOC_TYPE_QA_REPORT, SYNTHESIS_TOOLS, _execute_tool, _summarize_tool_result
 
 from llm_utils import (
     CLAUDE_MODEL,
@@ -727,7 +726,7 @@ Ikke returner tomme arrays med mindre du faktisk har sjekket og funnet null prob
             if not text:
                 raise QAError("QA-loop ga ingen tekst-output")
 
-            result = json_module.loads(text)
+            result = json.loads(text)
             total_elapsed = int((time.monotonic() - t0) * 1000)
             result["_llm_meta"] = {
                 "model": CLAUDE_MODEL,
@@ -762,20 +761,22 @@ Ikke returner tomme arrays med mindre du faktisk har sjekket og funnet null prob
                 if block.type == "tool_use":
                     logger.info("QA tool call: %s(%s)",
                         block.name,
-                        json_module.dumps(block.input, ensure_ascii=False)[:200],
+                        json.dumps(block.input, ensure_ascii=False)[:200],
                     )
+                    success = True
                     try:
                         tool_result = _execute_tool(block.name, block.input)
-                        content = json_module.dumps(tool_result, ensure_ascii=False)
+                        content = json.dumps(tool_result, ensure_ascii=False)
                     except Exception as e:
                         logger.error("QA tool execution failed: %s", e)
-                        content = json_module.dumps({"error": str(e)})
+                        content = json.dumps({"error": str(e)})
+                        success = False
 
                     tool_entry = {
                         "turn": turn,
                         "tool": block.name,
                         "input": block.input,
-                        "success": "error" not in content,
+                        "success": success,
                     }
                     tools_called.append(tool_entry)
                     turn_tool_calls.append(tool_entry)
@@ -806,8 +807,6 @@ def run_qa_stream(analysis_id: str):
 
     Yields (event_type, data) tuples — same protocol as generate_synthesis_stream.
     """
-    from synthesis import _summarize_tool_result
-
     yield ("status", {"phase": "loading_context"})
 
     try:
@@ -877,13 +876,13 @@ Ikke returner tomme arrays med mindre du faktisk har sjekket og funnet null prob
 
         if response.stop_reason == "end_turn":
             text = next(
-                (b.text for b in response.content if hasattr(b, "text")), None,
+                (b.text for b in response.content if b.type == "text"), None,
             )
             if not text:
                 yield ("error", {"message": "QA-loop ga ingen tekst-output"})
                 return
 
-            result = json_module.loads(text)
+            result = json.loads(text)
             total_elapsed = int((time.monotonic() - t0) * 1000)
             result["_llm_meta"] = {
                 "model": CLAUDE_MODEL,
@@ -925,11 +924,11 @@ Ikke returner tomme arrays med mindre du faktisk har sjekket og funnet null prob
 
                     try:
                         tool_result = _execute_tool(block.name, block.input)
-                        content = json_module.dumps(tool_result, ensure_ascii=False)
+                        content = json.dumps(tool_result, ensure_ascii=False)
                         summary = _summarize_tool_result(block.name, tool_result)
                     except Exception as e:
                         logger.error("QA tool execution failed: %s", e)
-                        content = json_module.dumps({"error": str(e)})
+                        content = json.dumps({"error": str(e)})
                         summary = f"Feil: {e}"
 
                     tool_entry = {
