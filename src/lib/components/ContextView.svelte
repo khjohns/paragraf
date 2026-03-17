@@ -52,18 +52,17 @@
         <section class="card">
           <div class="card-label">Søkeparametre</div>
           <p class="card-desc">
-            Bestemmelsene, søkeordene og den semantiske beskrivelsen som brukes for å finne
-            relevante KOFA-avgjørelser. Fjern med × eller legg til foreslåtte.
+            Søkeparametrene bestemmer hvilke KOFA-avgjørelser som blir funnet. Tre uavhengige
+            søkemetoder kjøres parallelt — saker som treffes av flere metoder rangeres høyere.
           </p>
 
           <!-- Provisions with inline coverage -->
           <div class="param-group">
-            <div
-              class="param-label"
-              title="Lovbestemmelser som brukes for å finne saker via referansetabellen (R-signal)"
-            >
-              Bestemmelser
-            </div>
+            <div class="param-label">Bestemmelser</div>
+            <p class="param-desc">
+              Lovbestemmelsene søket er bygget rundt. Saker som refererer til disse i KOFAs database
+              gir R-signal.
+            </p>
             <div class="provision-list">
               {#each analysisState.analysis.seeds.provisions as prov, i}
                 <div class="provision-row">
@@ -105,12 +104,11 @@
 
           {#if analysisState.analysis.seeds.ftsTerms.length > 0}
             <div class="param-group">
-              <div
-                class="param-label"
-                title="Eksakte søkeord som matches mot avgjørelsesteksten (F-signal)"
-              >
-                Fulltekstsøk
-              </div>
+              <div class="param-label">Fulltekstsøk</div>
+              <p class="param-desc">
+                Søkeord som matches direkte mot avgjørelsesteksten — som et Lovdata-søk. Gir
+                F-signal.
+              </p>
               <div class="term-list">
                 {#each analysisState.analysis.seeds.ftsTerms as term, i}
                   <span class="fts-chip">
@@ -134,12 +132,12 @@
 
           {#if analysisState.analysis.seeds.vectorQuery}
             <div class="param-group">
-              <div
-                class="param-label"
-                title="En naturlig beskrivelse av problemstillingen — finner saker med lignende innhold selv om ordene er forskjellige (V-signal)"
-              >
-                Semantisk søk
-              </div>
+              <div class="param-label">Semantisk søk (vektor)</div>
+              <p class="param-desc">
+                En naturlig beskrivelse av problemstillingen. Finner saker med lignende <em
+                  >innhold</em
+                > selv om de bruker andre ord enn fulltekstsøket — basert på maskinlæring. Gir V-signal.
+              </p>
               <p class="vector-text">{analysisState.analysis.seeds.vectorQuery}</p>
             </div>
           {/if}
@@ -151,8 +149,11 @@
         <section class="card">
           <div class="card-label">Resultater</div>
           <p class="card-desc">
-            Saker funnet via søkeparametrene. Kategori A = treff på alle tre søkemetoder, B = to, C
-            = én. Kategorien sier hvor mange søk som fant saken — ikke hvor relevant den er.
+            Alle KOFA-avgjørelser som ble funnet av minst én søkemetode. Hver sak får en kategori
+            basert på hvor mange metoder som fant den: <strong>A</strong> = alle tre (R+F+V),
+            <strong>B</strong>
+            = to, <strong>C</strong> = én. Dette er et mål på <em>oppdagbarhet</em>, ikke relevans —
+            en C-sak kan være svært viktig.
           </p>
 
           <!-- Candidate summary -->
@@ -179,26 +180,33 @@
           </div>
 
           <!-- Signal coverage -->
+          <div class="param-label">Søkemetoder — hvor mange saker hver metode fant</div>
           <div class="signal-row">
-            <div
-              class="signal-item"
-              title="Saker som refererer til bestemmelsene direkte i KOFAs referansetabell"
-            >
+            <div class="signal-item">
               <span class="signal-letter">R</span>
-              <span class="signal-name">Referansetabell</span>
+              <div class="signal-text">
+                <span class="signal-name">Referansetabell</span>
+                <span class="signal-desc"
+                  >Bestemmelsene er registrert i KOFAs referanser til saken</span
+                >
+              </div>
               <span class="signal-count">{analysisState.coverageStats.ref}</span>
             </div>
-            <div class="signal-item" title="Saker der søkeordene forekommer i avgjørelsesteksten">
+            <div class="signal-item">
               <span class="signal-letter">F</span>
-              <span class="signal-name">Fulltekstsøk</span>
+              <div class="signal-text">
+                <span class="signal-name">Fulltekstsøk</span>
+                <span class="signal-desc">Søkeordene forekommer i avgjørelsesteksten</span>
+              </div>
               <span class="signal-count">{analysisState.coverageStats.fts}</span>
             </div>
-            <div
-              class="signal-item"
-              title="Saker med lignende innhold basert på maskinlæring (semantisk likhet)"
-            >
+            <div class="signal-item">
               <span class="signal-letter">V</span>
-              <span class="signal-name">Vektor</span>
+              <div class="signal-text">
+                <span class="signal-name">Vektor</span>
+                <span class="signal-desc">Innholdet ligner semantisk på den beskrivelsen du ga</span
+                >
+              </div>
               <span class="signal-count">{analysisState.coverageStats.vec}</span>
             </div>
           </div>
@@ -206,12 +214,12 @@
           <!-- Gap matrix — compact -->
           {#if analysisState.gaps.length > 0}
             <div class="gap-section">
-              <div
-                class="param-label"
-                title="Viser om det finnes saker som behandler to bestemmelser sammen. Hull (∅) kan bety at kombinasjonen bør undersøkes med flere seeds."
-              >
-                Bestemmelsespar — interseksjoner
-              </div>
+              <div class="param-label">Kryssdekning mellom bestemmelser</div>
+              <p class="param-desc">
+                Finnes det saker som behandler to bestemmelser <em>sammen</em>? Hull betyr at ingen
+                saker ble funnet for den kombinasjonen — du kan legge til begge som søkeparametre
+                for å se om nye saker dukker opp.
+              </p>
               {#if nonZeroGaps.length > 0}
                 <div class="gap-compact">
                   {#each nonZeroGaps as gap}
@@ -223,7 +231,9 @@
               {/if}
               {#if zeroGaps.length > 0}
                 <div class="gap-zeros">
-                  <span class="gap-zero-label">{zeroGaps.length} hull uten treff:</span>
+                  <span class="gap-zero-label"
+                    >{zeroGaps.length} kombinasjoner uten treff — klikk for å utvide søket:</span
+                  >
                   <div class="gap-compact">
                     {#each zeroGaps as gap}
                       {#if gap.id1 && gap.id2}
@@ -238,7 +248,9 @@
                       {/if}
                     {/each}
                   </div>
-                  <span class="gap-hint">Klikk for å legge til som seeds</span>
+                  <span class="gap-hint"
+                    >Klikk «+» for å legge til begge bestemmelsene som nye søkeparametre</span
+                  >
                 </div>
               {/if}
             </div>
@@ -250,6 +262,11 @@
       {#if analysisState.analysis.iterationHistory?.length}
         <section class="card">
           <div class="card-label">Søkerunder</div>
+          <p class="card-desc">
+            Hver runde representerer ett søk med bestemte parametre. Du kan legge til nye
+            bestemmelser eller søkeord og kjøre en ny runde — nye saker vises med et eget merke i
+            listen. Klikk en runde for å filtrere listen til bare den rundens saker.
+          </p>
           <div class="rounds">
             <button
               class="round-row"
@@ -294,9 +311,16 @@
         </section>
       {/if}
 
-      <button class="new-iter-btn" onclick={() => analysisState.startNewIteration()}>
-        + Ny iterasjon med nye seeds
-      </button>
+      <div class="iter-action">
+        <button class="new-iter-btn" onclick={() => analysisState.startNewIteration()}>
+          + Ny søkerunde
+        </button>
+        <p class="iter-desc">
+          Start en ny runde med justerte søkeparametre. Legg til bestemmelser, endre søkeord, eller
+          utvid den semantiske beskrivelsen — deretter kjør søk på nytt. Nye saker markeres i listen
+          slik at du ser hva som er nytt.
+        </p>
+      </div>
     </div>
   </div>
 </div>
@@ -424,7 +448,24 @@
     font-size: 11px;
     font-weight: 600;
     color: var(--p-ink2);
-    margin-bottom: 6px;
+    margin-bottom: 4px;
+  }
+  .param-desc {
+    font-size: 11px;
+    line-height: 1.45;
+    color: var(--p-ink3);
+    margin: 0 0 8px;
+  }
+  .iter-action {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .iter-desc {
+    font-size: 11px;
+    line-height: 1.45;
+    color: var(--p-ink3);
+    margin: 0;
   }
 
   .provision-list {
@@ -575,34 +616,51 @@
 
   .signal-row {
     display: flex;
-    gap: 16px;
-    padding: 10px 0;
+    gap: 12px;
+    padding: 12px 0;
     border-top: 1px solid var(--p-border);
     border-bottom: 1px solid var(--p-border);
     margin-bottom: 12px;
   }
   .signal-item {
     display: flex;
-    align-items: center;
-    gap: 6px;
+    align-items: flex-start;
+    gap: 8px;
     flex: 1;
+    padding: 8px 10px;
+    border-radius: var(--radius-md);
+    background: var(--p-hover);
   }
   .signal-letter {
     font-family: var(--font-data);
     font-weight: 700;
     font-size: 11px;
     color: var(--p-ink3);
+    margin-top: 1px;
+  }
+  .signal-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1;
+    min-width: 0;
   }
   .signal-name {
     font-size: 11px;
+    font-weight: 600;
+    color: var(--p-ink2);
+  }
+  .signal-desc {
+    font-size: 10px;
     color: var(--p-ink3);
+    line-height: 1.4;
   }
   .signal-count {
     font-family: var(--font-data);
-    font-size: 12px;
-    font-weight: 600;
+    font-size: 14px;
+    font-weight: 700;
     color: var(--p-ink);
-    margin-left: auto;
+    flex-shrink: 0;
   }
 
   /* Gaps — compact chips */
