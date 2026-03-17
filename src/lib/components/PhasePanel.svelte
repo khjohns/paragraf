@@ -47,14 +47,14 @@
       label: 'Problem',
       state: sn > 1 ? 'done' : status === 'scoping' ? 'active' : 'pending',
       detail: sn > 1 ? 'definert' : null,
-      processView: null as ProcessView,
+      processView: 'context' as ProcessView,
     },
     {
       num: 2,
       label: 'Kandidater',
       state: sn > 2 ? 'done' : sn === 2 ? 'active' : 'pending',
       detail: totalCases > 0 ? `${totalCases} saker` : null,
-      processView: null as ProcessView,
+      processView: 'context' as ProcessView,
     },
     {
       num: 3,
@@ -92,11 +92,8 @@
 
   function handlePhaseClick(processView: ProcessView) {
     if (!processView) return;
-    if (uiState.activeProcessView === processView) {
-      uiState.clearProcessView();
-    } else {
-      uiState.setProcessView(processView);
-    }
+    // Always open — closing via "← Tilbake" in process view or ContextStrip
+    uiState.setProcessView(processView);
   }
 </script>
 
