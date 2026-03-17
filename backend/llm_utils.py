@@ -185,6 +185,41 @@ def log_usage(usage, model: str, label: str, is_batch: bool = False, elapsed_ms:
     return cost
 
 
+def persist_llm_call(
+    analysis_id: str | None,
+    call_type: str,
+    model: str,
+    usage,
+    cost_usd: float,
+    elapsed_ms: int | None = None,
+    stop_reason: str | None = None,
+    turn: int | None = None,
+    tool_calls: list[dict] | None = None,
+    extra: dict | None = None,
+) -> None:
+    """Persist an LLM call to llm_call_log for analysis and optimization."""
+    try:
+        cache_write, cache_read = _extract_cache_tokens(usage)
+        get_client().table("llm_call_log").insert({
+            "analysis_id": analysis_id,
+            "call_type": call_type,
+            "model": model,
+            "input_tokens": usage.input_tokens,
+            "output_tokens": usage.output_tokens,
+            "cache_read_tokens": cache_read,
+            "cache_write_tokens": cache_write,
+            "cost_usd": round(cost_usd, 6),
+            "elapsed_ms": elapsed_ms,
+            "stop_reason": stop_reason,
+            "turn": turn,
+            "tool_calls": tool_calls,
+            "request_id": current_request_id.get() or None,
+            "extra": extra,
+        }).execute()
+    except Exception as e:
+        logger.warning("Failed to persist LLM call log: %s", e)
+
+
 class CostTracker:
     """Track cumulative LLM costs for an analysis run."""
 

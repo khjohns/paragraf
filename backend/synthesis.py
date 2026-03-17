@@ -18,6 +18,7 @@ from llm_utils import (
     get_anthropic_client,
     build_output_config,
     log_usage,
+    persist_llm_call,
     CostTracker,
     CLAUDE_MODEL,
 )
@@ -307,7 +308,7 @@ def _run_agentic_loop(
         )
         elapsed_turn = int((time.monotonic() - t_turn) * 1000)
 
-        cost_tracker.add(
+        turn_cost = cost_tracker.add(
             f"Synthesis/{analysis_id}/turn-{turn}",
             CLAUDE_MODEL,
             response.usage,
@@ -343,9 +344,18 @@ def _run_agentic_loop(
                 turn, len(tools_called), cost_tracker.total_cost,
                 total_elapsed / 1000,
             )
+
+            # Persist final turn to call log
+            persist_llm_call(
+                analysis_id=analysis_id, call_type="synthesis",
+                model=CLAUDE_MODEL, usage=response.usage,
+                cost_usd=turn_cost, elapsed_ms=elapsed_turn,
+                stop_reason="end_turn", turn=turn,
+            )
             return result
 
         if response.stop_reason == "tool_use":
+            turn_tool_calls = []
             tool_results = []
             for block in response.content:
                 if block.type == "tool_use":
@@ -361,17 +371,28 @@ def _run_agentic_loop(
                         logger.error("Tool execution failed: %s", e)
                         content = json_module.dumps({"error": str(e)})
 
-                    tools_called.append({
+                    tool_entry = {
                         "turn": turn,
                         "tool": block.name,
                         "input": block.input,
                         "success": "error" not in content,
-                    })
+                    }
+                    tools_called.append(tool_entry)
+                    turn_tool_calls.append(tool_entry)
                     tool_results.append({
                         "type": "tool_result",
                         "tool_use_id": block.id,
                         "content": content,
                     })
+
+            # Persist tool-use turn to call log
+            persist_llm_call(
+                analysis_id=analysis_id, call_type="synthesis",
+                model=CLAUDE_MODEL, usage=response.usage,
+                cost_usd=turn_cost, elapsed_ms=elapsed_turn,
+                stop_reason="tool_use", turn=turn,
+                tool_calls=turn_tool_calls,
+            )
 
             messages.append({"role": "user", "content": tool_results})
             continue
@@ -614,12 +635,14 @@ vurderinger med [JURISTENS VURDERING]."""
     # Convert structured response to markdown for persistence
     markdown = _to_markdown(result)
 
-    # Persist to analysis_documents
+    # Persist to analysis_documents (with llm_meta)
+    llm_meta = result.get("_llm_meta")
     client.table("analysis_documents").upsert(
         {
             "analysis_id": analysis_id,
             "doc_type": DOC_TYPE_NOTE,
             "content": markdown,
+            "llm_meta": llm_meta,
             "version": 1,
         },
         on_conflict="analysis_id,doc_type",
