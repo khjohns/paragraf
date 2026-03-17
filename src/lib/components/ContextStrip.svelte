@@ -127,14 +127,18 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 6px 16px;
+    padding: 7px 16px;
     width: 100%;
     box-sizing: border-box;
     font-size: 12px;
     color: var(--p-ink2);
+    transition: background 0.1s ease;
   }
   .strip-toggle:hover {
     background: var(--p-hover);
+  }
+  .strip-toggle:active {
+    background: var(--p-active);
   }
 
   .chevron {
@@ -182,8 +186,8 @@
   /* Expanded content */
   .strip-content {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 24px;
+    grid-template-columns: 3fr 2fr;
+    gap: 32px;
     padding: 12px 16px 16px;
     border-top: 1px solid rgba(26, 24, 20, 0.05);
   }

@@ -25,7 +25,11 @@
 
   function startScreening() {
     const claudeCases = cases
-      .filter((n) => screeningState.getAssignment(n.label, n.category) === 'claude')
+      .filter((n) => {
+        // Exclude old-regulation cases when filter is active (QA bug #8)
+        if (uiState.regulationFilter && n.regulation === 'old') return false;
+        return screeningState.getAssignment(n.label, n.category) === 'claude';
+      })
       .map((n) => n.label);
     if (claudeCases.length === 0) return;
     screeningState.startScreeningSSE(claudeCases);
@@ -137,9 +141,16 @@
     font-size: 12px;
     color: var(--p-ink3);
     font-weight: 500;
+    padding: 4px 8px;
+    border-radius: var(--radius-md);
+    transition: all 0.1s ease;
   }
   .back-btn:hover {
     color: var(--p-ink);
+    background: var(--p-hover);
+  }
+  .back-btn:active {
+    background: var(--p-active);
   }
   .process-title {
     font-size: 13px;
@@ -211,6 +222,7 @@
   .mode-btn:hover {
     border-color: var(--p-border-s);
     color: var(--p-ink2);
+    background: var(--p-hover);
   }
   .mode-btn.active {
     background: var(--p-ink);

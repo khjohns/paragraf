@@ -340,9 +340,16 @@
     font-size: 12px;
     color: var(--p-ink3);
     font-weight: 500;
+    padding: 4px 8px;
+    border-radius: var(--radius-md);
+    transition: all 0.1s ease;
   }
   .back-btn:hover {
     color: var(--p-ink);
+    background: var(--p-hover);
+  }
+  .back-btn:active {
+    background: var(--p-active);
   }
   .process-title {
     font-size: 13px;
@@ -485,15 +492,14 @@
 
   .two-column {
     display: grid;
-    grid-template-columns: 1fr 320px;
+    grid-template-columns: 1fr 300px;
     flex: 1;
     overflow: hidden;
   }
 
   .note-column {
     overflow-y: auto;
-    padding: 24px 32px;
-    max-width: 800px;
+    padding: 24px 40px;
   }
 
   .lawyer-notice {

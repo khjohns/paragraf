@@ -51,8 +51,8 @@
     overflow: hidden;
   }
   .left-panel {
-    width: 140px;
-    min-width: 140px;
+    width: 192px;
+    min-width: 192px;
     border-right: 1px solid var(--p-border);
     background: var(--p-bg);
     overflow: hidden;

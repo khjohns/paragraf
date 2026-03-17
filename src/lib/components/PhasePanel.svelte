@@ -30,58 +30,63 @@
 
     return [
       {
+        num: 1,
         label: 'Problem',
-        icon: sn > 1 ? '✓' : status === 'scoping' ? '◐' : '○',
         state: sn > 1 ? 'done' : status === 'scoping' ? 'active' : 'pending',
         detail: sn > 1 ? 'definert' : null,
         processView: null as ProcessView,
       },
       {
-        label: 'Kandidat',
-        icon: sn > 2 ? '✓' : sn === 2 ? '◐' : '○',
+        num: 2,
+        label: 'Kandidater',
         state: sn > 2 ? 'done' : sn === 2 ? 'active' : 'pending',
         detail:
           totalCases > 0 ? `${totalCases} (${catCounts.A}A ${catCounts.B}B ${catCounts.C}C)` : null,
         processView: null as ProcessView,
       },
       {
+        num: 3,
         label: 'Screening',
-        icon: sn > 3 ? '✓' : sn === 3 ? '◐' : '○',
         state: sn > 3 ? 'done' : sn === 3 ? 'active' : 'pending',
         detail: sn >= 3 && totalCases > 0 ? `${screenedCount + readCount}/${totalCases}` : null,
         processView: 'screening-delegation' as ProcessView,
+        children: analysisState.citationSummary
+          ? [
+              {
+                label: 'Sitater',
+                state:
+                  (analysisState.citationSummary.inaccurate ?? 0) > 0
+                    ? 'warning'
+                    : ('done' as const),
+                detail: `${analysisState.citationSummary.verified ?? 0}/${analysisState.citationSummary.total}`,
+              },
+            ]
+          : [],
       },
       {
+        num: 4,
         label: 'Syntese',
-        icon: pipelineState.synthesisMarkdown ? '✓' : status === 'synthesis' ? '◐' : '○',
         state: pipelineState.synthesisMarkdown
           ? 'done'
           : status === 'synthesis'
             ? 'active'
             : 'pending',
         detail: pipelineState.synthesisResult
-          ? `${pipelineState.synthesisResult.sections.length} seksj.`
+          ? `${pipelineState.synthesisResult.sections.length} seksjoner`
           : null,
         processView: 'synthesis-review' as ProcessView,
-      },
-      {
-        label: 'QA',
-        icon: pipelineState.qaReport
-          ? pipelineState.qaReport.total_flags > 0
-            ? '⚠'
-            : '✓'
-          : status === 'qa'
-            ? '◐'
-            : '○',
-        state: pipelineState.qaReport
-          ? pipelineState.qaReport.total_flags > 0
-            ? 'warning'
-            : 'done'
-          : status === 'qa'
-            ? 'active'
-            : 'pending',
-        detail: pipelineState.qaReport ? `${pipelineState.qaReport.total_flags} issues` : null,
-        processView: 'synthesis-review' as ProcessView,
+        children: pipelineState.qaReport
+          ? [
+              {
+                label: 'QA',
+                state: pipelineState.qaReport.total_flags > 0 ? 'warning' : ('done' as const),
+                detail:
+                  pipelineState.qaReport.total_flags > 0
+                    ? `${pipelineState.qaReport.total_flags} merknader`
+                    : 'ok',
+              },
+            ]
+          : [],
       },
     ];
   });
@@ -99,33 +104,68 @@
 <div class="phase-panel">
   <div class="panel-eyebrow">Metode</div>
 
-  <div class="phases">
+  <nav class="phases">
     {#each phases as phase, i}
+      {@const isActiveView =
+        uiState.activeProcessView === phase.processView && phase.processView !== null}
       <button
         class="phase-item"
-        class:active-view={uiState.activeProcessView === phase.processView &&
-          phase.processView !== null}
+        class:active-view={isActiveView}
         class:clickable={phase.processView !== null}
         onclick={() => handlePhaseClick(phase.processView)}
         disabled={phase.processView === null}
       >
-        <span
-          class="phase-icon"
-          class:done={phase.state === 'done'}
-          class:active={phase.state === 'active'}
-          class:warning={phase.state === 'warning'}
-          class:pending={phase.state === 'pending'}>{phase.icon}</span
-        >
-        <span class="phase-label">{phase.label}</span>
-        {#if phase.detail}
-          <span class="phase-detail">{phase.detail}</span>
-        {/if}
+        <div class="phase-track">
+          <div
+            class="phase-circle"
+            class:done={phase.state === 'done'}
+            class:active={phase.state === 'active'}
+          >
+            {#if phase.state === 'done'}
+              <svg width="10" height="10" viewBox="0 0 10 10">
+                <path
+                  d="M2 5L4.5 7.5L8 3"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                  fill="none"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
+            {:else}
+              <span class="phase-num">{phase.num}</span>
+            {/if}
+          </div>
+          {#if i < phases.length - 1}
+            <div class="phase-connector" class:done={phase.state === 'done'}></div>
+          {/if}
+        </div>
+        <div class="phase-text">
+          <span class="phase-label">{phase.label}</span>
+          {#if phase.detail}
+            <span class="phase-detail">{phase.detail}</span>
+          {/if}
+        </div>
       </button>
-      {#if i < phases.length - 1}
-        <div class="phase-connector" class:done={phase.state === 'done'}></div>
+
+      <!-- Nested children (QA under Syntese, Sitater under Screening) -->
+      {#if phase.children?.length}
+        {#each phase.children as child}
+          <div class="phase-child">
+            <div class="child-indent"></div>
+            <span
+              class="child-icon"
+              class:done={child.state === 'done'}
+              class:warning={child.state === 'warning'}
+              >{child.state === 'done' ? '✓' : child.state === 'warning' ? '⚠' : '○'}</span
+            >
+            <span class="child-label">{child.label}</span>
+            <span class="child-detail">{child.detail}</span>
+          </div>
+        {/each}
       {/if}
     {/each}
-  </div>
+  </nav>
 
   {#if analysisState.totalCostUsd > 0}
     <div class="cost-display">
@@ -139,18 +179,17 @@
     display: flex;
     flex-direction: column;
     height: 100%;
-    padding: 12px 8px;
-    gap: 4px;
+    padding: 16px 12px;
   }
 
   .panel-eyebrow {
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 600;
     letter-spacing: 0.06em;
     text-transform: uppercase;
     color: var(--p-ink3);
     padding: 0 4px;
-    margin-bottom: 8px;
+    margin-bottom: 16px;
   }
 
   .phases {
@@ -159,15 +198,14 @@
     flex: 1;
   }
 
+  /* Phase item — each row is circle + text */
   .phase-item {
     all: unset;
     display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 6px 4px;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 4px 4px;
     border-radius: var(--radius-md);
-    font-size: 11px;
-    color: var(--p-ink3);
     cursor: default;
   }
   .phase-item.clickable {
@@ -178,58 +216,123 @@
   }
   .phase-item.active-view {
     background: var(--p-active);
-    color: var(--p-ink);
   }
 
-  .phase-icon {
-    font-size: 12px;
+  /* Track: circle + connector */
+  .phase-track {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
     flex-shrink: 0;
-    width: 16px;
-    text-align: center;
+    width: 20px;
   }
-  .phase-icon.done {
-    color: var(--p-success);
+
+  .phase-circle {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    border: 1.5px solid var(--p-ink4);
+    color: var(--p-ink4);
+    background: transparent;
   }
-  .phase-icon.active {
+  .phase-circle.done {
+    background: var(--p-ink);
+    border-color: var(--p-ink);
+    color: var(--p-panel);
+  }
+  .phase-circle.active {
+    border-color: var(--p-kofa-accent);
     color: var(--p-kofa-accent);
+    background: var(--p-ai-bg);
   }
-  .phase-icon.warning {
-    color: var(--p-warn);
-  }
-  .phase-icon.pending {
-    color: var(--p-ink4);
-  }
-
-  .phase-label {
-    font-weight: 500;
-    white-space: nowrap;
-  }
-
-  .phase-detail {
+  .phase-num {
     font-size: 9px;
-    font-family: var(--font-data);
-    color: var(--p-ink4);
-    margin-left: auto;
-    white-space: nowrap;
+    font-weight: 700;
+    line-height: 1;
   }
 
   .phase-connector {
-    width: 1px;
-    height: 6px;
+    width: 1.5px;
+    height: 12px;
     background: var(--p-input);
-    margin-left: 11px;
+    flex-shrink: 0;
   }
   .phase-connector.done {
-    background: var(--p-success);
+    background: var(--p-ink);
   }
 
+  /* Text: label + detail stacked */
+  .phase-text {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    padding-top: 1px;
+    min-width: 0;
+  }
+  .phase-label {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--p-ink2);
+    line-height: 20px; /* align with circle */
+  }
+  .phase-item.active-view .phase-label {
+    color: var(--p-ink);
+    font-weight: 600;
+  }
+  .phase-detail {
+    font-size: 10px;
+    font-family: var(--font-data);
+    color: var(--p-ink3);
+    line-height: 1.3;
+  }
+
+  /* Nested children (indented under parent) */
+  .phase-child {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 4px 2px 0;
+    margin-left: 14px;
+  }
+  .child-indent {
+    width: 6px;
+    flex-shrink: 0;
+  }
+  .child-icon {
+    font-size: 10px;
+    flex-shrink: 0;
+    width: 14px;
+    text-align: center;
+  }
+  .child-icon.done {
+    color: var(--p-success);
+  }
+  .child-icon.warning {
+    color: var(--p-warn);
+  }
+  .child-label {
+    font-size: 11px;
+    color: var(--p-ink3);
+    font-weight: 500;
+  }
+  .child-detail {
+    font-size: 10px;
+    font-family: var(--font-data);
+    color: var(--p-ink4);
+    margin-left: auto;
+  }
+
+  /* Cost at bottom */
   .cost-display {
     margin-top: auto;
     font-size: 11px;
     font-family: var(--font-data);
     color: var(--p-ink3);
-    text-align: center;
-    padding: 8px 0;
+    padding: 12px 4px 0;
     border-top: 1px solid var(--p-border);
   }
 </style>
