@@ -28,7 +28,14 @@
   let screenedCount = $derived(Object.keys(screeningState.screeningResults).length);
   let readCount = $derived(Object.values(analysisState.analysis.readStatus).filter(Boolean).length);
 
-  // Show screening controls when in screening-relevant phase
+  // Which phase section is expanded in the panel (null = none)
+  let expandedPhase = $state<number | null>(null);
+
+  function toggleExpand(num: number) {
+    expandedPhase = expandedPhase === num ? null : num;
+  }
+
+  // Show screening controls when candidates exist
   let showScreening = $derived(totalCases > 0 && sn >= 2);
   let showPostSearch = $derived(
     analysisState.isScreeningPhase || status === 'screening_complete' || status === 'post_search'
@@ -41,24 +48,32 @@
       status === 'qa'
   );
 
+  // Derived info for expandable sections
+  let seedProvisions = $derived(analysisState.analysis.seeds.provisions);
+  let seedFts = $derived(analysisState.analysis.seeds.ftsTerms);
+  let catCounts = $derived(analysisState.catCounts);
+
   let phases = $derived([
     {
       num: 1,
       label: 'Problem',
       state: sn > 1 ? 'done' : status === 'scoping' ? 'active' : 'pending',
       detail: sn > 1 ? 'definert' : null,
+      expandable: sn > 1,
     },
     {
       num: 2,
       label: 'Kandidater',
       state: sn > 2 ? 'done' : sn === 2 ? 'active' : 'pending',
       detail: totalCases > 0 ? `${totalCases} saker` : null,
+      expandable: totalCases > 0,
     },
     {
       num: 3,
       label: 'Screening',
       state: sn > 3 ? 'done' : sn === 3 ? 'active' : 'pending',
       detail: sn >= 3 && totalCases > 0 ? `${screenedCount + readCount}/${totalCases}` : null,
+      expandable: showScreening,
     },
     {
       num: 4,
@@ -71,6 +86,7 @@
       detail: pipelineState.synthesisResult
         ? `${pipelineState.synthesisResult.sections.length} seksjoner`
         : null,
+      expandable: false,
       children: pipelineState.qaReport
         ? [
             {
@@ -95,65 +111,108 @@
   <nav class="phases">
     {#each phases as phase}
       {@const isActiveTab = uiState.activePhase === phase.num}
-      <button
-        class="phase-row"
-        class:active-view={isActiveTab}
-        class:clickable={true}
-        onclick={() => handlePhaseClick(phase.num)}
-      >
-        <span class="phase-label">{phase.label}</span>
-        <span class="phase-status">
-          {#if phase.state === 'done'}
-            <span class="status-done">✓</span>
-          {:else if phase.state === 'active'}
-            <span class="status-active">◐</span>
+      {@const isExpanded = expandedPhase === phase.num}
+      <div class="phase-group">
+        <div class="phase-row" class:active-view={isActiveTab}>
+          {#if phase.expandable}
+            <button class="expand-btn" onclick={() => toggleExpand(phase.num)}>
+              {isExpanded ? '▾' : '▸'}
+            </button>
+          {:else}
+            <span class="expand-placeholder"></span>
           {/if}
-          {#if phase.detail}
-            <span class="status-detail">{phase.detail}</span>
-          {/if}
-        </span>
-      </button>
+          <button class="phase-nav" onclick={() => handlePhaseClick(phase.num)}>
+            <span class="phase-label">{phase.label}</span>
+          </button>
+          <span class="phase-status">
+            {#if phase.state === 'done'}
+              <span class="status-done">✓</span>
+            {:else if phase.state === 'active'}
+              <span class="status-active">◐</span>
+            {/if}
+            {#if phase.detail}
+              <span class="status-detail">{phase.detail}</span>
+            {/if}
+          </span>
+        </div>
 
-      {#if phase.children?.length}
-        {#each phase.children as child}
-          <div class="phase-sub">
-            <span class="sub-label">{child.label}</span>
-            <span class="phase-status">
-              <span
-                class="sub-icon"
-                class:done={child.state === 'done'}
-                class:warning={child.state === 'warning'}
-              >
-                {child.state === 'done' ? '✓' : child.state === 'warning' ? '⚠' : '—'}
+        {#if phase.children?.length}
+          {#each phase.children as child}
+            <div class="phase-sub">
+              <span class="sub-label">{child.label}</span>
+              <span class="phase-status">
+                <span
+                  class="sub-icon"
+                  class:done={child.state === 'done'}
+                  class:warning={child.state === 'warning'}
+                >
+                  {child.state === 'done' ? '✓' : child.state === 'warning' ? '⚠' : '—'}
+                </span>
+                <span class="status-detail">{child.detail}</span>
               </span>
-              <span class="status-detail">{child.detail}</span>
-            </span>
+            </div>
+          {/each}
+        {/if}
+
+        <!-- Expandable detail sections -->
+        {#if isExpanded}
+          <div class="phase-detail-section">
+            {#if phase.num === 1}
+              <!-- Problem: seeds overview -->
+              {#if seedProvisions.length > 0}
+                <div class="detail-group">
+                  <div class="detail-label">Bestemmelser</div>
+                  {#each seedProvisions as p}
+                    <div class="detail-item">{p}</div>
+                  {/each}
+                </div>
+              {/if}
+              {#if seedFts.length > 0}
+                <div class="detail-group">
+                  <div class="detail-label">Søketermer</div>
+                  {#each seedFts as t}
+                    <div class="detail-item">«{t}»</div>
+                  {/each}
+                </div>
+              {/if}
+            {:else if phase.num === 2}
+              <!-- Kandidater: category breakdown -->
+              <div class="cat-breakdown">
+                {#each ['A', 'B', 'C'] as cat}
+                  {@const count = catCounts[cat as keyof typeof catCounts]}
+                  {#if count > 0}
+                    <div class="cat-row">
+                      <span class="cat-badge">{cat}</span>
+                      <span class="cat-count">{count}</span>
+                    </div>
+                  {/if}
+                {/each}
+              </div>
+              <div class="detail-group">
+                <div class="detail-label">Lest</div>
+                <div class="detail-item">{readCount}/{totalCases}</div>
+              </div>
+            {:else if phase.num === 3}
+              <!-- Screening: controls -->
+              <ScreeningPanel />
+              {#if showPostSearch}
+                <div class="sub-section">
+                  <div class="detail-label">Ettersøk</div>
+                  <PostSearchPanel />
+                </div>
+              {/if}
+              {#if showEuScreening}
+                <div class="sub-section">
+                  <div class="detail-label">EU-dommer</div>
+                  <EuScreeningPanel />
+                </div>
+              {/if}
+            {/if}
           </div>
-        {/each}
-      {/if}
+        {/if}
+      </div>
     {/each}
   </nav>
-
-  <!-- Phase-contextual controls -->
-  {#if showScreening}
-    <div class="panel-section">
-      <ScreeningPanel />
-    </div>
-  {/if}
-
-  {#if showPostSearch}
-    <div class="panel-section">
-      <div class="section-label">Ettersøk</div>
-      <PostSearchPanel />
-    </div>
-  {/if}
-
-  {#if showEuScreening}
-    <div class="panel-section">
-      <div class="section-label">EU-dommer</div>
-      <EuScreeningPanel />
-    </div>
-  {/if}
 
   <!-- Cost -->
   {#if analysisState.totalCostUsd > 0}
@@ -169,41 +228,66 @@
     flex-direction: column;
     height: 100%;
     overflow-y: auto;
-    padding: 8px 10px;
+    padding: 8px 6px;
   }
 
   .phases {
     display: flex;
     flex-direction: column;
     gap: 1px;
-    padding-bottom: 8px;
-    margin-bottom: 4px;
-    border-bottom: 1px solid var(--p-border);
+  }
+
+  .phase-group {
+    display: flex;
+    flex-direction: column;
   }
 
   .phase-row {
-    all: unset;
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    padding: 6px 8px;
+    gap: 4px;
+    padding: 5px 4px;
     border-radius: var(--radius-md);
-    cursor: default;
-  }
-  .phase-row.clickable {
-    cursor: pointer;
-  }
-  .phase-row.clickable:hover {
-    background: var(--p-hover);
   }
   .phase-row.active-view {
     background: var(--p-active);
   }
+
+  .expand-btn {
+    all: unset;
+    cursor: pointer;
+    width: 16px;
+    font-size: 9px;
+    color: var(--p-ink4);
+    text-align: center;
+    flex-shrink: 0;
+    padding: 2px 0;
+    border-radius: var(--radius-sm);
+  }
+  .expand-btn:hover {
+    color: var(--p-ink2);
+    background: var(--p-hover);
+  }
+  .expand-placeholder {
+    width: 16px;
+    flex-shrink: 0;
+  }
+
+  .phase-nav {
+    all: unset;
+    cursor: pointer;
+    flex: 1;
+    min-width: 0;
+  }
+  .phase-nav:hover .phase-label {
+    color: var(--p-ink);
+  }
+
   .phase-label {
     font-size: 12px;
     font-weight: 500;
     color: var(--p-ink2);
+    transition: color 0.1s ease;
   }
   .phase-row.active-view .phase-label {
     color: var(--p-ink);
@@ -235,7 +319,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 3px 8px 3px 20px;
+    padding: 3px 4px 3px 24px;
   }
   .sub-label {
     font-size: 11px;
@@ -253,19 +337,64 @@
     color: var(--p-warn);
   }
 
-  /* Phase-contextual controls */
-  .panel-section {
-    padding: 8px 0;
+  /* Expandable detail sections */
+  .phase-detail-section {
+    padding: 4px 4px 8px 20px;
     border-bottom: 1px solid var(--p-border);
+    margin-bottom: 2px;
   }
-  .section-label {
+
+  .detail-group {
+    margin-bottom: 6px;
+  }
+  .detail-label {
     font-size: 10px;
     font-weight: 600;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.04em;
     text-transform: uppercase;
     color: var(--p-ink3);
+    margin-bottom: 2px;
+  }
+  .detail-item {
+    font-size: 11px;
+    color: var(--p-ink2);
+    padding: 1px 0;
+    font-family: var(--font-data);
+  }
+
+  .cat-breakdown {
+    display: flex;
+    gap: 8px;
     margin-bottom: 6px;
-    padding: 0 4px;
+  }
+  .cat-row {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+  }
+  .cat-badge {
+    font-size: 10px;
+    font-weight: 700;
+    font-family: var(--font-data);
+    color: var(--p-ink2);
+    width: 14px;
+    height: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-badge);
+    background: var(--p-hover);
+  }
+  .cat-count {
+    font-size: 10px;
+    font-family: var(--font-data);
+    color: var(--p-ink3);
+  }
+
+  .sub-section {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid var(--p-border);
   }
 
   .cost-display {

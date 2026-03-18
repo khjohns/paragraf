@@ -74,9 +74,6 @@
 </script>
 
 <div class="screening-panel">
-  <div class="panel-label">Arbeidsfordeling</div>
-  <div class="panel-desc">Velg hvem som screener per kategori, eller juster per sak i listen.</div>
-
   {#each ['A', 'B', 'C'] as cat}
     {@const count = stats.catCounts[cat as keyof typeof stats.catCounts]}
     {@const screened = stats.catScreened[cat as keyof typeof stats.catScreened]}
@@ -84,53 +81,37 @@
     {@const done = screened + read}
     {@const pct = count > 0 ? Math.round((done / count) * 100) : 0}
     {@const currentMode = screeningState.screeningModes[cat] ?? 'claude'}
-
-    <div class="cat-control">
-      <div class="cat-header">
-        <CategoryBadge category={cat as 'A' | 'B' | 'C'} />
-        <span class="cat-count">{count} {count === 1 ? 'sak' : 'saker'}</span>
-        <span class="spacer"></span>
-        {#if done > 0}
-          <div class="cat-progress">
-            <div class="progress-track">
-              <div class="progress-fill" class:complete={pct === 100} style:width="{pct}%"></div>
+    {#if count > 0}
+      <div class="cat-row">
+        <div class="cat-top">
+          <CategoryBadge category={cat as 'A' | 'B' | 'C'} />
+          <span class="cat-count">{count}</span>
+          {#if done > 0}
+            <div class="cat-progress">
+              <div class="progress-track">
+                <div class="progress-fill" class:complete={pct === 100} style:width="{pct}%"></div>
+              </div>
+              <span class="progress-text">{done}/{count}</span>
             </div>
-            <span class="progress-text">{done}/{count}</span>
-          </div>
-        {/if}
-      </div>
-
-      <div class="mode-selector">
-        {#each modes as m}
-          <button
-            class="mode-btn"
-            class:active={currentMode === m.key}
-            onclick={() => screeningState.setCategoryMode(cat, m.key)}
+          {/if}
+          <span class="spacer"></span>
+          <select
+            class="mode-select"
+            value={currentMode}
+            onchange={(e) =>
+              screeningState.setCategoryMode(
+                cat,
+                (e.target as HTMLSelectElement).value as ScreeningMode
+              )}
           >
-            {m.label}
-          </button>
-        {/each}
-      </div>
-    </div>
-  {/each}
-
-  <!-- Summary -->
-  <div class="summary">
-    <div class="summary-row">
-      <span>Claude screener</span>
-      <span class="summary-val ai">{stats.claudeCount}</span>
-    </div>
-    <div class="summary-row">
-      <span>Du leser</span>
-      <span class="summary-val me">{stats.meCount}</span>
-    </div>
-    {#if screeningState.screeningStarted && screenedCount > 0}
-      <div class="summary-row screened">
-        <span>Screenet</span>
-        <span class="summary-val">{screenedCount}/{stats.claudeCount}</span>
+            {#each modes as m}
+              <option value={m.key}>{m.label}</option>
+            {/each}
+          </select>
+        </div>
       </div>
     {/if}
-  </div>
+  {/each}
 
   {#if !isScreeningActive && unscreenedClaudeCases.length > 0}
     <button class="start-btn" onclick={startScreening}>
@@ -181,41 +162,23 @@
   .screening-panel {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 6px;
   }
 
-  .panel-label {
-    font-size: 11px;
-    font-weight: 600;
-    color: var(--p-ink3);
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    margin-bottom: 4px;
+  .cat-row {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
   }
-  .panel-desc {
-    font-size: 12px;
-    color: var(--p-ink3);
-    line-height: 1.45;
-    margin-bottom: 4px;
-  }
-
-  .cat-control {
-    padding: 12px 12px;
-    border-radius: var(--radius-lg);
-    background: var(--p-surface);
-    border: 1px solid var(--p-border);
-  }
-
-  .cat-header {
+  .cat-top {
     display: flex;
     align-items: center;
-    gap: 8px;
-    margin-bottom: 8px;
+    gap: 6px;
   }
   .cat-count {
-    font-size: 13px;
-    font-weight: 500;
-    color: var(--p-ink);
+    font-size: 11px;
+    font-family: var(--font-data);
+    color: var(--p-ink3);
   }
   .spacer {
     flex: 1;
@@ -224,10 +187,10 @@
   .cat-progress {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 4px;
   }
   .progress-track {
-    width: 48px;
+    width: 36px;
     height: 3px;
     border-radius: var(--radius-sm);
     background: var(--p-input);
@@ -248,61 +211,20 @@
     color: var(--p-ink3);
   }
 
-  .mode-selector {
-    display: flex;
-    gap: 4px;
-  }
-  .mode-btn {
-    all: unset;
-    flex: 1;
-    padding: 4px 8px;
-    border-radius: var(--radius-md);
-    font-size: 11px;
-    font-weight: 500;
-    cursor: pointer;
-    text-align: center;
-    background: transparent;
-    color: var(--p-ink3);
-    border: 1px solid var(--p-border-m);
-    transition: all 0.12s ease;
-  }
-  .mode-btn:hover {
-    border-color: var(--p-border-s);
+  .mode-select {
+    font-size: 10px;
+    font-family: var(--font-ui);
     color: var(--p-ink2);
+    background: var(--p-input);
+    border: 1px solid var(--p-border);
+    border-radius: var(--radius-md);
+    padding: 2px 4px;
+    cursor: pointer;
+    flex-shrink: 0;
   }
-  .mode-btn.active {
-    background: var(--p-ink);
-    color: var(--p-panel);
-    border-color: var(--p-ink);
-  }
-
-  .summary {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    padding-top: 8px;
-    border-top: 1px solid var(--p-border);
-    margin-top: 4px;
-  }
-  .summary-row {
-    display: flex;
-    justify-content: space-between;
-    font-size: 11px;
-    color: var(--p-ink3);
-  }
-  .summary-row.screened {
-    padding-top: 4px;
-    border-top: 1px solid var(--p-border);
-  }
-  .summary-val {
-    font-family: var(--font-data);
-    font-weight: 600;
-  }
-  .summary-val.ai {
-    color: var(--p-kofa-accent);
-  }
-  .summary-val.me {
-    color: var(--p-success);
+  .mode-select:focus {
+    outline: none;
+    border-color: var(--p-border-s);
   }
 
   .start-btn {
