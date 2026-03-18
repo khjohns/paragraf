@@ -82,6 +82,14 @@ class AnalysisState {
       this.analysis.status === 'complete'
   );
 
+  /** Show post-search panel (screening has started or finished) */
+  showPostSearch = $derived(this.isScreeningPhase || this.analysis.status === 'post_search');
+
+  /** Show EU screening panel (from screening phase through synthesis) */
+  showEuSection = $derived(
+    this.showPostSearch || this.analysis.status === 'synthesis' || this.analysis.status === 'qa'
+  );
+
   /** The DB analysis ID — set when loading a workspace */
   private dbId: string | null = null;
   private dbSaveTimeout: ReturnType<typeof setTimeout> | null = null;

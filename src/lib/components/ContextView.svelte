@@ -10,20 +10,6 @@
   let editing = $state(false);
   let zeroGaps = $derived(analysisState.gaps.filter((g) => g.count === 0));
   let nonZeroGaps = $derived(analysisState.gaps.filter((g) => g.count > 0));
-
-  // Show post-search/EU when screening has progressed
-  let showPostSearch = $derived(
-    analysisState.isScreeningPhase ||
-      analysisState.analysis.status === 'screening_complete' ||
-      analysisState.analysis.status === 'post_search'
-  );
-  let showEuSection = $derived(
-    analysisState.isScreeningPhase ||
-      analysisState.analysis.status === 'screening_complete' ||
-      analysisState.analysis.status === 'post_search' ||
-      analysisState.analysis.status === 'synthesis' ||
-      analysisState.analysis.status === 'qa'
-  );
 </script>
 
 <div class="context-view">
@@ -325,7 +311,7 @@
       {/if}
 
       <!-- 5. Post-search suggestions (from screening analysis) -->
-      {#if showPostSearch}
+      {#if analysisState.showPostSearch}
         <section class="card">
           <div class="card-label">Ettersøksforslag</div>
           <p class="card-desc">
@@ -337,7 +323,7 @@
       {/if}
 
       <!-- 6. EU case discovery -->
-      {#if showEuSection}
+      {#if analysisState.showEuSection}
         <section class="card">
           <div class="card-label">EU-dommer</div>
           <p class="card-desc">

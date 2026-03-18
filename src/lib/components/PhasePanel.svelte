@@ -2,6 +2,7 @@
   import { analysisState } from '$lib/stores/analysis.svelte';
   import { pipelineState } from '$lib/stores/pipeline.svelte';
   import { uiState } from '$lib/stores/ui.svelte';
+  import { formatProvision } from '$lib/utils/provisions';
   import ScreeningPanel from './ScreeningPanel.svelte';
   import type { AnalysisStatus } from '$lib/types/analysis';
 
@@ -24,15 +25,10 @@
   let totalCases = $derived(analysisState.caseNodes.length);
   let readCount = $derived(analysisState.readCount);
 
-  // All sections open by default
-  let expandedSections = $state<Set<number>>(new Set([1, 2, 3]));
-
-  function toggleExpand(num: number) {
-    const next = new Set(expandedSections);
-    if (next.has(num)) next.delete(num);
-    else next.add(num);
-    expandedSections = next;
-  }
+  // Independent booleans — toggling one section doesn't invalidate the others
+  let s1Open = $state(true);
+  let s2Open = $state(true);
+  let s3Open = $state(true);
 
   // Derived info
   let seedProvisions = $derived(analysisState.analysis.seeds.provisions);
@@ -57,28 +53,25 @@
     pipelineState.synthesisMarkdown ? 'done' : status === 'synthesis' ? 'active' : 'pending'
   );
 
-  // Number circle state: filled when expanded or active; success-tinted when done+collapsed
-  function numState(
-    section: number,
-    state: 'done' | 'active' | 'pending'
-  ): 'filled' | 'done' | 'default' {
-    if (expandedSections.has(section) || state === 'active') return 'filled';
+  // Number circle visual — derived once per section
+  type NumVisual = 'filled' | 'done' | 'default';
+  function computeNumState(open: boolean, state: 'done' | 'active' | 'pending'): NumVisual {
+    if (open || state === 'active') return 'filled';
     if (state === 'done') return 'done';
     return 'default';
   }
+  let ns1 = $derived(computeNumState(s1Open, section1State));
+  let ns2 = $derived(computeNumState(s2Open, section2State));
+  let ns3 = $derived(computeNumState(s3Open, section3State));
 </script>
 
 <div class="phase-panel">
   <nav class="sections">
     <!-- ① Problemstilling & Søk -->
     <div class="section-group">
-      <button class="section-header" onclick={() => toggleExpand(1)}>
-        <span
-          class="section-num"
-          class:filled={numState(1, section1State) === 'filled'}
-          class:done={numState(1, section1State) === 'done'}
-        >
-          {#if numState(1, section1State) === 'done'}
+      <button class="section-header" onclick={() => (s1Open = !s1Open)}>
+        <span class="section-num" class:filled={ns1 === 'filled'} class:done={ns1 === 'done'}>
+          {#if ns1 === 'done'}
             <svg width="10" height="10" viewBox="0 0 10 10"
               ><path
                 d="M2 5L4 7L8 3"
@@ -97,13 +90,7 @@
           <span class="status-active">◐</span>
         {/if}
         <span class="header-spacer"></span>
-        <svg
-          class="chevron"
-          class:open={expandedSections.has(1)}
-          width="12"
-          height="12"
-          viewBox="0 0 12 12"
-        >
+        <svg class="chevron" class:open={s1Open} width="12" height="12" viewBox="0 0 12 12">
           <path
             d="M3 4.5L6 7.5L9 4.5"
             stroke="currentColor"
@@ -114,14 +101,14 @@
         </svg>
       </button>
 
-      {#if expandedSections.has(1)}
+      {#if s1Open}
         <div class="section-body">
           {#if seedProvisions.length > 0}
             <div class="detail-group">
               <div class="detail-label">Bestemmelser</div>
               <div class="seed-list">
                 {#each seedProvisions as p}
-                  <span class="seed-badge prov">{p.includes(':') ? `§${p.split(':')[1]}` : p}</span>
+                  <span class="seed-badge prov">{formatProvision(p)}</span>
                 {/each}
               </div>
             </div>
@@ -177,13 +164,9 @@
 
     <!-- ② Gjennomgang -->
     <div class="section-group">
-      <button class="section-header" onclick={() => toggleExpand(2)}>
-        <span
-          class="section-num"
-          class:filled={numState(2, section2State) === 'filled'}
-          class:done={numState(2, section2State) === 'done'}
-        >
-          {#if numState(2, section2State) === 'done'}
+      <button class="section-header" onclick={() => (s2Open = !s2Open)}>
+        <span class="section-num" class:filled={ns2 === 'filled'} class:done={ns2 === 'done'}>
+          {#if ns2 === 'done'}
             <svg width="10" height="10" viewBox="0 0 10 10"
               ><path
                 d="M2 5L4 7L8 3"
@@ -202,16 +185,10 @@
           <span class="status-active">◐</span>
         {/if}
         <span class="header-spacer"></span>
-        {#if totalCases > 0 && !expandedSections.has(2)}
+        {#if totalCases > 0 && !s2Open}
           <span class="inline-stat">{readCount}/{totalCases}</span>
         {/if}
-        <svg
-          class="chevron"
-          class:open={expandedSections.has(2)}
-          width="12"
-          height="12"
-          viewBox="0 0 12 12"
-        >
+        <svg class="chevron" class:open={s2Open} width="12" height="12" viewBox="0 0 12 12">
           <path
             d="M3 4.5L6 7.5L9 4.5"
             stroke="currentColor"
@@ -222,7 +199,7 @@
         </svg>
       </button>
 
-      {#if expandedSections.has(2)}
+      {#if s2Open}
         <div class="section-body">
           {#if totalCases > 0}
             <ScreeningPanel />
@@ -235,13 +212,9 @@
 
     <!-- ③ Syntese -->
     <div class="section-group">
-      <button class="section-header" onclick={() => toggleExpand(3)}>
-        <span
-          class="section-num"
-          class:filled={numState(3, section3State) === 'filled'}
-          class:done={numState(3, section3State) === 'done'}
-        >
-          {#if numState(3, section3State) === 'done'}
+      <button class="section-header" onclick={() => (s3Open = !s3Open)}>
+        <span class="section-num" class:filled={ns3 === 'filled'} class:done={ns3 === 'done'}>
+          {#if ns3 === 'done'}
             <svg width="10" height="10" viewBox="0 0 10 10"
               ><path
                 d="M2 5L4 7L8 3"
@@ -260,13 +233,7 @@
           <span class="status-active">◐</span>
         {/if}
         <span class="header-spacer"></span>
-        <svg
-          class="chevron"
-          class:open={expandedSections.has(3)}
-          width="12"
-          height="12"
-          viewBox="0 0 12 12"
-        >
+        <svg class="chevron" class:open={s3Open} width="12" height="12" viewBox="0 0 12 12">
           <path
             d="M3 4.5L6 7.5L9 4.5"
             stroke="currentColor"
@@ -277,7 +244,7 @@
         </svg>
       </button>
 
-      {#if expandedSections.has(3)}
+      {#if s3Open}
         <div class="section-body">
           {#if pipelineState.synthesisMarkdown}
             <div class="synth-done">

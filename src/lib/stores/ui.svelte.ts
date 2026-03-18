@@ -99,7 +99,6 @@ class UiState {
 
   clearProcessView() {
     this.activeProcessView = null;
-    this.activePhase = 2;
   }
 
   /** Navigate to a phase/section. Sets both activePhase and the corresponding processView.
