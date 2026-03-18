@@ -99,18 +99,22 @@ class UiState {
 
   clearProcessView() {
     this.activeProcessView = null;
-    this.activePhase = 3;
+    this.activePhase = 2;
   }
 
-  /** Navigate to a phase tab. Sets both activePhase and the corresponding processView. */
+  /** Navigate to a phase/section. Sets both activePhase and the corresponding processView.
+   *  Section 1 = Problemstilling → ContextView
+   *  Section 2 = Gjennomgang → workspace (list/graph)
+   *  Section 3 = Syntese → SynthesisProcessView
+   */
   setPhase(phase: number) {
     this.activePhase = phase;
-    if (phase === 1 || phase === 2) {
+    if (phase === 1) {
       this.activeProcessView = 'context';
-    } else if (phase === 4) {
+    } else if (phase === 3) {
       this.activeProcessView = 'synthesis-review';
     } else {
-      this.activeProcessView = null; // phase 3 = workspace
+      this.activeProcessView = null; // phase 2 = workspace
     }
   }
 }

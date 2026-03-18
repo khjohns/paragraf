@@ -59,220 +59,253 @@
       </svg>
     </button>
 
+    <!-- Context view shortcut -->
+    <button
+      class="context-btn"
+      class:active={uiState.activeProcessView === 'context'}
+      onclick={() => {
+        if (uiState.activeProcessView === 'context') {
+          uiState.clearProcessView();
+        } else {
+          uiState.setPhase(1);
+        }
+      }}
+      title="Åpne søkeoppsett og problemstilling">Problemstilling</button
+    >
+
+    <span class="toolbar-sep"></span>
+
     <!-- View switcher (segmented control) -->
     <div class="view-switcher">
       <button
         class="view-btn"
-        class:active={uiState.viewMode === 'list'}
-        onclick={() => uiState.setViewMode('list')}>Liste</button
+        class:active={uiState.viewMode === 'list' && !uiState.activeProcessView}
+        onclick={() => {
+          uiState.clearProcessView();
+          uiState.setViewMode('list');
+        }}>Liste</button
       >
       <button
         class="view-btn"
-        class:active={uiState.viewMode === 'graph'}
-        onclick={() => uiState.setViewMode('graph')}>Graf</button
+        class:active={uiState.viewMode === 'graph' && !uiState.activeProcessView}
+        onclick={() => {
+          uiState.clearProcessView();
+          uiState.setViewMode('graph');
+        }}>Graf</button
       >
       <button
         class="view-btn"
-        class:active={uiState.viewMode === 'propositions'}
-        onclick={() => uiState.setViewMode('propositions')}>Rettssetninger</button
+        class:active={uiState.viewMode === 'propositions' && !uiState.activeProcessView}
+        onclick={() => {
+          uiState.clearProcessView();
+          uiState.setViewMode('propositions');
+        }}>Rettssetninger</button
       >
       <button
         class="view-btn"
-        class:active={uiState.viewMode === 'synthesis'}
-        onclick={() => uiState.setViewMode('synthesis')}>Notat</button
+        class:active={uiState.viewMode === 'synthesis' && !uiState.activeProcessView}
+        onclick={() => {
+          uiState.clearProcessView();
+          uiState.setViewMode('synthesis');
+        }}>Notat</button
       >
     </div>
 
-    {#if uiState.viewMode === 'synthesis'}
-      <span class="toolbar-sep"></span>
-      {#if pipelineState.synthesisResult}
-        <span class="prop-count">{pipelineState.synthesisResult.sections.length} seksjoner</span>
-        {#if pipelineState.qaReport}
+    {#if !uiState.activeProcessView}
+      {#if uiState.viewMode === 'synthesis'}
+        <span class="toolbar-sep"></span>
+        {#if pipelineState.synthesisResult}
+          <span class="prop-count">{pipelineState.synthesisResult.sections.length} seksjoner</span>
+          {#if pipelineState.qaReport}
+            <span class="toolbar-sep-dot">·</span>
+            <span class="qa-flag-count" class:has-flags={pipelineState.qaReport.total_flags > 0}>
+              {pipelineState.qaReport.total_flags} QA-flagg
+            </span>
+          {/if}
+        {:else}
+          <span class="prop-count">Ingen syntese ennå</span>
+        {/if}
+      {:else if uiState.viewMode === 'propositions'}
+        <span class="toolbar-sep"></span>
+        <span class="prop-count">{pipelineState.propositions.length} rettssetninger</span>
+        {#if tensionCount > 0}
           <span class="toolbar-sep-dot">·</span>
-          <span class="qa-flag-count" class:has-flags={pipelineState.qaReport.total_flags > 0}>
-            {pipelineState.qaReport.total_flags} QA-flagg
-          </span>
+          <span class="prop-tension-count"
+            >{tensionCount} {tensionCount === 1 ? 'spenning' : 'spenninger'}</span
+          >
         {/if}
-      {:else}
-        <span class="prop-count">Ingen syntese ennå</span>
-      {/if}
-    {:else if uiState.viewMode === 'propositions'}
-      <span class="toolbar-sep"></span>
-      <span class="prop-count">{pipelineState.propositions.length} rettssetninger</span>
-      {#if tensionCount > 0}
-        <span class="toolbar-sep-dot">·</span>
-        <span class="prop-tension-count"
-          >{tensionCount} {tensionCount === 1 ? 'spenning' : 'spenninger'}</span
-        >
-      {/if}
-    {:else if uiState.viewMode === 'list'}
-      <span class="toolbar-sep"></span>
+      {:else if uiState.viewMode === 'list'}
+        <span class="toolbar-sep"></span>
 
-      <!-- Filters -->
-      <div class="filters">
-        <button
-          class="filter-btn"
-          class:active={uiState.listFilter === 'all'}
-          onclick={() => uiState.setListFilter('all')}>Alle</button
-        >
-        <button
-          class="filter-btn filter-delim"
-          class:active={uiState.listFilter === 'delimitation'}
-          onclick={() => uiState.setListFilter('delimitation')}>Avgrensning</button
-        >
-        <button
-          class="filter-btn"
-          class:active={uiState.listFilter === 'unread'}
-          onclick={() => uiState.setListFilter('unread')}>Ulest</button
-        >
-      </div>
-    {:else if uiState.viewMode === 'graph'}
-      <span class="toolbar-sep"></span>
+        <!-- Filters -->
+        <div class="filters">
+          <button
+            class="filter-btn"
+            class:active={uiState.listFilter === 'all'}
+            onclick={() => uiState.setListFilter('all')}>Alle</button
+          >
+          <button
+            class="filter-btn filter-delim"
+            class:active={uiState.listFilter === 'delimitation'}
+            onclick={() => uiState.setListFilter('delimitation')}>Avgrensning</button
+          >
+          <button
+            class="filter-btn"
+            class:active={uiState.listFilter === 'unread'}
+            onclick={() => uiState.setListFilter('unread')}>Ulest</button
+          >
+        </div>
+      {:else if uiState.viewMode === 'graph'}
+        <span class="toolbar-sep"></span>
 
-      <!-- Graph search -->
-      <div class="graph-search">
-        <svg class="search-icon" width="13" height="13" viewBox="0 0 16 16" fill="none">
-          <circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.4" />
-          <line
-            x1="11"
-            y1="11"
-            x2="14"
-            y2="14"
-            stroke="currentColor"
-            stroke-width="1.4"
-            stroke-linecap="round"
+        <!-- Graph search -->
+        <div class="graph-search">
+          <svg class="search-icon" width="13" height="13" viewBox="0 0 16 16" fill="none">
+            <circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.4" />
+            <line
+              x1="11"
+              y1="11"
+              x2="14"
+              y2="14"
+              stroke="currentColor"
+              stroke-width="1.4"
+              stroke-linecap="round"
+            />
+          </svg>
+          <input
+            type="text"
+            class="search-input"
+            placeholder="Søk saksnr, bestemmelse…"
+            bind:value={uiState.graphSearch}
           />
-        </svg>
-        <input
-          type="text"
-          class="search-input"
-          placeholder="Søk saksnr, bestemmelse…"
-          bind:value={uiState.graphSearch}
-        />
-        {#if uiState.graphSearch}
-          <span class="search-count">{graphMatchCount}</span>
-          <button class="search-clear" onclick={() => (uiState.graphSearch = '')}>×</button>
-        {/if}
-      </div>
+          {#if uiState.graphSearch}
+            <span class="search-count">{graphMatchCount}</span>
+            <button class="search-clear" onclick={() => (uiState.graphSearch = '')}>×</button>
+          {/if}
+        </div>
 
-      <!-- Type filter pills -->
-      {#each Object.entries(graphFilterCounts.types) as [type, count]}
-        <button
-          class="cat-pill"
-          class:active={uiState.graphTypeFilter.has(type)}
-          onclick={() => uiState.toggleGraphType(type)}
-        >
-          <span
-            class="cat-dot"
-            style:background={NODE_TYPE_ACCENT[type as import('$lib/types/graph').NodeType]}
-          ></span>
-          {typeLabels[type] ?? type}
-          {count}
-        </button>
-      {/each}
-
-      <span class="toolbar-sep"></span>
-
-      <!-- Category filter pills -->
-      {#each ['A', 'B', 'C'] as cat}
-        {@const count = graphFilterCounts.cats[cat as keyof typeof graphFilterCounts.cats]}
-        {#if count > 0}
+        <!-- Type filter pills -->
+        {#each Object.entries(graphFilterCounts.types) as [type, count]}
           <button
             class="cat-pill"
-            class:active={uiState.graphCategoryFilter.has(cat)}
-            class:cat-a={cat === 'A'}
-            class:cat-b={cat === 'B'}
-            class:cat-c={cat === 'C'}
-            onclick={() => uiState.toggleGraphCategory(cat)}
+            class:active={uiState.graphTypeFilter.has(type)}
+            onclick={() => uiState.toggleGraphType(type)}
           >
-            <span class="cat-dot"></span>
-            {cat}
+            <span
+              class="cat-dot"
+              style:background={NODE_TYPE_ACCENT[type as import('$lib/types/graph').NodeType]}
+            ></span>
+            {typeLabels[type] ?? type}
             {count}
           </button>
-        {/if}
-      {/each}
+        {/each}
+
+        <span class="toolbar-sep"></span>
+
+        <!-- Category filter pills -->
+        {#each ['A', 'B', 'C'] as cat}
+          {@const count = graphFilterCounts.cats[cat as keyof typeof graphFilterCounts.cats]}
+          {#if count > 0}
+            <button
+              class="cat-pill"
+              class:active={uiState.graphCategoryFilter.has(cat)}
+              class:cat-a={cat === 'A'}
+              class:cat-b={cat === 'B'}
+              class:cat-c={cat === 'C'}
+              onclick={() => uiState.toggleGraphCategory(cat)}
+            >
+              <span class="cat-dot"></span>
+              {cat}
+              {count}
+            </button>
+          {/if}
+        {/each}
+      {/if}
     {/if}
   </div>
 
   <div class="toolbar-right">
-    {#if uiState.viewMode === 'propositions'}
-      <!-- Evolution legend -->
-      <div class="evolution-legend">
-        {#each Object.values(EVOLUTION_CONFIG) as ev}
-          <div class="evolution-item">
-            <div class="evolution-dot" style:border-color={ev.color}></div>
-            <span>{ev.label}</span>
-          </div>
-        {/each}
-      </div>
-    {:else if uiState.viewMode === 'list'}
-      <!-- Sort -->
-      <div class="sort">
-        <label class="sort-label" for="sort-select">Sorter:</label>
-        <select
-          id="sort-select"
-          onchange={(e) => uiState.setListSort(e.currentTarget.value as ListSort)}
+    {#if !uiState.activeProcessView}
+      {#if uiState.viewMode === 'propositions'}
+        <!-- Evolution legend -->
+        <div class="evolution-legend">
+          {#each Object.values(EVOLUTION_CONFIG) as ev}
+            <div class="evolution-item">
+              <div class="evolution-dot" style:border-color={ev.color}></div>
+              <span>{ev.label}</span>
+            </div>
+          {/each}
+        </div>
+      {:else if uiState.viewMode === 'list'}
+        <!-- Sort -->
+        <div class="sort">
+          <label class="sort-label" for="sort-select">Sorter:</label>
+          <select
+            id="sort-select"
+            onchange={(e) => uiState.setListSort(e.currentTarget.value as ListSort)}
+          >
+            <option value="category" selected={uiState.listSort === 'category'}>Kategori</option>
+            <option value="citations" selected={uiState.listSort === 'citations'}>Siteringer</option
+            >
+            <option value="date" selected={uiState.listSort === 'date'}>Dato</option>
+          </select>
+        </div>
+      {/if}
+
+      <!-- AI toggle -->
+      <button
+        class="ai-toggle"
+        class:active={uiState.aiEnabled}
+        onclick={() => uiState.toggleAi()}
+        title={uiState.aiEnabled
+          ? 'KI-kuratering er på (vektorsøk brukes uansett)'
+          : 'KI-kuratering er av'}
+      >
+        <svg
+          width="12"
+          height="12"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
         >
-          <option value="category" selected={uiState.listSort === 'category'}>Kategori</option>
-          <option value="citations" selected={uiState.listSort === 'citations'}>Siteringer</option>
-          <option value="date" selected={uiState.listSort === 'date'}>Dato</option>
-        </select>
+          <path
+            d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"
+          />
+          <path d="M20 3v4" />
+          <path d="M22 5h-4" />
+        </svg>
+        KI
+      </button>
+
+      <!-- Regulation filter -->
+      <button
+        class="reg-filter"
+        class:active={uiState.regulationFilter}
+        onclick={() => uiState.toggleRegulationFilter()}
+        title={uiState.regulationFilter ? 'Viser kun FOA 2017+' : 'Viser alle FOA-versjoner'}
+      >
+        {uiState.regulationFilter ? 'FOA 2017–' : 'Alle FOA'}
+      </button>
+
+      <!-- Node type legend (compact, from mock) -->
+      <div class="legend">
+        <span class="legend-item">
+          <span class="legend-dot" style:background="var(--p-provision-accent)"></span>
+          <span>Best.</span>
+        </span>
+        <span class="legend-item">
+          <span class="legend-dot" style:background="var(--p-kofa-accent)"></span>
+          <span>KOFA</span>
+        </span>
+        <span class="legend-item">
+          <span class="legend-dot" style:background="var(--p-eu-accent)"></span>
+          <span>EU</span>
+        </span>
       </div>
     {/if}
-
-    <!-- AI toggle -->
-    <button
-      class="ai-toggle"
-      class:active={uiState.aiEnabled}
-      onclick={() => uiState.toggleAi()}
-      title={uiState.aiEnabled
-        ? 'KI-kuratering er på (vektorsøk brukes uansett)'
-        : 'KI-kuratering er av'}
-    >
-      <svg
-        width="12"
-        height="12"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-      >
-        <path
-          d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"
-        />
-        <path d="M20 3v4" />
-        <path d="M22 5h-4" />
-      </svg>
-      KI
-    </button>
-
-    <!-- Regulation filter -->
-    <button
-      class="reg-filter"
-      class:active={uiState.regulationFilter}
-      onclick={() => uiState.toggleRegulationFilter()}
-      title={uiState.regulationFilter ? 'Viser kun FOA 2017+' : 'Viser alle FOA-versjoner'}
-    >
-      {uiState.regulationFilter ? 'FOA 2017–' : 'Alle FOA'}
-    </button>
-
-    <!-- Node type legend (compact, from mock) -->
-    <div class="legend">
-      <span class="legend-item">
-        <span class="legend-dot" style:background="var(--p-provision-accent)"></span>
-        <span>Best.</span>
-      </span>
-      <span class="legend-item">
-        <span class="legend-dot" style:background="var(--p-kofa-accent)"></span>
-        <span>KOFA</span>
-      </span>
-      <span class="legend-item">
-        <span class="legend-dot" style:background="var(--p-eu-accent)"></span>
-        <span>EU</span>
-      </span>
-    </div>
   </div>
 </div>
 
@@ -321,6 +354,26 @@
   .panel-toggle:hover {
     background: var(--p-hover);
     color: var(--p-ink);
+  }
+
+  .context-btn {
+    all: unset;
+    cursor: pointer;
+    padding: 4px 10px;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--p-ink3);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--p-border);
+  }
+  .context-btn:hover {
+    background: var(--p-hover);
+    color: var(--p-ink);
+  }
+  .context-btn.active {
+    background: var(--p-active);
+    color: var(--p-ink);
+    border-color: var(--p-border-m);
   }
 
   /* Segmented control — matches mock exactly */

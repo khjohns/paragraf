@@ -98,12 +98,12 @@
     {/snippet}
 
     {#snippet middlePanel()}
+      <Toolbar />
       {#if uiState.activeProcessView === 'synthesis-review'}
         <SynthesisProcessView />
       {:else if uiState.activeProcessView === 'context'}
         <ContextView />
       {:else}
-        <Toolbar />
         <div class="middle-content">
           {#if uiState.viewMode === 'graph'}
             <GraphView />

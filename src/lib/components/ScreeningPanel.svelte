@@ -71,9 +71,9 @@
   }
 
   const modes: { key: ScreeningMode; label: string }[] = [
-    { key: 'claude', label: 'Claude screener' },
-    { key: 'me', label: 'Jeg leser' },
-    { key: 'pick', label: 'Velg per sak' },
+    { key: 'claude', label: 'Claude' },
+    { key: 'me', label: 'Meg' },
+    { key: 'pick', label: 'Per sak' },
   ];
 </script>
 
@@ -86,32 +86,31 @@
     {@const pct = count > 0 ? Math.round((done / count) * 100) : 0}
     {@const currentMode = screeningState.screeningModes[cat] ?? 'claude'}
     {#if count > 0}
-      <div class="cat-row">
-        <div class="cat-top">
-          <CategoryBadge category={cat as 'A' | 'B' | 'C'} />
-          <span class="cat-count">{count}</span>
-          {#if done > 0}
-            <div class="cat-progress">
-              <div class="progress-track">
-                <div class="progress-fill" class:complete={pct === 100} style:width="{pct}%"></div>
-              </div>
-              <span class="progress-text">{done}/{count}</span>
-            </div>
-          {/if}
-          <span class="spacer"></span>
-          <select
-            class="mode-select"
-            value={currentMode}
-            onchange={(e) =>
-              screeningState.setCategoryMode(
-                cat,
-                (e.target as HTMLSelectElement).value as ScreeningMode
-              )}
-          >
-            {#each modes as m}
-              <option value={m.key}>{m.label}</option>
-            {/each}
-          </select>
+      <div class="cat-block">
+        <div class="cat-info">
+          <CategoryBadge category={cat as 'A' | 'B' | 'C'} small />
+          <div class="progress-bar">
+            <div
+              class="progress-fill"
+              class:cat-a={cat === 'A'}
+              class:cat-b={cat === 'B'}
+              class:cat-c={cat === 'C'}
+              class:complete={pct === 100}
+              style:width="{pct}%"
+            ></div>
+          </div>
+          <span class="progress-text">{done}/{count}</span>
+        </div>
+        <div class="mode-buttons">
+          {#each modes as m}
+            <button
+              class="mode-btn"
+              class:active={currentMode === m.key}
+              class:mode-claude={m.key === 'claude' && currentMode === m.key}
+              class:mode-me={m.key === 'me' && currentMode === m.key}
+              onclick={() => screeningState.setCategoryMode(cat, m.key)}>{m.label}</button
+            >
+          {/each}
         </div>
       </div>
     {/if}
@@ -120,7 +119,7 @@
   {#if !isScreeningActive && unscreenedClaudeCases.length > 0}
     <button class="start-btn" onclick={startScreening}>
       {screeningState.screeningStarted
-        ? `Screen ${unscreenedClaudeCases.length} flere →`
+        ? `Screen ${unscreenedClaudeCases.length} flere`
         : `Start screening (${unscreenedClaudeCases.length})`}
     </button>
   {:else if !isScreeningActive && screeningState.screeningStarted && unscreenedClaudeCases.length === 0}
@@ -134,9 +133,9 @@
         <span>Screening pågår…</span>
         <span class="batch-pct">{batchProgress}%</span>
       </div>
-      <div class="progress-track batch-track">
+      <div class="batch-track">
         <div
-          class="progress-fill"
+          class="batch-fill"
           class:complete={batchProgress === 100}
           style:width="{batchProgress}%"
         ></div>
@@ -166,45 +165,42 @@
   .screening-panel {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 8px;
   }
 
-  .cat-row {
+  .cat-block {
     display: flex;
     flex-direction: column;
-    gap: 2px;
-  }
-  .cat-top {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-  .cat-count {
-    font-size: 11px;
-    font-family: var(--font-data);
-    color: var(--p-ink3);
-  }
-  .spacer {
-    flex: 1;
-  }
-
-  .cat-progress {
-    display: flex;
-    align-items: center;
     gap: 4px;
   }
-  .progress-track {
-    width: 36px;
-    height: 3px;
-    border-radius: var(--radius-sm);
+
+  .cat-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .progress-bar {
+    flex: 1;
+    height: 2px;
+    border-radius: 1px;
     background: var(--p-input);
     overflow: hidden;
   }
   .progress-fill {
     height: 100%;
-    border-radius: var(--radius-sm);
+    border-radius: 1px;
     background: var(--p-ink3);
     transition: width 0.3s ease;
+  }
+  .progress-fill.cat-a {
+    background: var(--p-ink);
+  }
+  .progress-fill.cat-b {
+    background: var(--p-ink2);
+  }
+  .progress-fill.cat-c {
+    background: var(--p-ink3);
   }
   .progress-fill.complete {
     background: var(--p-success);
@@ -212,23 +208,56 @@
   .progress-text {
     font-size: 10px;
     font-family: var(--font-data);
-    color: var(--p-ink3);
+    color: var(--p-ink4);
+    min-width: 28px;
+    text-align: right;
+    white-space: nowrap;
   }
 
-  .mode-select {
-    font-size: 10px;
-    font-family: var(--font-ui);
-    color: var(--p-ink2);
-    background: var(--p-input);
-    border: 1px solid var(--p-border);
+  /* ── Mode buttons: segmented control per category ── */
+  .mode-buttons {
+    display: flex;
+    gap: 0;
     border-radius: var(--radius-md);
-    padding: 2px 4px;
-    cursor: pointer;
-    flex-shrink: 0;
+    border: 1px solid var(--p-border);
+    overflow: hidden;
   }
-  .mode-select:focus {
-    outline: none;
-    border-color: var(--p-border-s);
+  .mode-btn {
+    all: unset;
+    cursor: pointer;
+    flex: 1;
+    padding: 3px 0;
+    font-size: 10px;
+    font-weight: 500;
+    text-align: center;
+    color: var(--p-ink3);
+    background: transparent;
+    transition: all 0.1s ease;
+  }
+  .mode-btn:not(:last-child) {
+    border-right: 1px solid var(--p-border);
+  }
+  .mode-btn:hover:not(.active) {
+    background: var(--p-hover);
+    color: var(--p-ink2);
+  }
+  .mode-btn.active {
+    font-weight: 600;
+  }
+  .mode-btn.mode-claude {
+    background: var(--p-highlight);
+    color: var(--p-kofa-accent);
+    border-color: transparent;
+  }
+  .mode-btn.mode-me {
+    background: var(--p-success-bg);
+    color: var(--p-success);
+    border-color: transparent;
+  }
+  /* "Per sak" active = neutral dark */
+  .mode-btn.active:not(.mode-claude):not(.mode-me) {
+    background: var(--p-active);
+    color: var(--p-ink);
   }
 
   .start-btn {
@@ -290,6 +319,19 @@
   }
   .batch-track {
     width: 100%;
+    height: 2px;
+    border-radius: 1px;
+    background: var(--p-input);
+    overflow: hidden;
+  }
+  .batch-fill {
+    height: 100%;
+    border-radius: 1px;
+    background: var(--p-kofa-accent);
+    transition: width 0.3s ease;
+  }
+  .batch-fill.complete {
+    background: var(--p-success);
   }
   .streaming-spinner {
     width: 8px;
@@ -311,7 +353,7 @@
   .verification-label {
     font-size: 10px;
     font-weight: 600;
-    color: var(--p-ink3);
+    color: var(--p-ink4);
     letter-spacing: 0.06em;
     text-transform: uppercase;
     display: block;

@@ -4,10 +4,26 @@
   import { formatProvision } from '$lib/utils/provisions';
   import SeedInput from './SeedInput.svelte';
   import CategoryBadge from './CategoryBadge.svelte';
+  import PostSearchPanel from './PostSearchPanel.svelte';
+  import EuScreeningPanel from './EuScreeningPanel.svelte';
 
   let editing = $state(false);
   let zeroGaps = $derived(analysisState.gaps.filter((g) => g.count === 0));
   let nonZeroGaps = $derived(analysisState.gaps.filter((g) => g.count > 0));
+
+  // Show post-search/EU when screening has progressed
+  let showPostSearch = $derived(
+    analysisState.isScreeningPhase ||
+      analysisState.analysis.status === 'screening_complete' ||
+      analysisState.analysis.status === 'post_search'
+  );
+  let showEuSection = $derived(
+    analysisState.isScreeningPhase ||
+      analysisState.analysis.status === 'screening_complete' ||
+      analysisState.analysis.status === 'post_search' ||
+      analysisState.analysis.status === 'synthesis' ||
+      analysisState.analysis.status === 'qa'
+  );
 </script>
 
 <div class="context-view">
@@ -305,6 +321,30 @@
               >Vis alle runder</button
             >
           {/if}
+        </section>
+      {/if}
+
+      <!-- 5. Post-search suggestions (from screening analysis) -->
+      {#if showPostSearch}
+        <section class="card">
+          <div class="card-label">Ettersøksforslag</div>
+          <p class="card-desc">
+            Basert på screeningresultatene og hull i kryssdekningsmatrisen kan Claude foreslå nye
+            søketermer og bestemmelser du kanskje har oversett.
+          </p>
+          <PostSearchPanel />
+        </section>
+      {/if}
+
+      <!-- 6. EU case discovery -->
+      {#if showEuSection}
+        <section class="card">
+          <div class="card-label">EU-dommer</div>
+          <p class="card-desc">
+            Identifiser EU-dommer som refereres fra KOFA-sakene du har screenet. Disse kan belyse de
+            EU-rettslige kildene bak norsk praksis.
+          </p>
+          <EuScreeningPanel />
         </section>
       {/if}
 

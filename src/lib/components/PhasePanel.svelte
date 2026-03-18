@@ -2,11 +2,7 @@
   import { analysisState } from '$lib/stores/analysis.svelte';
   import { pipelineState } from '$lib/stores/pipeline.svelte';
   import { uiState } from '$lib/stores/ui.svelte';
-  import { screeningState } from '$lib/stores/screening.svelte';
   import ScreeningPanel from './ScreeningPanel.svelte';
-  import PostSearchPanel from './PostSearchPanel.svelte';
-  import EuScreeningPanel from './EuScreeningPanel.svelte';
-  import CategoryBadge from './CategoryBadge.svelte';
   import type { AnalysisStatus } from '$lib/types/analysis';
 
   let status = $derived(analysisState.analysis.status ?? 'scoping');
@@ -14,213 +10,301 @@
   const STATUS_TO_PHASE: Record<AnalysisStatus, number> = {
     scoping: 1,
     scoping_complete: 1,
-    searching: 2,
+    searching: 1,
     candidates_ready: 2,
-    screening: 3,
-    screening_complete: 3,
-    post_search: 3,
-    synthesis: 4,
-    qa: 4,
-    complete: 5,
+    screening: 2,
+    screening_complete: 2,
+    post_search: 2,
+    synthesis: 3,
+    qa: 3,
+    complete: 3,
   };
 
   let sn = $derived(STATUS_TO_PHASE[status]);
   let totalCases = $derived(analysisState.caseNodes.length);
-  let screenedCount = $derived(Object.keys(screeningState.screeningResults).length);
   let readCount = $derived(analysisState.readCount);
 
-  // Which phase section is expanded in the panel (null = none)
-  let expandedPhase = $state<number | null>(null);
+  // All sections open by default
+  let expandedSections = $state<Set<number>>(new Set([1, 2, 3]));
 
   function toggleExpand(num: number) {
-    expandedPhase = expandedPhase === num ? null : num;
+    const next = new Set(expandedSections);
+    if (next.has(num)) next.delete(num);
+    else next.add(num);
+    expandedSections = next;
   }
 
-  // Collapse inline details when a process view is active (avoids showing same info twice)
-  $effect(() => {
-    if (uiState.activeProcessView) expandedPhase = null;
-  });
-
-  // Show screening controls when candidates exist
-  let showScreening = $derived(totalCases > 0 && sn >= 2);
-  let showPostSearch = $derived(
-    analysisState.isScreeningPhase || status === 'screening_complete' || status === 'post_search'
-  );
-  let showEuScreening = $derived(
-    analysisState.isScreeningPhase ||
-      status === 'screening_complete' ||
-      status === 'post_search' ||
-      status === 'synthesis' ||
-      status === 'qa'
-  );
-
-  // Derived info for expandable sections
+  // Derived info
   let seedProvisions = $derived(analysisState.analysis.seeds.provisions);
   let seedFts = $derived(analysisState.analysis.seeds.ftsTerms);
-  let catCounts = $derived(analysisState.catCounts);
 
-  let phases = $derived([
-    {
-      num: 1,
-      label: 'Problem',
-      state: sn > 1 ? 'done' : status === 'scoping' ? 'active' : 'pending',
-      detail: sn > 1 ? 'definert' : null,
-      expandable: sn > 1,
-    },
-    {
-      num: 2,
-      label: 'Kandidater',
-      state: sn > 2 ? 'done' : sn === 2 ? 'active' : 'pending',
-      detail: totalCases > 0 ? `${totalCases} saker` : null,
-      expandable: totalCases > 0,
-    },
-    {
-      num: 3,
-      label: 'Screening',
-      state: sn > 3 ? 'done' : sn === 3 ? 'active' : 'pending',
-      detail: sn >= 3 && totalCases > 0 ? `${screenedCount + readCount}/${totalCases}` : null,
-      expandable: showScreening,
-    },
-    {
-      num: 4,
-      label: 'Syntese',
-      state: pipelineState.synthesisMarkdown
-        ? 'done'
-        : status === 'synthesis'
-          ? 'active'
-          : 'pending',
-      detail: pipelineState.synthesisResult
-        ? `${pipelineState.synthesisResult.sections.length} seksjoner`
-        : null,
-      expandable: false,
-      children: pipelineState.qaReport
-        ? [
-            {
-              label: 'QA',
-              state: pipelineState.qaReport.total_flags > 0 ? 'warning' : ('done' as const),
-              detail:
-                pipelineState.qaReport.total_flags > 0
-                  ? `${pipelineState.qaReport.total_flags} merknader`
-                  : 'ok',
-            },
-          ]
-        : [],
-    },
-  ]);
+  // Gap + post-search counts for hint badges
+  let gapCount = $derived(analysisState.gaps.filter((g) => g.count === 0).length);
+  let postSearchCount = $derived(
+    (pipelineState.postSearchSuggestions?.fts_terms?.length ?? 0) +
+      (pipelineState.postSearchSuggestions?.provisions?.length ?? 0)
+  );
+  let iterationCount = $derived(analysisState.analysis.iteration);
 
-  function handlePhaseClick(phaseNum: number) {
-    uiState.setPhase(phaseNum);
+  // Section states
+  let section1State = $derived<'done' | 'active' | 'pending'>(
+    sn > 1 ? 'done' : status === 'scoping' ? 'active' : 'pending'
+  );
+  let section2State = $derived<'done' | 'active' | 'pending'>(
+    sn > 2 ? 'done' : sn === 2 ? 'active' : 'pending'
+  );
+  let section3State = $derived<'done' | 'active' | 'pending'>(
+    pipelineState.synthesisMarkdown ? 'done' : status === 'synthesis' ? 'active' : 'pending'
+  );
+
+  // Number circle state: filled when expanded or active; success-tinted when done+collapsed
+  function numState(
+    section: number,
+    state: 'done' | 'active' | 'pending'
+  ): 'filled' | 'done' | 'default' {
+    if (expandedSections.has(section) || state === 'active') return 'filled';
+    if (state === 'done') return 'done';
+    return 'default';
   }
 </script>
 
 <div class="phase-panel">
-  <nav class="phases">
-    {#each phases as phase}
-      {@const isActiveTab = uiState.activePhase === phase.num}
-      {@const isExpanded = expandedPhase === phase.num}
-      <div class="phase-group">
-        <div class="phase-row" class:active-view={isActiveTab}>
-          {#if phase.expandable}
-            <button class="expand-btn" onclick={() => toggleExpand(phase.num)}>
-              {isExpanded ? '▾' : '▸'}
-            </button>
+  <nav class="sections">
+    <!-- ① Problemstilling & Søk -->
+    <div class="section-group">
+      <button class="section-header" onclick={() => toggleExpand(1)}>
+        <span
+          class="section-num"
+          class:filled={numState(1, section1State) === 'filled'}
+          class:done={numState(1, section1State) === 'done'}
+        >
+          {#if numState(1, section1State) === 'done'}
+            <svg width="10" height="10" viewBox="0 0 10 10"
+              ><path
+                d="M2 5L4 7L8 3"
+                stroke="currentColor"
+                stroke-width="1.5"
+                fill="none"
+                stroke-linecap="round"
+              /></svg
+            >
           {:else}
-            <span class="expand-placeholder"></span>
+            1
           {/if}
-          <button class="phase-nav" onclick={() => handlePhaseClick(phase.num)}>
-            <span class="phase-label">{phase.label}</span>
-          </button>
-          <span class="phase-status">
-            {#if phase.state === 'done'}
-              <span class="status-done">✓</span>
-            {:else if phase.state === 'active'}
-              <span class="status-active">◐</span>
-            {/if}
-            {#if phase.detail}
-              <span class="status-detail">{phase.detail}</span>
-            {/if}
-          </span>
-        </div>
-
-        {#if phase.children?.length}
-          {#each phase.children as child}
-            <div class="phase-sub">
-              <span class="sub-label">{child.label}</span>
-              <span class="phase-status">
-                <span
-                  class="sub-icon"
-                  class:done={child.state === 'done'}
-                  class:warning={child.state === 'warning'}
-                >
-                  {child.state === 'done' ? '✓' : child.state === 'warning' ? '⚠' : '—'}
-                </span>
-                <span class="status-detail">{child.detail}</span>
-              </span>
-            </div>
-          {/each}
+        </span>
+        <span class="section-label">Problemstilling</span>
+        {#if section1State === 'active'}
+          <span class="status-active">◐</span>
         {/if}
+        <span class="header-spacer"></span>
+        <svg
+          class="chevron"
+          class:open={expandedSections.has(1)}
+          width="12"
+          height="12"
+          viewBox="0 0 12 12"
+        >
+          <path
+            d="M3 4.5L6 7.5L9 4.5"
+            stroke="currentColor"
+            stroke-width="1.5"
+            fill="none"
+            stroke-linecap="round"
+          />
+        </svg>
+      </button>
 
-        <!-- Expandable detail sections -->
-        {#if isExpanded}
-          <div class="phase-detail-section">
-            {#if phase.num === 1}
-              <!-- Problem: seeds overview -->
-              {#if seedProvisions.length > 0}
-                <div class="detail-group">
-                  <div class="detail-label">Bestemmelser</div>
-                  {#each seedProvisions as p}
-                    <div class="detail-item">{p}</div>
-                  {/each}
-                </div>
-              {/if}
-              {#if seedFts.length > 0}
-                <div class="detail-group">
-                  <div class="detail-label">Søketermer</div>
-                  {#each seedFts as t}
-                    <div class="detail-item">«{t}»</div>
-                  {/each}
-                </div>
-              {/if}
-            {:else if phase.num === 2}
-              <!-- Kandidater: category breakdown -->
-              <div class="cat-breakdown">
-                {#each ['A', 'B', 'C'] as cat}
-                  {@const count = catCounts[cat as keyof typeof catCounts]}
-                  {#if count > 0}
-                    <div class="cat-row">
-                      <CategoryBadge category={cat as 'A' | 'B' | 'C'} />
-                      <span class="cat-count">{count}</span>
-                    </div>
-                  {/if}
+      {#if expandedSections.has(1)}
+        <div class="section-body">
+          {#if seedProvisions.length > 0}
+            <div class="detail-group">
+              <div class="detail-label">Bestemmelser</div>
+              <div class="seed-list">
+                {#each seedProvisions as p}
+                  <span class="seed-badge prov">{p.includes(':') ? `§${p.split(':')[1]}` : p}</span>
                 {/each}
               </div>
-              <div class="detail-group">
-                <div class="detail-label">Lest</div>
-                <div class="detail-item">{readCount}/{totalCases}</div>
+            </div>
+          {/if}
+          {#if seedFts.length > 0}
+            <div class="detail-group">
+              <div class="detail-label">Søkeord</div>
+              <div class="seed-list">
+                {#each seedFts as t}
+                  <span class="seed-badge fts">«{t}»</span>
+                {/each}
               </div>
-            {:else if phase.num === 3}
-              <!-- Screening: controls -->
-              <ScreeningPanel />
-              {#if showPostSearch}
-                <div class="sub-section">
-                  <div class="detail-label">Ettersøk</div>
-                  <PostSearchPanel />
-                </div>
+            </div>
+          {/if}
+
+          {#if totalCases > 0}
+            <div class="results-summary">
+              <span class="results-num">{totalCases}</span> kandidater
+              {#if iterationCount > 1}
+                <span class="round-info">
+                  · {iterationCount} søkerunder
+                  {#if analysisState.analysis.iterationHistory?.length}
+                    {@const last =
+                      analysisState.analysis.iterationHistory[
+                        analysisState.analysis.iterationHistory.length - 1
+                      ]}
+                    {#if last.newNodeCount > 0}
+                      · <span class="round-new">+{last.newNodeCount} nye</span>
+                    {/if}
+                  {/if}
+                </span>
               {/if}
-              {#if showEuScreening}
-                <div class="sub-section">
-                  <div class="detail-label">EU-dommer</div>
-                  <EuScreeningPanel />
-                </div>
-              {/if}
+            </div>
+          {/if}
+
+          <div class="hint-row">
+            {#if gapCount > 0}
+              <button class="hint-badge gap" onclick={() => uiState.setPhase(1)}>
+                {gapCount} hull i kryssdekning
+              </button>
+            {/if}
+            {#if postSearchCount > 0}
+              <button class="hint-badge post-search" onclick={() => uiState.setPhase(1)}>
+                {postSearchCount} søkeforslag
+              </button>
             {/if}
           </div>
+
+          <button class="link-btn" onclick={() => uiState.setPhase(1)}> Åpne søkeoppsett </button>
+        </div>
+      {/if}
+    </div>
+
+    <!-- ② Gjennomgang -->
+    <div class="section-group">
+      <button class="section-header" onclick={() => toggleExpand(2)}>
+        <span
+          class="section-num"
+          class:filled={numState(2, section2State) === 'filled'}
+          class:done={numState(2, section2State) === 'done'}
+        >
+          {#if numState(2, section2State) === 'done'}
+            <svg width="10" height="10" viewBox="0 0 10 10"
+              ><path
+                d="M2 5L4 7L8 3"
+                stroke="currentColor"
+                stroke-width="1.5"
+                fill="none"
+                stroke-linecap="round"
+              /></svg
+            >
+          {:else}
+            2
+          {/if}
+        </span>
+        <span class="section-label">Gjennomgang</span>
+        {#if section2State === 'active'}
+          <span class="status-active">◐</span>
         {/if}
-      </div>
-    {/each}
+        <span class="header-spacer"></span>
+        {#if totalCases > 0 && !expandedSections.has(2)}
+          <span class="inline-stat">{readCount}/{totalCases}</span>
+        {/if}
+        <svg
+          class="chevron"
+          class:open={expandedSections.has(2)}
+          width="12"
+          height="12"
+          viewBox="0 0 12 12"
+        >
+          <path
+            d="M3 4.5L6 7.5L9 4.5"
+            stroke="currentColor"
+            stroke-width="1.5"
+            fill="none"
+            stroke-linecap="round"
+          />
+        </svg>
+      </button>
+
+      {#if expandedSections.has(2)}
+        <div class="section-body">
+          {#if totalCases > 0}
+            <ScreeningPanel />
+          {:else}
+            <div class="empty-hint">Kjør søk først for å finne kandidater</div>
+          {/if}
+        </div>
+      {/if}
+    </div>
+
+    <!-- ③ Syntese -->
+    <div class="section-group">
+      <button class="section-header" onclick={() => toggleExpand(3)}>
+        <span
+          class="section-num"
+          class:filled={numState(3, section3State) === 'filled'}
+          class:done={numState(3, section3State) === 'done'}
+        >
+          {#if numState(3, section3State) === 'done'}
+            <svg width="10" height="10" viewBox="0 0 10 10"
+              ><path
+                d="M2 5L4 7L8 3"
+                stroke="currentColor"
+                stroke-width="1.5"
+                fill="none"
+                stroke-linecap="round"
+              /></svg
+            >
+          {:else}
+            3
+          {/if}
+        </span>
+        <span class="section-label">Syntese</span>
+        {#if section3State === 'active'}
+          <span class="status-active">◐</span>
+        {/if}
+        <span class="header-spacer"></span>
+        <svg
+          class="chevron"
+          class:open={expandedSections.has(3)}
+          width="12"
+          height="12"
+          viewBox="0 0 12 12"
+        >
+          <path
+            d="M3 4.5L6 7.5L9 4.5"
+            stroke="currentColor"
+            stroke-width="1.5"
+            fill="none"
+            stroke-linecap="round"
+          />
+        </svg>
+      </button>
+
+      {#if expandedSections.has(3)}
+        <div class="section-body">
+          {#if pipelineState.synthesisMarkdown}
+            <div class="synth-done">
+              ✓ {pipelineState.synthesisResult?.sections.length ?? 0} seksjoner
+            </div>
+            <button class="link-btn" onclick={() => uiState.setPhase(3)}> Åpne syntese </button>
+          {:else if section3State === 'active'}
+            <div class="synth-active">Syntese pågår…</div>
+          {:else}
+            <div class="empty-hint">Gjennomgå sakene først</div>
+          {/if}
+
+          {#if pipelineState.qaReport}
+            <div class="qa-row">
+              <span class="qa-label">QA</span>
+              {#if pipelineState.qaReport.total_flags > 0}
+                <span class="qa-flags">⚠ {pipelineState.qaReport.total_flags} merknader</span>
+              {:else}
+                <span class="qa-ok">✓ ok</span>
+              {/if}
+            </div>
+          {/if}
+        </div>
+      {/if}
+    </div>
   </nav>
 
-  <!-- Cost -->
   {#if analysisState.totalCostUsd > 0}
     <div class="cost-display">
       ${analysisState.totalCostUsd.toFixed(2)}
@@ -234,168 +318,260 @@
     flex-direction: column;
     height: 100%;
     overflow-y: auto;
-    padding: 8px 6px;
   }
 
-  .phases {
-    display: flex;
-    flex-direction: column;
-    gap: 1px;
-  }
-
-  .phase-group {
+  .sections {
     display: flex;
     flex-direction: column;
   }
 
-  .phase-row {
+  .section-group {
     display: flex;
-    align-items: center;
-    gap: 4px;
-    padding: 5px 4px;
-    border-radius: var(--radius-md);
-  }
-  .phase-row.active-view {
-    background: var(--p-active);
+    flex-direction: column;
+    border-bottom: 1px solid var(--p-border);
   }
 
-  .expand-btn {
+  /* ── Section header ── */
+  .section-header {
     all: unset;
     cursor: pointer;
-    width: 16px;
-    font-size: 9px;
-    color: var(--p-ink4);
-    text-align: center;
-    flex-shrink: 0;
-    padding: 2px 0;
-    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px;
+    width: 100%;
+    box-sizing: border-box;
   }
-  .expand-btn:hover {
-    color: var(--p-ink2);
+  .section-header:hover {
     background: var(--p-hover);
   }
-  .expand-placeholder {
-    width: 16px;
-    flex-shrink: 0;
-  }
 
-  .phase-nav {
-    all: unset;
-    cursor: pointer;
-    flex: 1;
-    min-width: 0;
-  }
-  .phase-nav:hover .phase-label {
-    color: var(--p-ink);
-  }
-
-  .phase-label {
-    font-size: 12px;
-    font-weight: 500;
-    color: var(--p-ink2);
-    transition: color 0.1s ease;
-  }
-  .phase-row.active-view .phase-label {
-    color: var(--p-ink);
-    font-weight: 600;
-  }
-
-  .phase-status {
+  /* Number circle: three states — default (outlined), filled (expanded/active), done (success) */
+  .section-num {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
     display: flex;
     align-items: center;
-    gap: 4px;
-    flex-shrink: 0;
-  }
-  .status-done {
+    justify-content: center;
     font-size: 11px;
-    color: var(--p-success);
     font-weight: 700;
+    flex-shrink: 0;
+    color: var(--p-ink3);
+    border: 1.5px solid var(--p-border-s);
+    transition: all 0.15s ease;
   }
+  .section-num.filled {
+    background: var(--p-ink);
+    color: var(--p-panel);
+    border-color: var(--p-ink);
+  }
+  .section-num.done {
+    background: var(--p-success-bg);
+    color: var(--p-success);
+    border-color: rgba(61, 122, 74, 0.2);
+  }
+
+  .section-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--p-ink);
+  }
+
   .status-active {
     font-size: 11px;
     color: var(--p-kofa-accent);
   }
-  .status-detail {
+
+  .header-spacer {
+    flex: 1;
+  }
+
+  .inline-stat {
     font-size: 10px;
     font-family: var(--font-data);
-    color: var(--p-ink3);
-  }
-
-  .phase-sub {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 3px 4px 3px 24px;
-  }
-  .sub-label {
-    font-size: 11px;
-    color: var(--p-ink3);
-    font-weight: 500;
-  }
-  .sub-icon {
-    font-size: 10px;
     color: var(--p-ink4);
   }
-  .sub-icon.done {
-    color: var(--p-success);
+
+  .chevron {
+    color: var(--p-ink4);
+    transition: transform 0.15s ease;
+    flex-shrink: 0;
   }
-  .sub-icon.warning {
-    color: var(--p-warn);
+  .chevron.open {
+    transform: rotate(0);
+  }
+  .chevron:not(.open) {
+    transform: rotate(-90deg);
   }
 
-  /* Expandable detail sections */
-  .phase-detail-section {
-    padding: 4px 4px 8px 20px;
-    border-bottom: 1px solid var(--p-border);
-    margin-bottom: 2px;
+  /* ── Expandable body — indent aligns under label text ── */
+  .section-body {
+    padding: 0 12px 12px 40px;
   }
 
   .detail-group {
-    margin-bottom: 6px;
+    margin-bottom: 8px;
   }
   .detail-label {
     font-size: 10px;
     font-weight: 600;
     letter-spacing: 0.04em;
     text-transform: uppercase;
-    color: var(--p-ink3);
-    margin-bottom: 2px;
+    color: var(--p-ink4);
+    margin-bottom: 4px;
   }
-  .detail-item {
+
+  /* ── Seed badges ── */
+  .seed-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  .seed-badge {
+    font-family: var(--font-data);
+    font-size: 11px;
+    font-weight: 500;
+    padding: 2px 8px;
+    border-radius: var(--radius-badge);
+  }
+  .seed-badge.prov {
+    color: var(--p-provision-accent);
+    background: var(--p-provision-bg);
+    border: 1px solid var(--p-provision-border);
+  }
+  .seed-badge.fts {
+    color: var(--p-ink2);
+    background: var(--p-hover);
+  }
+
+  /* ── Results summary ── */
+  .results-summary {
     font-size: 11px;
     color: var(--p-ink2);
-    padding: 1px 0;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+    flex-wrap: wrap;
+  }
+  .results-num {
     font-family: var(--font-data);
+    font-weight: 700;
+    color: var(--p-ink);
+  }
+  .round-info {
+    font-size: 10px;
+    color: var(--p-ink4);
+  }
+  .round-new {
+    font-weight: 600;
+    color: var(--p-success);
   }
 
-  .cat-breakdown {
+  /* ── Hint badges (gaps, post-search) ── */
+  .hint-row {
     display: flex;
-    gap: 8px;
-    margin-bottom: 6px;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-bottom: 4px;
   }
-  .cat-row {
+  .hint-badge {
+    all: unset;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: var(--radius-badge);
+  }
+  .hint-badge.gap {
+    color: var(--p-gap);
+    background: var(--p-gap-bg);
+    border: 1px solid rgba(155, 77, 202, 0.12);
+  }
+  .hint-badge.gap:hover {
+    background: rgba(155, 77, 202, 0.12);
+    border-color: rgba(155, 77, 202, 0.24);
+  }
+  .hint-badge.post-search {
+    color: var(--p-kofa-accent);
+    background: var(--p-highlight);
+    border: 1px solid var(--p-ai-border-subtle);
+  }
+  .hint-badge.post-search:hover {
+    background: rgba(139, 105, 20, 0.08);
+    border-color: rgba(139, 105, 20, 0.3);
+  }
+
+  /* ── Navigation links ── */
+  .link-btn {
+    all: unset;
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--p-ink3);
+    display: inline-flex;
+    padding: 4px 0;
+  }
+  .link-btn:hover {
+    color: var(--p-ink);
+  }
+  .link-btn::after {
+    content: ' →';
+  }
+
+  /* ── Synthesis section ── */
+  .synth-done {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--p-success);
+    margin-bottom: 4px;
+  }
+  .synth-active {
+    font-size: 11px;
+    color: var(--p-kofa-accent);
+    margin-bottom: 4px;
+  }
+  .qa-row {
     display: flex;
     align-items: center;
-    gap: 3px;
-  }
-  .cat-count {
-    font-size: 10px;
-    font-family: var(--font-data);
-    color: var(--p-ink3);
-  }
-
-  .sub-section {
+    gap: 8px;
     margin-top: 8px;
     padding-top: 8px;
     border-top: 1px solid var(--p-border);
   }
+  .qa-label {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--p-ink4);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .qa-flags {
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--p-warn);
+  }
+  .qa-ok {
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--p-success);
+  }
 
+  .empty-hint {
+    font-size: 11px;
+    color: var(--p-ink4);
+  }
+
+  /* ── Cost ── */
   .cost-display {
     margin-top: auto;
     font-size: 11px;
     font-family: var(--font-data);
-    color: var(--p-ink3);
-    padding: 8px 4px 0;
+    color: var(--p-ink4);
+    padding: 8px 12px;
     border-top: 1px solid var(--p-border);
   }
 </style>
