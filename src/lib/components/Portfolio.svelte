@@ -180,11 +180,9 @@
     <div class="col-dot-spacer"></div>
     <span class="col-analyse">Analyse</span>
     <span class="col-fase">Fase</span>
-    <span class="col-abc">A/B/C</span>
+    <span class="col-screened">Screenet</span>
     <span class="col-lest">Lest</span>
-    <span class="col-iter">Iter.</span>
-    <span class="col-tension" title="Spenninger">&#x26A1;</span>
-    <span class="col-overlap" title="Overlapp"></span>
+    <span class="col-search">Søk</span>
     <span class="col-sist">Sist aktiv</span>
   </div>
 
@@ -225,40 +223,41 @@
           {/if}
         </div>
         <span class="row-status" style:color={meta.color}>{meta.label}</span>
-        <!-- ABC breakdown -->
-        <div class="row-abc">
+        <!-- Screened -->
+        <div class="row-screened">
           {#if analysis.candidate_count > 0}
-            {@const abc = analysis.abc_counts}
-            {#if abc.A}<span class="abc-a">{abc.A}A</span>{/if}
-            {#if abc.B}<span class="abc-b">{abc.B}B</span>{/if}
-            {#if abc.C}<span class="abc-c">{abc.C}C</span>{/if}
+            {@const sPct = Math.round((analysis.screened_count / analysis.candidate_count) * 100)}
+            <div class="progress-bar">
+              <div
+                class="progress-fill screened"
+                class:complete={sPct === 100}
+                style:width="{sPct}%"
+              ></div>
+            </div>
+            <span class="progress-count">{analysis.screened_count}/{analysis.candidate_count}</span>
           {:else}
-            <span class="abc-empty">&mdash;</span>
+            <span class="col-empty">&mdash;</span>
           {/if}
         </div>
-        <!-- Progress -->
-        <div class="row-progress">
+        <!-- Lest -->
+        <div class="row-lest">
           {#if analysis.candidate_count > 0}
             <div class="progress-bar">
               <div class="progress-fill" class:complete={pct === 100} style:width="{pct}%"></div>
             </div>
             <span class="progress-count">{analysis.read_count}/{analysis.candidate_count}</span>
           {:else}
-            <span class="progress-empty">&mdash;</span>
+            <span class="col-empty">&mdash;</span>
           {/if}
         </div>
-        <!-- Iteration -->
-        <div class="row-iter">
+        <!-- Søkerunder -->
+        <div class="row-search">
           {#if analysis.iteration > 0}
-            <span class="iter-badge">{analysis.iteration}</span>
+            <span class="search-badge">{analysis.iteration}</span>
           {:else}
-            <span class="iter-empty">&mdash;</span>
+            <span class="col-empty">&mdash;</span>
           {/if}
         </div>
-        <!-- Tension placeholder -->
-        <div class="row-tension"></div>
-        <!-- Overlap placeholder -->
-        <div class="row-overlap"></div>
         <span class="row-time">{formatTime(analysis.updated_at)}</span>
       </button>
     {/each}
@@ -443,22 +442,15 @@
     min-width: 65px;
     text-align: right;
   }
-  .col-abc {
-    width: 68px;
+  .col-screened {
+    width: 64px;
   }
   .col-lest {
-    width: 56px;
+    width: 64px;
   }
-  .col-iter {
+  .col-search {
     width: 28px;
     text-align: center;
-  }
-  .col-tension {
-    width: 20px;
-    text-align: center;
-  }
-  .col-overlap {
-    width: 14px;
   }
   .col-sist {
     min-width: 70px;
@@ -555,31 +547,9 @@
     flex-shrink: 0;
   }
 
-  .row-abc {
-    width: 68px;
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    gap: 3px;
-    font-family: var(--font-data);
-    font-size: 10px;
-    font-weight: 500;
-  }
-  .abc-a {
-    color: var(--p-ink);
-  }
-  .abc-b {
-    color: var(--p-ink2);
-  }
-  .abc-c {
-    color: var(--p-ink3);
-  }
-  .abc-empty {
-    color: var(--p-ink4);
-  }
-
-  .row-progress {
-    width: 56px;
+  .row-screened,
+  .row-lest {
+    width: 64px;
     flex-shrink: 0;
     display: flex;
     align-items: center;
@@ -587,16 +557,19 @@
   }
   .progress-bar {
     flex: 1;
-    height: 3px;
-    border-radius: var(--radius-sm);
+    height: 2px;
+    border-radius: 1px;
     background: var(--p-input);
     overflow: hidden;
   }
   .progress-fill {
     height: 100%;
-    border-radius: var(--radius-sm);
+    border-radius: 1px;
     background: var(--p-ink3);
     transition: width 0.3s ease;
+  }
+  .progress-fill.screened {
+    background: var(--p-kofa-accent);
   }
   .progress-fill.complete {
     background: var(--p-success);
@@ -608,7 +581,7 @@
     min-width: 20px;
     text-align: right;
   }
-  .progress-empty {
+  .col-empty {
     font-size: 10px;
     color: var(--p-ink4);
     text-align: right;
@@ -616,12 +589,12 @@
     width: 100%;
   }
 
-  .row-iter {
+  .row-search {
     width: 28px;
     flex-shrink: 0;
     text-align: center;
   }
-  .iter-badge {
+  .search-badge {
     font-family: var(--font-data);
     font-size: 10px;
     font-weight: 600;
@@ -629,21 +602,6 @@
     background: var(--p-hover);
     padding: 1px 5px;
     border-radius: var(--radius-badge);
-  }
-  .iter-empty {
-    font-size: 10px;
-    color: var(--p-ink4);
-  }
-
-  .row-tension {
-    width: 20px;
-    text-align: center;
-    flex-shrink: 0;
-  }
-
-  .row-overlap {
-    width: 14px;
-    flex-shrink: 0;
   }
 
   .row-time {
