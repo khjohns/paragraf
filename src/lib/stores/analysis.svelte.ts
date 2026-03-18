@@ -65,6 +65,9 @@ class AnalysisState {
     updatedAt: new Date().toISOString(),
   });
 
+  /** Read count — how many cases the user has opened */
+  readCount = $derived(Object.values(this.analysis.readStatus).filter(Boolean).length);
+
   /** Whether the analysis is in a screening-relevant phase */
   isScreeningPhase = $derived(
     this.analysis.status === 'screening' ||

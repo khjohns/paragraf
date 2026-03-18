@@ -7,7 +7,6 @@
   // Derive all counts in a single pass
   let cases = $derived(analysisState.caseNodes);
   let stats = $derived.by(() => {
-    const catCounts = { A: 0, B: 0, C: 0 };
     const catScreened = { A: 0, B: 0, C: 0 };
     const catRead = { A: 0, B: 0, C: 0 };
     let claude = 0;
@@ -15,7 +14,6 @@
 
     for (const n of cases) {
       const cat = n.category as 'A' | 'B' | 'C';
-      catCounts[cat]++;
       const assignment = screeningState.getAssignment(n.label, cat);
       if (assignment === 'claude') claude++;
       else me++;
@@ -23,7 +21,13 @@
       if (assignment === 'me' && analysisState.analysis.readStatus[n.id]) catRead[cat]++;
     }
 
-    return { catCounts, catScreened, catRead, claudeCount: claude, meCount: me };
+    return {
+      catCounts: analysisState.catCounts,
+      catScreened,
+      catRead,
+      claudeCount: claude,
+      meCount: me,
+    };
   });
   let screenedCount = $derived(Object.keys(screeningState.screeningResults).length);
   let verificationStats = $derived.by(() => {

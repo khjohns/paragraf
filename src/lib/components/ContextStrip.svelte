@@ -2,7 +2,7 @@
   import { analysisState } from '$lib/stores/analysis.svelte';
   import { formatProvision } from '$lib/utils/provisions';
 
-  let readCount = $derived(Object.values(analysisState.analysis.readStatus).filter(Boolean).length);
+  let readCount = $derived(analysisState.readCount);
   let totalCount = $derived(analysisState.caseNodes.length);
 
   let primaryProvision = $derived(

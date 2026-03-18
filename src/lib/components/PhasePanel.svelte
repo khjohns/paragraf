@@ -6,6 +6,7 @@
   import ScreeningPanel from './ScreeningPanel.svelte';
   import PostSearchPanel from './PostSearchPanel.svelte';
   import EuScreeningPanel from './EuScreeningPanel.svelte';
+  import CategoryBadge from './CategoryBadge.svelte';
   import type { AnalysisStatus } from '$lib/types/analysis';
 
   let status = $derived(analysisState.analysis.status ?? 'scoping');
@@ -26,7 +27,7 @@
   let sn = $derived(STATUS_TO_PHASE[status]);
   let totalCases = $derived(analysisState.caseNodes.length);
   let screenedCount = $derived(Object.keys(screeningState.screeningResults).length);
-  let readCount = $derived(Object.values(analysisState.analysis.readStatus).filter(Boolean).length);
+  let readCount = $derived(analysisState.readCount);
 
   // Which phase section is expanded in the panel (null = none)
   let expandedPhase = $state<number | null>(null);
@@ -34,6 +35,11 @@
   function toggleExpand(num: number) {
     expandedPhase = expandedPhase === num ? null : num;
   }
+
+  // Collapse inline details when a process view is active (avoids showing same info twice)
+  $effect(() => {
+    if (uiState.activeProcessView) expandedPhase = null;
+  });
 
   // Show screening controls when candidates exist
   let showScreening = $derived(totalCases > 0 && sn >= 2);
@@ -182,7 +188,7 @@
                   {@const count = catCounts[cat as keyof typeof catCounts]}
                   {#if count > 0}
                     <div class="cat-row">
-                      <span class="cat-badge">{cat}</span>
+                      <CategoryBadge category={cat as 'A' | 'B' | 'C'} />
                       <span class="cat-count">{count}</span>
                     </div>
                   {/if}
@@ -371,19 +377,6 @@
     display: flex;
     align-items: center;
     gap: 3px;
-  }
-  .cat-badge {
-    font-size: 10px;
-    font-weight: 700;
-    font-family: var(--font-data);
-    color: var(--p-ink2);
-    width: 14px;
-    height: 14px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: var(--radius-badge);
-    background: var(--p-hover);
   }
   .cat-count {
     font-size: 10px;
