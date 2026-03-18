@@ -51,6 +51,8 @@ export interface AnalysisSummary {
   candidate_count: number;
   read_count: number;
   abc_counts: { A: number; B: number; C: number };
+  abc_unread: { A: number; B: number; C: number };
+  screened_count: number;
 }
 
 /** Seed row from DB */

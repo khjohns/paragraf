@@ -7,7 +7,7 @@ def list_analyses(user_id=None):
     q = get_client().table("analyses").select(
         "id, title, problem, status, iteration, created_at, updated_at, "
         "analysis_seeds(seed_type, value), "
-        "analysis_candidates(id, category, read_at)"
+        "analysis_candidates(id, category, read_at, screening_status)"
     ).order("updated_at", desc=True)
     if user_id:
         q = q.eq("user_id", user_id)
@@ -21,11 +21,19 @@ def list_analyses(user_id=None):
         row["candidate_count"] = len(candidates)
         row["read_count"] = sum(1 for c in candidates if c.get("read_at"))
         abc = {"A": 0, "B": 0, "C": 0}
+        abc_unread = {"A": 0, "B": 0, "C": 0}
+        screened = 0
         for c in candidates:
             cat = c.get("category")
             if cat in abc:
                 abc[cat] += 1
+                if not c.get("read_at"):
+                    abc_unread[cat] += 1
+            if c.get("screening_status") == "ai_screened":
+                screened += 1
         row["abc_counts"] = abc
+        row["abc_unread"] = abc_unread
+        row["screened_count"] = screened
         result.append(row)
 
     return result

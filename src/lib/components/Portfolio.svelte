@@ -68,6 +68,37 @@
     teamToastVisible = true;
     setTimeout(() => (teamToastVisible = false), 2500);
   }
+
+  /** Contextual resume hint — tells the lawyer what to do next */
+  function resumeHint(a: AnalysisSummary): string | null {
+    if (a.status === 'scoping' || a.status === 'scoping_complete') return null;
+    if (a.status === 'searching') return 'Søker etter kandidater…';
+    if (a.status === 'complete') return 'Ferdig';
+
+    if (a.candidate_count === 0) return null;
+
+    // Prioritize unread A-cases
+    const unreadA = a.abc_unread?.A ?? 0;
+    const unreadTotal = a.candidate_count - a.read_count;
+
+    if (a.read_count === a.candidate_count) {
+      if (a.status === 'synthesis' || a.status === 'qa') return 'Syntese pågår';
+      return 'Alle gjennomgått — klar for syntese';
+    }
+
+    // Screening in progress
+    if (a.screened_count > 0 && a.screened_count < a.candidate_count) {
+      const remaining = a.candidate_count - a.screened_count - a.read_count;
+      if (remaining > 0) return `${remaining} saker gjenstår`;
+    }
+
+    // Unread A-cases are highest priority
+    if (unreadA > 0) return `${unreadA} uleste A-saker`;
+
+    if (unreadTotal > 0) return `${unreadTotal} uleste saker`;
+
+    return null;
+  }
 </script>
 
 <div class="portfolio-list">
@@ -188,6 +219,9 @@
                 <span class="prov-more">+{analysis.provisions.length - 3}</span>
               {/if}
             </div>
+          {/if}
+          {#if resumeHint(analysis)}
+            <span class="row-hint">{resumeHint(analysis)}</span>
           {/if}
         </div>
         <span class="row-status" style:color={meta.color}>{meta.label}</span>
@@ -506,6 +540,11 @@
   .prov-more {
     font-size: 10px;
     color: var(--p-ink4);
+  }
+  .row-hint {
+    font-size: 10px;
+    color: var(--p-ink3);
+    margin-top: 1px;
   }
 
   .row-status {

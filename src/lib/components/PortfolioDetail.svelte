@@ -162,11 +162,11 @@
         <span class="ai-badge">AI</span>
         <span class="ai-text">
           {#if totalCases === 0}
-            Kjor primaersok for a finne kandidatsaker.
+            Kjør primærsøk for å finne kandidatsaker.
           {:else if totalRead < totalCases}
-            {totalCases - totalRead} uleste saker gjenstar. Start med A-kategorien.
+            {totalCases - totalRead} uleste saker gjenstår. Start med A-kategorien.
           {:else}
-            Alle saker lest. Klar for sammenstilling.
+            Alle saker gjennomgått. Klar for syntese.
           {/if}
         </span>
       </div>
