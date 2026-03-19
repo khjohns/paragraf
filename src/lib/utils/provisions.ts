@@ -23,7 +23,8 @@ for (const [full, abbr] of Object.entries(ABBREV)) {
 /** Display "anskaffelsesforskriften:16-10" as "FOA §16-10" */
 export function formatProvision(id: string): string {
   const [law, section] = id.split(':', 2);
-  const abbr = ABBREV[law] ?? law;
+  // Try canonical name first, then abbreviation lookup (handles "foa:16-10")
+  const abbr = ABBREV[law] ?? ABBREV[FULL_NAME[law.toLowerCase()]] ?? law.toUpperCase();
   return section ? `${abbr} §${section}` : abbr;
 }
 
