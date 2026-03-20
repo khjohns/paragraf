@@ -217,9 +217,11 @@
       color 0.1s ease,
       background 0.1s ease;
   }
-  .close-btn:hover {
-    color: var(--p-ink2);
-    background: var(--p-hover);
+  @media (hover: hover) {
+    .close-btn:hover {
+      color: var(--p-ink2);
+      background: var(--p-hover);
+    }
   }
 
   .detail-title {
@@ -249,8 +251,10 @@
     cursor: pointer;
     transition: opacity 0.12s ease;
   }
-  .open-btn:hover {
-    opacity: 0.85;
+  @media (hover: hover) {
+    .open-btn:hover {
+      opacity: 0.85;
+    }
   }
 
   .detail-scroll {

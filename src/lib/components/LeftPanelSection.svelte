@@ -64,8 +64,10 @@
     align-items: center;
     gap: 8px;
   }
-  .section-header:hover {
-    background: var(--p-hover);
+  @media (hover: hover) {
+    .section-header:hover {
+      background: var(--p-hover);
+    }
   }
   .num {
     width: 20px;

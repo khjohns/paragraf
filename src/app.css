@@ -123,20 +123,27 @@ button:focus-visible,
 	border-radius: var(--radius-sm);
 }
 
-/* Press feedback for interactive elements */
-button:active:not(:disabled),
-[role="button"]:active,
-[role="checkbox"]:active {
-	opacity: 0.75;
-	transition: opacity 0.06s ease;
+/* Press feedback for interactive elements (pointer devices only) */
+@media (hover: hover) {
+	button:active:not(:disabled),
+	[role="button"]:active,
+	[role="checkbox"]:active {
+		opacity: 0.75;
+		transition: opacity 0.06s ease;
+	}
 }
 
 /* Shared spinner animation — used by multiple components */
 @keyframes spin { to { transform: rotate(360deg); } }
 
 /* ── Mobile responsive ── */
+
+/* Prevent 300ms tap delay and blue tap flash on touch */
 @media (max-width: 768px) {
-	/* Prevent iOS zoom on input focus */
+	button, [role="button"], a, input, select, textarea {
+		touch-action: manipulation;
+		-webkit-tap-highlight-color: transparent;
+	}
 	input, textarea, select {
 		font-size: 16px !important;
 	}

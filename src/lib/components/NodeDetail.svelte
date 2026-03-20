@@ -236,9 +236,11 @@
     justify-content: center;
     color: var(--p-ink3);
   }
-  .close-btn:hover {
-    background: var(--p-hover);
-    color: var(--p-ink);
+  @media (hover: hover) {
+    .close-btn:hover {
+      background: var(--p-hover);
+      color: var(--p-ink);
+    }
   }
   /* Breadcrumb trail */
   .breadcrumb-trail {
@@ -257,9 +259,11 @@
     color: var(--p-ink3);
     font-weight: 500;
   }
-  .breadcrumb-item:hover {
-    color: var(--p-ink);
-    text-decoration: underline;
+  @media (hover: hover) {
+    .breadcrumb-item:hover {
+      color: var(--p-ink);
+      text-decoration: underline;
+    }
   }
   .breadcrumb-sep {
     color: var(--p-ink4);
@@ -352,8 +356,10 @@
     color: var(--p-ink3);
     background: transparent;
   }
-  .tab-btn:hover:not(.active) {
-    background: var(--p-hover);
+  @media (hover: hover) {
+    .tab-btn:hover:not(.active) {
+      background: var(--p-hover);
+    }
   }
   .tab-btn.active {
     background: var(--p-ink);

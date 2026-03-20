@@ -368,8 +368,10 @@
     transition: background 0.12s ease;
     flex-shrink: 0;
   }
-  .drawer-closed:hover {
-    background: var(--p-surface);
+  @media (hover: hover) {
+    .drawer-closed:hover {
+      background: var(--p-surface);
+    }
   }
   .drawer-label {
     font-size: 12px;
@@ -459,8 +461,10 @@
     justify-content: center;
     color: var(--p-ink3);
   }
-  .header-btn:hover {
-    background: var(--p-hover);
+  @media (hover: hover) {
+    .header-btn:hover {
+      background: var(--p-hover);
+    }
   }
   .header-btn.close {
     border: none;
@@ -633,26 +637,34 @@
     border-bottom: 1px solid transparent;
     transition: border-color 0.15s ease;
   }
-  :global(.ref-link:hover) {
-    border-bottom-style: solid;
+  @media (hover: hover) {
+    :global(.ref-link:hover) {
+      border-bottom-style: solid;
+    }
   }
   :global(.ref-kofa) {
     color: var(--p-kofa-accent);
   }
-  :global(.ref-kofa:hover) {
-    border-bottom-color: var(--p-kofa-accent);
+  @media (hover: hover) {
+    :global(.ref-kofa:hover) {
+      border-bottom-color: var(--p-kofa-accent);
+    }
   }
   :global(.ref-eu) {
     color: var(--p-eu-accent);
   }
-  :global(.ref-eu:hover) {
-    border-bottom-color: var(--p-eu-accent);
+  @media (hover: hover) {
+    :global(.ref-eu:hover) {
+      border-bottom-color: var(--p-eu-accent);
+    }
   }
   :global(.ref-provision) {
     color: var(--p-provision-accent);
   }
-  :global(.ref-provision:hover) {
-    border-bottom-color: var(--p-provision-accent);
+  @media (hover: hover) {
+    :global(.ref-provision:hover) {
+      border-bottom-color: var(--p-provision-accent);
+    }
   }
 
   /* Streaming */
@@ -731,8 +743,10 @@
     color: var(--p-panel);
     cursor: pointer;
   }
-  .send-btn.active:hover {
-    opacity: 0.85;
+  @media (hover: hover) {
+    .send-btn.active:hover {
+      opacity: 0.85;
+    }
   }
   .send-btn:disabled {
     opacity: 0.4;

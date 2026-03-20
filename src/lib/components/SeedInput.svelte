@@ -240,8 +240,10 @@
     line-height: 1;
     opacity: 0.6;
   }
-  .chip-remove:hover {
-    opacity: 1;
+  @media (hover: hover) {
+    .chip-remove:hover {
+      opacity: 1;
+    }
   }
   .mono {
     font-family: var(--font-data);
@@ -280,9 +282,11 @@
       background 0.1s,
       border-color 0.1s;
   }
-  .suggestion-chip:hover {
-    background: var(--p-provision-bg);
-    border-color: var(--p-provision-accent);
+  @media (hover: hover) {
+    .suggestion-chip:hover {
+      background: var(--p-provision-bg);
+      border-color: var(--p-provision-accent);
+    }
   }
   .suggestion-count {
     color: var(--p-ink4);

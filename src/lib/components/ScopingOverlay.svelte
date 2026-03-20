@@ -658,8 +658,10 @@
     opacity: 0.3;
     padding: 2px;
   }
-  .edit-icon:hover {
-    opacity: 0.7;
+  @media (hover: hover) {
+    .edit-icon:hover {
+      opacity: 0.7;
+    }
   }
   .field-value {
     font-size: 13px;
@@ -671,8 +673,10 @@
   .field-value.clickable {
     cursor: pointer;
   }
-  .field-value.clickable:hover {
-    border-bottom-color: var(--p-border-m);
+  @media (hover: hover) {
+    .field-value.clickable:hover {
+      border-bottom-color: var(--p-border-m);
+    }
   }
   .edit-textarea {
     width: 100%;
@@ -920,8 +924,10 @@
     gap: 8px;
     transition: opacity 0.12s ease;
   }
-  .btn-primary:hover {
-    opacity: 0.85;
+  @media (hover: hover) {
+    .btn-primary:hover {
+      opacity: 0.85;
+    }
   }
   .btn-primary:disabled {
     opacity: 0.4;
@@ -937,9 +943,11 @@
     font-weight: 500;
     cursor: pointer;
   }
-  .btn-secondary:hover {
-    border-color: var(--p-border-s);
-    color: var(--p-ink);
+  @media (hover: hover) {
+    .btn-secondary:hover {
+      border-color: var(--p-border-s);
+      color: var(--p-ink);
+    }
   }
 
   /* ── Mobile ── */

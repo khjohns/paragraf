@@ -289,8 +289,10 @@
     color: var(--p-ink2);
     cursor: pointer;
   }
-  .action-btn:hover {
-    border-color: var(--p-border-s);
-    color: var(--p-ink);
+  @media (hover: hover) {
+    .action-btn:hover {
+      border-color: var(--p-border-s);
+      color: var(--p-ink);
+    }
   }
 </style>

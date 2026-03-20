@@ -351,9 +351,11 @@
     border-radius: var(--radius-sm);
     color: var(--p-ink3);
   }
-  .panel-toggle:hover {
-    background: var(--p-hover);
-    color: var(--p-ink);
+  @media (hover: hover) {
+    .panel-toggle:hover {
+      background: var(--p-hover);
+      color: var(--p-ink);
+    }
   }
 
   .context-btn {
@@ -366,9 +368,11 @@
     border-radius: var(--radius-md);
     border: 1px solid var(--p-border);
   }
-  .context-btn:hover {
-    background: var(--p-hover);
-    color: var(--p-ink);
+  @media (hover: hover) {
+    .context-btn:hover {
+      background: var(--p-hover);
+      color: var(--p-ink);
+    }
   }
   .context-btn.active {
     background: var(--p-active);
@@ -392,8 +396,10 @@
     color: var(--p-ink3);
     background: transparent;
   }
-  .view-btn:hover:not(:disabled) {
-    background: var(--p-hover);
+  @media (hover: hover) {
+    .view-btn:hover:not(:disabled) {
+      background: var(--p-hover);
+    }
   }
   .view-btn.active {
     background: var(--p-ink);
@@ -422,8 +428,10 @@
     border-radius: var(--radius-sm);
     color: var(--p-ink3);
   }
-  .filter-btn:hover {
-    background: var(--p-hover);
+  @media (hover: hover) {
+    .filter-btn:hover {
+      background: var(--p-hover);
+    }
   }
   .filter-btn.active {
     background: var(--p-active);
@@ -483,8 +491,10 @@
     color: var(--p-ink4);
     border: 1px solid var(--p-border);
   }
-  .ai-toggle:hover {
-    background: var(--p-hover);
+  @media (hover: hover) {
+    .ai-toggle:hover {
+      background: var(--p-hover);
+    }
   }
   .ai-toggle.active {
     background: var(--p-provision-accent);
@@ -502,8 +512,10 @@
     color: var(--p-ink3);
     border: 1px solid var(--p-border);
   }
-  .reg-filter:hover {
-    background: var(--p-hover);
+  @media (hover: hover) {
+    .reg-filter:hover {
+      background: var(--p-hover);
+    }
   }
   .reg-filter.active {
     background: var(--p-warn-bg);
@@ -527,8 +539,10 @@
     border-radius: 12px;
     transition: all 0.12s ease;
   }
-  .cat-pill:hover {
-    border-color: var(--p-ink4);
+  @media (hover: hover) {
+    .cat-pill:hover {
+      border-color: var(--p-ink4);
+    }
   }
   .cat-dot {
     width: 6px;
@@ -596,8 +610,10 @@
     line-height: 1;
     padding: 0 2px;
   }
-  .search-clear:hover {
-    color: var(--p-ink2);
+  @media (hover: hover) {
+    .search-clear:hover {
+      color: var(--p-ink2);
+    }
   }
 
   /* Propositions toolbar */
