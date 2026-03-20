@@ -398,4 +398,22 @@
     line-height: 1.5;
     color: var(--p-ink2);
   }
+
+  /* ── Mobile: full-screen overlay ── */
+  @media (max-width: 768px) {
+    .detail-panel {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      min-width: unset;
+      z-index: 50;
+      border-left: none;
+    }
+    .detail-header {
+      padding: 14px 12px;
+    }
+    .detail-section {
+      padding: 12px;
+    }
+  }
 </style>

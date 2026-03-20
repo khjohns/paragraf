@@ -376,4 +376,11 @@
     color: var(--p-ink3);
     margin-bottom: 8px;
   }
+
+  @media (max-width: 768px) {
+    .delegation-content {
+      max-width: 100%;
+      padding: 20px 12px;
+    }
+  }
 </style>

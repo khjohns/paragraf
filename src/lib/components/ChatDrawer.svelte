@@ -738,4 +738,24 @@
     opacity: 0.4;
     cursor: default;
   }
+
+  /* ── Mobile ── */
+  @media (max-width: 768px) {
+    .drawer-open {
+      height: 55%;
+      min-height: 180px;
+    }
+    .messages {
+      padding: 12px;
+    }
+    .empty-chat-desc {
+      max-width: 100%;
+    }
+    .chat-input-area {
+      padding: 8px 12px;
+    }
+    .chat-input-area textarea {
+      font-size: 16px; /* prevents iOS zoom on focus */
+    }
+  }
 </style>

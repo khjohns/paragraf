@@ -104,5 +104,12 @@
     flex: 1;
     display: flex;
     overflow: hidden;
+    position: relative;
+  }
+
+  @media (max-width: 768px) {
+    .portfolio-header {
+      padding: 10px 12px;
+    }
   }
 </style>

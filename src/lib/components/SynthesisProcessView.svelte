@@ -1018,4 +1018,14 @@
       opacity: 0.4;
     }
   }
+
+  @media (max-width: 768px) {
+    .two-column {
+      grid-template-columns: 1fr;
+    }
+    .stream-log,
+    .stream-error {
+      max-width: 100%;
+    }
+  }
 </style>

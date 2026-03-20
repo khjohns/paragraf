@@ -82,4 +82,13 @@
     font-weight: 700;
     letter-spacing: 0.02em;
   }
+
+  @media (max-width: 768px) {
+    .workspace-header {
+      padding: 8px 12px;
+    }
+    .crumb.current {
+      max-width: 180px;
+    }
+  }
 </style>

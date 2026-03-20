@@ -823,4 +823,11 @@
     border-color: var(--p-border-s);
     color: var(--p-ink);
   }
+
+  @media (max-width: 768px) {
+    .context-flow {
+      max-width: 100%;
+      padding: 16px 12px;
+    }
+  }
 </style>

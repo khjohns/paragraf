@@ -941,4 +941,23 @@
     border-color: var(--p-border-s);
     color: var(--p-ink);
   }
+
+  /* ── Mobile ── */
+  @media (max-width: 768px) {
+    .input-phase,
+    .loading-phase,
+    .searching-phase,
+    .proposal-phase {
+      max-width: 100%;
+      padding-left: 16px;
+      padding-right: 16px;
+    }
+    .context-grid {
+      grid-template-columns: 1fr;
+    }
+    .step-indicator {
+      padding: 10px 12px;
+      overflow-x: auto;
+    }
+  }
 </style>

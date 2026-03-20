@@ -72,4 +72,28 @@
     background: var(--p-panel);
     overflow-y: auto;
   }
+
+  /* ── Mobile ── */
+  @media (max-width: 768px) {
+    .panels {
+      position: relative;
+    }
+    .left-panel {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      min-width: unset;
+      z-index: 20;
+      border-right: none;
+      background: var(--p-bg);
+    }
+    .right-panel {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      min-width: unset;
+      z-index: 30;
+      border-left: none;
+    }
+  }
 </style>

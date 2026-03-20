@@ -366,4 +366,14 @@
     flex: 1;
     overflow-y: auto;
   }
+
+  /* ── Mobile ── */
+  @media (max-width: 768px) {
+    .detail-header {
+      padding: 12px;
+    }
+    .node-title {
+      font-size: 14px;
+    }
+  }
 </style>

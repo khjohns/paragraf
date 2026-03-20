@@ -622,4 +622,14 @@
     font-size: 13px;
     font-weight: 600;
   }
+
+  @media (max-width: 768px) {
+    .synthesis-view {
+      max-width: 100%;
+      padding: 16px 12px;
+    }
+    .empty-desc {
+      max-width: 100%;
+    }
+  }
 </style>
