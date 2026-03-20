@@ -166,8 +166,10 @@
     font-weight: 600;
     font-size: 10px;
   }
-  .toggle:hover {
-    color: var(--p-ink);
+  @media (hover: hover) {
+    .toggle:hover {
+      color: var(--p-ink);
+    }
   }
   .section {
     margin-top: 8px;

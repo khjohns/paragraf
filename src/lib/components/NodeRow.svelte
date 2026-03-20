@@ -267,8 +267,10 @@
     transition: background 0.12s ease;
     box-sizing: border-box;
   }
-  .node-row:hover {
-    background: var(--p-hover);
+  @media (hover: hover) {
+    .node-row:hover {
+      background: var(--p-hover);
+    }
   }
   .node-row.selected {
     background: var(--p-active);
@@ -302,8 +304,10 @@
     border-color: var(--p-success);
     color: var(--p-success);
   }
-  .checkbox:hover {
-    border-color: var(--p-ink3);
+  @media (hover: hover) {
+    .checkbox:hover {
+      border-color: var(--p-ink3);
+    }
   }
 
   .type-icon {

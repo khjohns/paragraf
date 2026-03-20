@@ -46,8 +46,10 @@
     text-transform: uppercase;
     color: var(--p-ink2);
   }
-  .crumb.brand:hover {
-    color: var(--p-ink);
+  @media (hover: hover) {
+    .crumb.brand:hover {
+      color: var(--p-ink);
+    }
   }
   .crumb-sep {
     font-size: 11px;

@@ -191,8 +191,10 @@
     justify-content: center;
     gap: 8px;
   }
-  .qa-btn:hover {
-    opacity: 0.85;
+  @media (hover: hover) {
+    .qa-btn:hover {
+      opacity: 0.85;
+    }
   }
   .qa-btn:disabled {
     opacity: 0.4;
@@ -235,8 +237,10 @@
     width: 100%;
     box-sizing: border-box;
   }
-  .qa-section-btn:hover {
-    background: var(--p-hover);
+  @media (hover: hover) {
+    .qa-section-btn:hover {
+      background: var(--p-hover);
+    }
   }
   .section-title {
     flex: 1;
@@ -368,9 +372,11 @@
     box-sizing: border-box;
     margin-top: 4px;
   }
-  .qa-rerun:hover {
-    border-color: var(--p-border-s);
-    color: var(--p-ink);
+  @media (hover: hover) {
+    .qa-rerun:hover {
+      border-color: var(--p-border-s);
+      color: var(--p-ink);
+    }
   }
   .qa-rerun:disabled {
     opacity: 0.4;

@@ -171,8 +171,10 @@
     font-size: 12px;
     font-weight: 500;
   }
-  .ps-btn:hover:not(:disabled) {
-    opacity: 0.9;
+  @media (hover: hover) {
+    .ps-btn:hover:not(:disabled) {
+      opacity: 0.9;
+    }
   }
   .ps-btn:disabled {
     opacity: 0.6;
@@ -240,10 +242,12 @@
     color: var(--p-ink2);
     transition: all 0.12s ease;
   }
-  .ps-chip:hover {
-    border-color: var(--p-border-s);
-    background: var(--p-hover);
-    color: var(--p-ink);
+  @media (hover: hover) {
+    .ps-chip:hover {
+      border-color: var(--p-border-s);
+      background: var(--p-hover);
+      color: var(--p-ink);
+    }
   }
   .ps-chip-icon {
     font-weight: 600;
@@ -268,8 +272,10 @@
     text-align: center;
     padding: 4px;
   }
-  .ps-rerun:hover:not(:disabled) {
-    color: var(--p-ink);
+  @media (hover: hover) {
+    .ps-rerun:hover:not(:disabled) {
+      color: var(--p-ink);
+    }
   }
   .ps-rerun:disabled {
     opacity: 0.5;

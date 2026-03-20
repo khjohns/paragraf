@@ -572,10 +572,12 @@
     cursor: pointer;
     transition: all 0.15s ease;
   }
-  .reorganise-btn:hover {
-    color: var(--p-ink);
-    border-color: var(--p-ink3);
-    background: var(--p-bg);
+  @media (hover: hover) {
+    .reorganise-btn:hover {
+      color: var(--p-ink);
+      border-color: var(--p-ink3);
+      background: var(--p-bg);
+    }
   }
 
   /* Zoom controls */
@@ -608,10 +610,12 @@
     font-size: 10px;
     transition: all 0.12s ease;
   }
-  .zoom-btn:hover {
-    color: var(--p-ink);
-    background: var(--p-surface);
-    border-color: var(--p-border);
+  @media (hover: hover) {
+    .zoom-btn:hover {
+      color: var(--p-ink);
+      background: var(--p-surface);
+      border-color: var(--p-border);
+    }
   }
   .zoom-reset {
     width: auto;

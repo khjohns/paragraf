@@ -273,9 +273,11 @@
     color: var(--p-ink3);
     transition: all 0.1s ease;
   }
-  .toggle-btn:hover:not(.active) {
-    color: var(--p-ink2);
-    background: var(--p-hover);
+  @media (hover: hover) {
+    .toggle-btn:hover:not(.active) {
+      color: var(--p-ink2);
+      background: var(--p-hover);
+    }
   }
   .toggle-btn.active {
     background: var(--p-ink);
@@ -333,8 +335,10 @@
     align-items: center;
     transition: color 0.1s ease;
   }
-  .search-clear:hover {
-    color: var(--p-ink2);
+  @media (hover: hover) {
+    .search-clear:hover {
+      color: var(--p-ink2);
+    }
   }
 
   .toolbar-sep {
@@ -357,9 +361,11 @@
     color: var(--p-ink3);
     transition: all 0.1s ease;
   }
-  .status-chip:hover {
-    border-color: var(--p-border-s);
-    color: var(--p-ink2);
+  @media (hover: hover) {
+    .status-chip:hover {
+      border-color: var(--p-border-s);
+      color: var(--p-ink2);
+    }
   }
   .status-chip.active {
     border-color: var(--chip-color);
@@ -448,8 +454,10 @@
     width: 100%;
     box-sizing: border-box;
   }
-  .analysis-row:hover {
-    background: var(--p-hover);
+  @media (hover: hover) {
+    .analysis-row:hover {
+      background: var(--p-hover);
+    }
   }
   .analysis-row.selected {
     background: var(--p-active);
@@ -588,8 +596,10 @@
     width: 100%;
     box-sizing: border-box;
   }
-  .new-analysis-row:hover {
-    color: var(--p-ink);
+  @media (hover: hover) {
+    .new-analysis-row:hover {
+      color: var(--p-ink);
+    }
   }
   .new-plus {
     font-size: 16px;
