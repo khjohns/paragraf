@@ -13,15 +13,13 @@
   import NodeDetail from '$lib/components/NodeDetail.svelte';
   import ScopingOverlay from '$lib/components/ScopingOverlay.svelte';
   import KeyboardShortcuts from '$lib/components/KeyboardShortcuts.svelte';
-  import { onMount, untrack } from 'svelte';
+  import { onMount } from 'svelte';
   import { analysisState } from '$lib/stores/analysis.svelte';
   import { uiState } from '$lib/stores/ui.svelte';
-  import { createTraversalQuery } from '$lib/queries/traversal';
-  import { fetchAnalysis } from '$lib/api/analyses';
+  import { fetchAnalysis, traverseAnalysis } from '$lib/api/analyses';
 
   const { data: pageData }: { data: PageData } = $props();
 
-  // Track whether we've hydrated from DB/localStorage — suppresses traversal on reload
   let hydrated = $state(false);
 
   // Show scoping overlay when analysis is in scoping or searching status
@@ -33,52 +31,49 @@
       analysisState.nodes.length === 0
   );
 
-  // Traversal query — disabled when we already have nodes (from hydration).
-  // On reload, nodes come from localStorage. Traversal only runs on first
-  // scoping (via ScopingOverlay) or explicit re-traversal.
-  const traversal = createTraversalQuery(() => ({
-    analysisId: analysisState.analysis.id,
-    request: {
-      provisions: analysisState.analysis.seeds.provisions,
-      ftsTerms: analysisState.analysis.seeds.ftsTerms,
-      vectorQuery: analysisState.analysis.seeds.vectorQuery,
-      cases: analysisState.analysis.seeds.cases,
-      regulationFilter: uiState.regulationFilter ? 'new' : 'all',
-    },
-    enabled: hydrated && analysisState.nodes.length === 0,
-  }));
+  // Load analysis from DB, fall back to localStorage.
+  // If nodes are missing after hydration (e.g. cleared cache), re-run traversal.
+  onMount(async () => {
+    const id = pageData.analysisId;
+    try {
+      if (id) {
+        const dbData = await fetchAnalysis(id);
+        analysisState.loadFromDb(dbData);
+      } else {
+        analysisState.load();
+      }
+    } catch {
+      analysisState.load();
+    }
+    hydrated = true;
 
-  // Sync query results to store (untrack prevents cascading state updates)
-  $effect(() => {
-    const result = traversal.data;
-    if (result) {
-      untrack(() => {
+    // Reload recovery: if analysis has seeds but no cached nodes, re-traverse
+    const { status } = analysisState.analysis;
+    const hasSeeds =
+      analysisState.analysis.seeds.provisions.length > 0 ||
+      analysisState.analysis.seeds.ftsTerms.length > 0;
+    const needsTraversal =
+      hasSeeds &&
+      analysisState.nodes.length === 0 &&
+      status !== 'scoping' &&
+      status !== 'searching';
+
+    if (needsTraversal) {
+      try {
+        const result = await traverseAnalysis(
+          analysisState.analysis.id,
+          analysisState.analysis.iteration,
+          uiState.regulationFilter ? 'new' : 'all'
+        );
         analysisState.setResults(
           result.nodes,
           result.edges,
           result.gaps,
           result.suggestedProvisions
         );
-      });
-    }
-  });
-
-  // Load analysis from DB, fall back to localStorage
-  onMount(() => {
-    const id = pageData.analysisId;
-    if (id) {
-      fetchAnalysis(id)
-        .then((dbData) => {
-          analysisState.loadFromDb(dbData);
-          hydrated = true;
-        })
-        .catch(() => {
-          analysisState.load();
-          hydrated = true;
-        });
-    } else {
-      analysisState.load();
-      hydrated = true;
+      } catch {
+        // Traversal failed — user will see empty workspace, can retry via ContextView
+      }
     }
   });
 </script>

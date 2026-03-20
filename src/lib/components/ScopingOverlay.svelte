@@ -60,20 +60,18 @@
   async function approve() {
     if (!scopingResult) return;
 
-    // Map provisions to seed format
-    const provisions = editedProvisions.filter((p) => p.verified).map((p) => p.ref);
-
-    // Update analysis with scoping results
-    analysisState.setProblemStatement(editedProblem);
-    analysisState.setSeeds({
-      provisions,
+    // Capture seeds once before any mutations
+    const seeds = {
+      provisions: editedProvisions.filter((p) => p.verified).map((p) => p.ref),
       ftsTerms: editedFts,
       vectorQuery: editedVector.join('. '),
       cases: analysisState.analysis.seeds.cases,
-    });
-    analysisState.setStatus('searching');
+    };
 
-    // Persist scoping result for later recall in ContextStrip
+    // Update local state (single debounced DB write scheduled)
+    analysisState.setProblemStatement(editedProblem);
+    analysisState.setSeeds(seeds);
+    analysisState.setStatus('searching');
     analysisState.setScopingResult({
       refined_problem: editedProblem,
       sub_problems: editedSubProblems,
@@ -83,29 +81,20 @@
       reasoning: scopingResult!.reasoning,
     });
 
-    // Show searching phase with progress indicators
     phase = 'searching';
     searchError = null;
 
     try {
       // Persist seeds to DB before traversal (backend reads seeds from DB)
-      await updateAnalysis(analysisState.analysis.id, {
-        seeds: {
-          provisions,
-          ftsTerms: editedFts,
-          vectorQuery: editedVector.join('. '),
-          cases: analysisState.analysis.seeds.cases,
-        },
-        status: 'searching',
-      });
+      await updateAnalysis(analysisState.analysis.id, { seeds });
+      // Cancel debounced DB write — explicit PATCH above already covers it
+      analysisState.flushDbSave();
 
-      // Run traversal via backend — persists candidates and gaps
       const result = await traverseAnalysis(
         analysisState.analysis.id,
         analysisState.analysis.iteration
       );
 
-      // Apply results to local state
       analysisState.setResults(result.nodes, result.edges, result.gaps, result.suggestedProvisions);
       analysisState.setStatus('candidates_ready');
     } catch (e) {

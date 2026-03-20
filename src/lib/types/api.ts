@@ -1,9 +1,4 @@
 import type { GraphNode, GraphEdge, GapPair } from './graph';
-import type { Seeds } from './analysis';
-
-export interface TraversalRequest extends Seeds {
-  regulationFilter: 'new' | 'all';
-}
 
 export interface SuggestedProvision {
   id: string;
