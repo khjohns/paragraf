@@ -6,7 +6,7 @@ export type ProcessView = 'context' | 'synthesis-review' | null;
 class UiState {
   selectedNodeId = $state<string | null>(null);
   viewMode = $state<ViewMode>('list');
-  leftPanelOpen = $state(true);
+  leftPanelOpen = $state(typeof window !== 'undefined' ? window.innerWidth > 768 : true);
   listFilter = $state<ListFilter>('all');
   listSort = $state<ListSort>('category');
   regulationFilter = $state(true); // true = only new (2017+)

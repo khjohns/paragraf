@@ -647,4 +647,14 @@
     font-size: 12px;
     color: var(--p-ink3);
   }
+
+  @media (max-width: 768px) {
+    .zoom-slider {
+      display: none;
+    }
+    .zoom-controls {
+      bottom: 8px;
+      right: 8px;
+    }
+  }
 </style>

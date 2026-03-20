@@ -84,4 +84,17 @@
     border-radius: var(--radius-badge);
     background: var(--p-hover);
   }
+
+  @media (max-width: 768px) {
+    .context-strip {
+      padding: 6px 12px;
+      font-size: 11px;
+    }
+    .strip-problem {
+      display: none;
+    }
+    .strip-sep {
+      display: none;
+    }
+  }
 </style>

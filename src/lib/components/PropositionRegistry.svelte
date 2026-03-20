@@ -513,4 +513,14 @@
     color: var(--p-tension);
     line-height: 1.45;
   }
+
+  @media (max-width: 768px) {
+    .registry-content {
+      max-width: 100%;
+      padding: 16px 12px;
+    }
+    .empty-desc {
+      max-width: 100%;
+    }
+  }
 </style>

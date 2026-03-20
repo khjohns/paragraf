@@ -654,4 +654,21 @@
     background: var(--p-warn-bg);
     border-bottom: 1px solid var(--p-border);
   }
+
+  /* ── Mobile ── */
+  @media (max-width: 768px) {
+    .toolbar {
+      padding: 6px 10px;
+      gap: 4px;
+      flex-wrap: wrap;
+    }
+    .toolbar-left,
+    .toolbar-right {
+      gap: 4px;
+    }
+    .graph-search {
+      min-width: 120px;
+      flex: 1;
+    }
+  }
 </style>

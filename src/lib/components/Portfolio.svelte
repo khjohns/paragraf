@@ -244,7 +244,6 @@
     flex-direction: column;
     overflow: hidden;
     min-width: 0;
-    max-width: 1100px;
   }
 
   .portfolio-toolbar {
@@ -595,5 +594,51 @@
   .new-plus {
     font-size: 16px;
     line-height: 1;
+  }
+
+  /* ── Mobile ── */
+  @media (max-width: 768px) {
+    .portfolio-toolbar {
+      padding: 8px 12px;
+      gap: 6px;
+    }
+    .search-box {
+      flex: 1 1 100%;
+      order: 10;
+    }
+    .toolbar-sep {
+      display: none;
+    }
+
+    /* Hide data columns on mobile — keep title, status, time */
+    .col-headers {
+      display: none;
+    }
+
+    .analysis-row {
+      flex-wrap: wrap;
+      padding: 12px 12px;
+      gap: 6px;
+    }
+    .row-screened,
+    .row-lest,
+    .row-search {
+      display: none;
+    }
+    .row-main {
+      flex: 1 1 calc(100% - 30px);
+    }
+    .row-status {
+      font-size: 10px;
+      min-width: unset;
+    }
+    .row-time {
+      min-width: unset;
+      margin-left: auto;
+    }
+
+    .new-analysis-row {
+      padding: 14px 12px;
+    }
   }
 </style>
