@@ -29,7 +29,7 @@
   let showScoping = $derived(
     (analysisState.analysis.status === 'scoping' ||
       analysisState.analysis.status === 'searching' ||
-      analysisState.analysis.status === undefined) &&
+      !analysisState.analysis.status) &&
       analysisState.nodes.length === 0
   );
 

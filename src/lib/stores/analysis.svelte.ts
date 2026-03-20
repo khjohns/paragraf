@@ -283,16 +283,19 @@ class AnalysisState {
     this.citationSummary = data.citation_summary ?? null;
 
     // Restore nodes/edges from localStorage (not in DB response)
+    // Only restore if cached data belongs to THIS analysis
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
         const cached = JSON.parse(raw);
-        if (cached.nodes) {
-          this.nodes = cached.nodes;
-          this.previousNodeIds = new Set(cached.nodes.map((n: GraphNode) => n.id));
+        if (cached.analysis?.id === data.id) {
+          if (cached.nodes) {
+            this.nodes = cached.nodes;
+            this.previousNodeIds = new Set(cached.nodes.map((n: GraphNode) => n.id));
+          }
+          if (cached.edges) this.edges = cached.edges;
+          if (cached.gaps) this.gaps = cached.gaps;
         }
-        if (cached.edges) this.edges = cached.edges;
-        if (cached.gaps) this.gaps = cached.gaps;
       }
     } catch {
       // Corrupt localStorage — nodes will be empty, traversal query will re-fetch

@@ -195,6 +195,7 @@ def generate_scope(problem: str) -> dict:
         system_prompt=SCOPING_SYSTEM_PROMPT,
         user_message=problem,
         schema=SCOPING_SCHEMA,
+        max_tokens=16000,
         effort="medium",
         log_label="Scoping",
     )

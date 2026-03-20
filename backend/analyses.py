@@ -81,7 +81,7 @@ def create_analysis(title, problem=""):
     result = (
         get_client()
         .table("analyses")
-        .insert({"title": title, "problem": problem})
+        .insert({"title": title, "problem": problem, "status": "scoping"})
         .execute()
         .data
     )

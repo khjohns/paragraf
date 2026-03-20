@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { ScopingResult, ScopingProvision } from '$lib/types/analysis';
   import { analysisState } from '$lib/stores/analysis.svelte';
-  import { scopeAnalysis, traverseAnalysis } from '$lib/api/analyses';
+  import { scopeAnalysis, traverseAnalysis, updateAnalysis } from '$lib/api/analyses';
 
   type Phase = 'input' | 'loading' | 'proposal' | 'searching';
   let phase = $state<Phase>('input');
@@ -88,6 +88,17 @@
     searchError = null;
 
     try {
+      // Persist seeds to DB before traversal (backend reads seeds from DB)
+      await updateAnalysis(analysisState.analysis.id, {
+        seeds: {
+          provisions,
+          ftsTerms: editedFts,
+          vectorQuery: editedVector.join('. '),
+          cases: analysisState.analysis.seeds.cases,
+        },
+        status: 'searching',
+      });
+
       // Run traversal via backend — persists candidates and gaps
       const result = await traverseAnalysis(
         analysisState.analysis.id,

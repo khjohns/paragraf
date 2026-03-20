@@ -297,6 +297,13 @@ def call_claude_structured(
 
     cost = log_usage(response.usage, model, log_label, elapsed_ms=elapsed_ms)
 
+    if not text:
+        block_types = [b.type for b in response.content]
+        logger.error("%s: no text block in response (blocks: %s, stop: %s, max_tokens: %d)",
+                     log_label, block_types, response.stop_reason, max_tokens)
+        raise ValueError(f"{log_label}: Claude returnerte ingen tekst — "
+                         f"stop_reason={response.stop_reason}, max_tokens kan være for lavt")
+
     result = json.loads(text)
 
     # Attach LLM metadata for persistence (thinking, usage, cost)
