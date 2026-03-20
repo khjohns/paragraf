@@ -244,7 +244,6 @@
     flex-direction: column;
     overflow: hidden;
     min-width: 0;
-    max-width: 1100px;
   }
 
   .portfolio-toolbar {
