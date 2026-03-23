@@ -112,7 +112,7 @@ export interface ScopingResult {
 export interface QuoteVerification {
   sak_nr: string;
   paragraph: number;
-  quoted_text: string;
+  quoted_text?: string;
   status: 'verified' | 'truncated' | 'inaccurate' | 'not_found';
   issue: string | null;
 }

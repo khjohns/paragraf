@@ -224,7 +224,7 @@ class TestCitationVerification:
             assert vq.get("status") in self.VALID_STATUSES, (
                 f"Invalid citation status '{vq.get('status')}' for {vq.get('sak_nr')}"
             )
-            assert "quoted_text" in vq, f"Missing quoted_text: {vq}"
+            assert "issue" in vq, f"Missing issue field: {vq}"
 
     def test_quote_verification_linked(self, api, test_analysis):
         """After citation QA, each quote in ai_screening.quotes should have verification.status."""

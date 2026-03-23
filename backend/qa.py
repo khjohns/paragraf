@@ -40,9 +40,6 @@ class QAError(Exception):
     """Raised when QA fails."""
 
 
-# Max number of cases to verify citations for (A+B categories)
-MAX_CITATION_CASES = int(os.environ.get("MAX_CITATION_CASES", "8"))
-
 
 # --- Schemas ---
 
@@ -56,7 +53,6 @@ CITATION_QA_SCHEMA = {
                 "properties": {
                     "sak_nr": {"type": "string"},
                     "paragraph": {"type": "integer"},
-                    "quoted_text": {"type": "string", "description": "Sitatet fra screening"},
                     "status": {
                         "type": "string",
                         "enum": ["verified", "truncated", "inaccurate", "not_found"],
@@ -66,7 +62,7 @@ CITATION_QA_SCHEMA = {
                         "description": "Beskrivelse av problemet hvis status != verified",
                     },
                 },
-                "required": ["sak_nr", "paragraph", "quoted_text", "status", "issue"],
+                "required": ["sak_nr", "paragraph", "status", "issue"],
                 "additionalProperties": False,
             },
         },
@@ -213,38 +209,25 @@ Merk: C-kandidater trenger ikke nødvendigvis behandling.
 </instructions>"""
 
 
-def _verify_citations_with_api(candidates: list[dict], note_markdown: str) -> dict:
-    """Verify quotes using Citations API for machine verification.
+def _verify_citations_batch(
+    quotes: list[dict], source_texts: dict[str, str]
+) -> list[dict]:
+    """Verify a batch of quotes against source texts using Citations API.
 
-    Takes pre-loaded candidates to avoid redundant DB queries.
-    Fetches the actual case text and sends it as a document for Claude to
-    cite against, enabling automatic verification.
+    Returns list of verified_quote dicts. Handles JSON parse failures gracefully.
     """
-    quotes_to_verify, source_texts = _fetch_source_texts(candidates)
-
-    if not quotes_to_verify:
-        return {"verified_quotes": [], "summary": "Ingen sitater å verifisere."}
-
-    if not source_texts:
-        return {"verified_quotes": [], "summary": "Kunne ikke hente kildetekster."}
-
-    # Build content blocks with source documents for Citations API
     content_blocks = []
     for sak_nr, text in source_texts.items():
         content_blocks.append({
             "type": "document",
-            "source": {
-                "type": "content",
-                "content": text,
-            },
+            "source": {"type": "content", "content": text},
             "title": f"Avgjørelsestekst {sak_nr}",
             "citations": {"enabled": True},
         })
 
-    # Add the quotes to verify as text
     quotes_text = "\n".join(
         f"- {q['sak_nr']} §{q['paragraph']}: «{q['text']}»"
-        for q in quotes_to_verify
+        for q in quotes
         if q["sak_nr"] in source_texts
     )
     content_blocks.append({
@@ -259,51 +242,76 @@ For hvert sitat: sjekk om det finnes ordrett i kildeteksten, om det er trunkert 
 (fjerner kvalifikasjoner), eller om det avviker. Returner strukturert resultat.""",
     })
 
-    # Call Claude with Citations API enabled.
     # NOTE: Citations API and structured output (json_schema) are incompatible —
-    # combining them returns 400. We use citations for machine-verified text
-    # matching and ask the model to return JSON via prompt instruction instead.
+    # combining them returns 400. We use prompt instruction for JSON instead.
     anthropic_client = get_anthropic_client()
     t0 = time.monotonic()
     response = anthropic_client.messages.create(
         model=HAIKU_MODEL,
-        max_tokens=4000,
-        system=[
-            {
-                "type": "text",
-                "text": CITATION_QA_SYSTEM_PROMPT
-                + "\n\nReturner resultatet som JSON med dette formatet:\n"
-                + _CITATION_QA_SCHEMA_JSON,
-                "cache_control": {"type": "ephemeral"},
-            }
-        ],
+        max_tokens=16000,
+        system=[{
+            "type": "text",
+            "text": CITATION_QA_SYSTEM_PROMPT
+            + "\n\nReturner resultatet som JSON med dette formatet:\n"
+            + _CITATION_QA_SCHEMA_JSON,
+            "cache_control": {"type": "ephemeral"},
+        }],
         messages=[{"role": "user", "content": content_blocks}],
     )
     elapsed_ms = int((time.monotonic() - t0) * 1000)
+    log_usage(response.usage, HAIKU_MODEL, "Citation QA", elapsed_ms=elapsed_ms)
 
-    cost = log_usage(response.usage, HAIKU_MODEL, "Citation QA", elapsed_ms=elapsed_ms)
-
-    # Extract text blocks (skip cite blocks — they confirm source positions)
     text_parts = [block.text for block in response.content if block.type == "text"]
     full_text = "\n".join(text_parts)
 
     result = parse_json_response(full_text)
     if result is None:
-        logger.warning("Citation QA: could not parse JSON from response")
-        return {"verified_quotes": [], "summary": "Kunne ikke tolke QA-respons."}
+        logger.warning("Citation QA: could not parse JSON (stop=%s, %d chars). First 200: %s",
+                        response.stop_reason, len(full_text), full_text[:200])
+        return []
 
-    # Attach LLM metadata (Haiku does not use adaptive thinking)
-    usage = response.usage
-    cache_write, cache_read = _extract_cache_tokens(usage)
+    return result.get("verified_quotes", [])
+
+
+# Max cases per citation verification batch (keeps context window manageable)
+_CITATION_BATCH_SIZE = 10
+
+
+def _verify_citations_with_api(candidates: list[dict], note_markdown: str) -> dict:
+    """Verify quotes using Citations API for machine verification.
+
+    Takes pre-loaded candidates to avoid redundant DB queries.
+    Fetches the actual case text and sends it as a document for Claude to
+    cite against, enabling automatic verification.
+
+    Splits into batches of ~10 cases to stay within context limits.
+    """
+    quotes_to_verify, source_texts = _fetch_source_texts(candidates)
+
+    if not quotes_to_verify:
+        return {"verified_quotes": [], "summary": "Ingen sitater å verifisere."}
+
+    if not source_texts:
+        return {"verified_quotes": [], "summary": "Kunne ikke hente kildetekster."}
+
+    # Split into batches by source case
+    case_list = list(source_texts.keys())
+    all_verified: list[dict] = []
+
+    for i in range(0, len(case_list), _CITATION_BATCH_SIZE):
+        batch_cases = set(case_list[i : i + _CITATION_BATCH_SIZE])
+        batch_sources = {k: v for k, v in source_texts.items() if k in batch_cases}
+        batch_quotes = [q for q in quotes_to_verify if q["sak_nr"] in batch_cases]
+
+        if batch_quotes and batch_sources:
+            batch_results = _verify_citations_batch(batch_quotes, batch_sources)
+            all_verified.extend(batch_results)
+
+    result: dict = {"verified_quotes": all_verified}
     result["_llm_meta"] = {
         "model": HAIKU_MODEL,
-        "input_tokens": usage.input_tokens,
-        "output_tokens": usage.output_tokens,
-        "cache_read_tokens": cache_read,
-        "cache_write_tokens": cache_write,
-        "cost_usd": round(cost, 6),
-        "elapsed_ms": elapsed_ms,
-        "has_thinking": False,
+        "batches": len(range(0, len(case_list), _CITATION_BATCH_SIZE)),
+        "total_quotes": len(all_verified),
     }
 
     return result
@@ -1027,7 +1035,7 @@ def _fetch_source_texts(candidates: list[dict]) -> tuple[list[dict], dict[str, s
         return [], {}
 
     important_cases = [c["sak_nr"] for c in candidates if c.get("category") in ("A", "B")]
-    cases_to_fetch = [s for s in source_cases if s in important_cases][:MAX_CITATION_CASES]
+    cases_to_fetch = [s for s in source_cases if s in important_cases]
 
     client_db = get_client()
     all_rows = (
@@ -1090,7 +1098,7 @@ For hvert sitat: sjekk om det finnes ordrett i kildeteksten, om det er trunkert 
         system_prompt=CITATION_QA_SYSTEM_PROMPT,
         user_message=user_message,
         schema=CITATION_QA_SCHEMA,
-        max_tokens=4000,
+        max_tokens=16000,
         model=HAIKU_MODEL,
     )
 
