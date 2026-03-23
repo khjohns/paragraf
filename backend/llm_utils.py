@@ -252,7 +252,7 @@ def call_claude_structured(
     system_prompt: str,
     user_message: str,
     schema: dict,
-    max_tokens: int = 4000,
+    max_tokens: int = 16000,
     effort: str = "high",
     model: str = CLAUDE_MODEL,
     log_label: str = "Claude call",
@@ -387,7 +387,7 @@ def build_batch_request(
     system_prompt: str,
     user_message: str,
     schema: dict,
-    max_tokens: int = 4000,
+    max_tokens: int = 16000,
     model: str = CLAUDE_MODEL,
 ) -> dict:
     """Build a single request for the Message Batches API.

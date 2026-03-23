@@ -281,6 +281,7 @@ def _execute_tool(name: str, tool_input: dict) -> dict:
 def _run_agentic_loop(
     user_message: str,
     analysis_id: str,
+    model: str = CLAUDE_MODEL,
 ) -> dict:
     """Run an agentic synthesis loop with tool use.
 
@@ -296,11 +297,11 @@ def _run_agentic_loop(
     for turn in range(1, MAX_TOOL_TURNS + 1):
         t_turn = time.monotonic()
         response = client.messages.create(
-            model=CLAUDE_MODEL,
+            model=model,
             max_tokens=32000,
             thinking={"type": "adaptive"},
             output_config=build_output_config(
-                schema=SYNTHESIS_SCHEMA, effort="high", model=CLAUDE_MODEL,
+                schema=SYNTHESIS_SCHEMA, effort="high", model=model,
             ),
             tools=SYNTHESIS_TOOLS,
             system=[{
@@ -314,7 +315,7 @@ def _run_agentic_loop(
 
         turn_cost = cost_tracker.add(
             f"Synthesis/{analysis_id}/turn-{turn}",
-            CLAUDE_MODEL,
+            model,
             response.usage,
             elapsed_ms=elapsed_turn,
         )
@@ -341,7 +342,7 @@ def _run_agentic_loop(
             # Build _llm_meta with agentic-specific info
             total_elapsed = int((time.monotonic() - t0) * 1000)
             result["_llm_meta"] = {
-                "model": CLAUDE_MODEL,
+                "model": model,
                 "total_turns": turn,
                 "tools_called": tools_called,
                 "cost_usd": round(cost_tracker.total_cost, 6),
@@ -349,15 +350,15 @@ def _run_agentic_loop(
                 "agentic": True,
             }
             logger.info(
-                "Agentic synthesis complete: %d turns, %d tool calls, $%.4f, %.1fs",
-                turn, len(tools_called), cost_tracker.total_cost,
+                "Agentic synthesis complete (%s): %d turns, %d tool calls, $%.4f, %.1fs",
+                model, turn, len(tools_called), cost_tracker.total_cost,
                 total_elapsed / 1000,
             )
 
             # Persist final turn to call log
             persist_llm_call(
                 analysis_id=analysis_id, call_type="synthesis",
-                model=CLAUDE_MODEL, usage=response.usage,
+                model=model, usage=response.usage,
                 cost_usd=turn_cost, elapsed_ms=elapsed_turn,
                 stop_reason="end_turn", turn=turn,
             )
@@ -399,7 +400,7 @@ def _run_agentic_loop(
             # Persist tool-use turn to call log
             persist_llm_call(
                 analysis_id=analysis_id, call_type="synthesis",
-                model=CLAUDE_MODEL, usage=response.usage,
+                model=model, usage=response.usage,
                 cost_usd=turn_cost, elapsed_ms=elapsed_turn,
                 stop_reason="tool_use", turn=turn,
                 tool_calls=turn_tool_calls,
@@ -547,13 +548,17 @@ def _format_user_notes(candidates: list[dict]) -> str:
     return "\n".join(f"- {c['sak_nr']}: {c['user_notes']}" for c in notes)
 
 
-def generate_synthesis(analysis_id: str) -> dict:
+def generate_synthesis(analysis_id: str, model: str | None = None) -> dict:
     """Generate a legal analysis note using Claude (blocking variant).
 
     Sends compressed screening results + propositions + notes to Claude.
     Returns structured note with sections, tensions, and coverage notes.
     Persists the note as markdown in analysis_documents.
+
+    Args:
+        model: Override model (e.g. "claude-opus-4-6" for higher quality).
     """
+    synthesis_model = model or CLAUDE_MODEL
     user_message, content_hash, _candidates = _build_user_message(analysis_id)
 
     cached = get_cached(analysis_id, "synthesis", content_hash)
@@ -562,7 +567,7 @@ def generate_synthesis(analysis_id: str) -> dict:
 
     # Try agentic loop, fall back to single-shot on failure
     try:
-        result = _run_agentic_loop(user_message, analysis_id)
+        result = _run_agentic_loop(user_message, analysis_id, model=synthesis_model)
     except Exception as e:
         logger.warning(
             "Agentic synthesis failed for %s, falling back to single-shot: %s",
@@ -575,6 +580,7 @@ def generate_synthesis(analysis_id: str) -> dict:
                 schema=SYNTHESIS_SCHEMA,
                 max_tokens=32000,
                 effort="high",
+                model=synthesis_model,
                 log_label=f"Synthesis fallback for {analysis_id}",
             )
         except Exception as e2:

@@ -404,8 +404,10 @@ def eu_screen_route(analysis_id):
 @app.route("/api/analyses/<analysis_id>/synthesize", methods=["POST"])
 def synthesize_route(analysis_id):
     """Generate a legal analysis note from screening results."""
+    body = request.get_json() or {}
+    model = body.get("model")  # Optional: e.g. "claude-opus-4-6"
     try:
-        result = generate_synthesis(analysis_id)
+        result = generate_synthesis(analysis_id, model=model)
         update_analysis(analysis_id, {"status": "synthesis"})
         return jsonify(result)
     except SynthesisError as e:
@@ -445,8 +447,10 @@ def get_documents_route(analysis_id):
 @app.route("/api/analyses/<analysis_id>/qa", methods=["POST"])
 def qa_route(analysis_id):
     """Run quality assurance on the synthesis note."""
+    body = request.get_json() or {}
+    model = body.get("model")  # Optional: e.g. "claude-opus-4-6"
     try:
-        result = run_qa(analysis_id)
+        result = run_qa(analysis_id, model=model)
         update_analysis(analysis_id, {"status": "qa"})
         return jsonify(result)
     except QAError as e:

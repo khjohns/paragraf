@@ -648,19 +648,23 @@ Sjekk om alle viktige saker er behandlet:
 MAX_QA_TOOL_TURNS = 15
 
 
-def run_qa(analysis_id: str) -> dict:
+def run_qa(analysis_id: str, model: str | None = None) -> dict:
     """Run agentic QA on the synthesis note.
 
-    Single Sonnet call with tool use (fetch_case_paragraphs) that checks
+    Single call with tool use (fetch_case_paragraphs) that checks
     reference accuracy, logical consistency, and coverage in one pass.
     Falls back to legacy parallel QA on failure.
+
+    Args:
+        model: Override model (e.g. "claude-opus-4-6" for higher quality).
     """
     note_markdown, candidates, candidates_summary = _load_qa_inputs(analysis_id)
 
-    logger.info("Starting agentic QA for analysis %s", analysis_id)
+    qa_model = model or CLAUDE_MODEL
+    logger.info("Starting agentic QA for analysis %s (model=%s)", analysis_id, qa_model)
 
     try:
-        result = _run_qa_agentic(analysis_id, note_markdown, candidates_summary)
+        result = _run_qa_agentic(analysis_id, note_markdown, candidates_summary, model=qa_model)
     except Exception as e:
         logger.warning("Agentic QA failed for %s, falling back to legacy: %s", analysis_id, e)
         result = _run_qa_legacy(analysis_id, note_markdown, candidates, candidates_summary)
@@ -672,8 +676,9 @@ def _run_qa_agentic(
     analysis_id: str,
     note_markdown: str,
     candidates_summary: str,
+    model: str = CLAUDE_MODEL,
 ) -> dict:
-    """Agentic QA with tool use — single Sonnet call."""
+    """Agentic QA with tool use."""
     client = get_anthropic_client()
 
     user_message = f"""<notat>
@@ -701,11 +706,11 @@ Ikke returner tomme arrays med mindre du faktisk har sjekket og funnet null prob
     for turn in range(1, MAX_QA_TOOL_TURNS + 1):
         t_turn = time.monotonic()
         response = client.messages.create(
-            model=CLAUDE_MODEL,
-            max_tokens=16000,
+            model=model,
+            max_tokens=32000,
             thinking={"type": "adaptive"},
             output_config=build_output_config(
-                schema=COMBINED_QA_SCHEMA, effort="high", model=CLAUDE_MODEL,
+                schema=COMBINED_QA_SCHEMA, effort="high", model=model,
             ),
             tools=SYNTHESIS_TOOLS,
             system=[{
@@ -719,7 +724,7 @@ Ikke returner tomme arrays med mindre du faktisk har sjekket og funnet null prob
 
         turn_cost = cost_tracker.add(
             f"QA/{analysis_id}/turn-{turn}",
-            CLAUDE_MODEL,
+            model,
             response.usage,
             elapsed_ms=elapsed_turn,
         )
@@ -737,7 +742,7 @@ Ikke returner tomme arrays med mindre du faktisk har sjekket og funnet null prob
             result = json.loads(text)
             total_elapsed = int((time.monotonic() - t0) * 1000)
             result["_llm_meta"] = {
-                "model": CLAUDE_MODEL,
+                "model": model,
                 "total_turns": turn,
                 "tools_called": tools_called,
                 "cost_usd": round(cost_tracker.total_cost, 6),
@@ -747,7 +752,7 @@ Ikke returner tomme arrays med mindre du faktisk har sjekket og funnet null prob
 
             persist_llm_call(
                 analysis_id=analysis_id, call_type="qa",
-                model=CLAUDE_MODEL, usage=response.usage,
+                model=model, usage=response.usage,
                 cost_usd=turn_cost, elapsed_ms=elapsed_turn,
                 stop_reason="end_turn", turn=turn,
             )
@@ -796,7 +801,7 @@ Ikke returner tomme arrays med mindre du faktisk har sjekket og funnet null prob
 
             persist_llm_call(
                 analysis_id=analysis_id, call_type="qa",
-                model=CLAUDE_MODEL, usage=response.usage,
+                model=model, usage=response.usage,
                 cost_usd=turn_cost, elapsed_ms=elapsed_turn,
                 stop_reason="tool_use", turn=turn,
                 tool_calls=turn_tool_calls,
