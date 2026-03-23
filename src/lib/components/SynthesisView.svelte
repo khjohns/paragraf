@@ -112,60 +112,71 @@
   {:else}
     <!-- Display mode -->
     <div class="display-mode">
-      <div class="note-toolbar">
-        <button class="note-action" onclick={startEditing}>
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-          >
-            <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
-          </svg>
-          Rediger
-        </button>
-        <button
-          class="note-action"
-          onclick={generateNote}
-          disabled={pipelineState.synthesisLoading}
-        >
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-          >
-            <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-            <path d="M3 3v5h5" />
-            <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />
-            <path d="M16 16h5v5" />
-          </svg>
-          {pipelineState.synthesisLoading ? 'Genererer…' : 'Re-generer'}
-        </button>
-      </div>
-
-      {#if lawyerSections.length > 0}
-        <div class="lawyer-notice">
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-          >
-            <path d="M12 9v4" />
-            <path d="M12 17h.01" />
-            <circle cx="12" cy="12" r="10" />
-          </svg>
-          {lawyerSections.length}
-          {lawyerSections.length === 1 ? 'seksjon' : 'seksjoner'} krever din vurdering
+      <!-- Unified header: KS status left, actions right -->
+      <div class="note-header">
+        <div class="note-header-left">
+          {#if pipelineState.qaReport}
+            <button
+              class="ks-badge"
+              class:clean={pipelineState.qaReport.total_flags === 0}
+              class:has-flags={pipelineState.qaReport.total_flags > 0}
+              onclick={() => (uiState.activeProcessView = 'synthesis-review')}
+            >
+              <span class="ks-count">{pipelineState.qaReport.total_flags}</span>
+              <span class="ks-label">
+                {pipelineState.qaReport.total_flags === 0
+                  ? 'KS ok'
+                  : pipelineState.qaReport.total_flags === 1
+                    ? 'KS-merknad'
+                    : 'KS-merknader'}
+              </span>
+              <span class="ks-arrow">→</span>
+            </button>
+          {:else if showQABar}
+            <button
+              class="ks-run-btn"
+              onclick={() => screeningState.startQaBatch()}
+              disabled={pipelineState.qaLoading}
+            >
+              {pipelineState.qaLoading ? 'Kjører KS…' : 'Kjør kvalitetssikring'}
+            </button>
+          {/if}
+          {#if lawyerSections.length > 0}
+            <span class="lawyer-hint">
+              {lawyerSections.length}
+              {lawyerSections.length === 1 ? 'seksjon' : 'seksjoner'} krever vurdering
+            </span>
+          {/if}
         </div>
-      {/if}
+        <div class="note-header-right">
+          <button class="note-action" onclick={startEditing}>Rediger</button>
+          <button
+            class="note-action"
+            onclick={generateNote}
+            disabled={pipelineState.synthesisLoading}
+          >
+            {pipelineState.synthesisLoading ? 'Genererer…' : 'Re-generer'}
+          </button>
+          {#if pipelineState.qaReport}
+            <button
+              class="note-action"
+              onclick={() => screeningState.startQaBatch()}
+              disabled={pipelineState.qaLoading}
+            >
+              {pipelineState.qaLoading ? 'Kjører…' : 'Kjør KS på nytt'}
+            </button>
+          {/if}
+          {#if showQABar && pipelineState.qaReport}
+            {#if analysisState.analysis.status !== 'complete'}
+              <button class="note-action primary" onclick={() => analysisState.markComplete()}>
+                Ferdigstill
+              </button>
+            {:else}
+              <span class="complete-badge">Ferdigstilt</span>
+            {/if}
+          {/if}
+        </div>
+      </div>
 
       <div class="note-content">
         {#each pipelineState.synthesisMarkdown.split('\n') as line}
@@ -200,66 +211,6 @@
               <span class="tension-cases">{tension.cases.join(', ')}</span>
             </div>
           {/each}
-        </div>
-      {/if}
-
-      {#if showQABar}
-        <div class="workflow-bar">
-          {#if !pipelineState.qaReport}
-            <div class="workflow-step">
-              <div class="workflow-label">Neste steg: Kvalitetssikring</div>
-              <div class="workflow-desc">
-                Verifiser sitater, sjekk logikk og dekning mot kildene.
-              </div>
-              <button
-                class="workflow-btn"
-                onclick={() => screeningState.startQaBatch()}
-                disabled={pipelineState.qaLoading}
-              >
-                {#if pipelineState.qaLoading}
-                  <span class="spinner"></span>
-                  Kjører QA…
-                {:else}
-                  Kjør kvalitetssikring
-                {/if}
-              </button>
-            </div>
-          {:else}
-            <div class="workflow-step">
-              <div class="qa-inline-summary" class:clean={pipelineState.qaReport.total_flags === 0}>
-                <span class="qa-inline-count">{pipelineState.qaReport.total_flags}</span>
-                <span>
-                  {pipelineState.qaReport.total_flags === 0
-                    ? 'Ingen problemer funnet'
-                    : pipelineState.qaReport.total_flags === 1
-                      ? 'KS-merknad'
-                      : 'KS-merknader'}
-                </span>
-                <button
-                  class="qa-detail-link"
-                  onclick={() => (uiState.activeProcessView = 'synthesis-review')}
-                >
-                  Se detaljer →
-                </button>
-              </div>
-              <div class="workflow-actions">
-                <button
-                  class="workflow-btn secondary"
-                  onclick={() => screeningState.startQaBatch()}
-                  disabled={pipelineState.qaLoading}
-                >
-                  {pipelineState.qaLoading ? 'Kjører…' : 'Kjør KS på nytt'}
-                </button>
-                {#if analysisState.analysis.status !== 'complete'}
-                  <button class="workflow-btn" onclick={() => analysisState.markComplete()}>
-                    Ferdigstill analyse
-                  </button>
-                {:else}
-                  <div class="complete-badge">Ferdigstilt</div>
-                {/if}
-              </div>
-            </div>
-          {/if}
         </div>
       {/if}
     </div>
@@ -330,49 +281,130 @@
     animation: spin 0.8s linear infinite;
   }
 
-  /* Note toolbar */
-  .note-toolbar {
+  /* ── Unified header ── */
+  .note-header {
     display: flex;
-    gap: 8px;
+    align-items: center;
+    gap: 12px;
     margin-bottom: 16px;
-    padding-bottom: 12px;
+    padding: 0 0 12px;
     border-bottom: 1px solid var(--p-border);
+    flex-wrap: wrap;
   }
-  .note-action {
+  .note-header-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .note-header-right {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: auto;
+  }
+
+  .ks-badge {
     all: unset;
     cursor: pointer;
     display: flex;
     align-items: center;
-    gap: 4px;
-    padding: 4px 8px;
+    gap: 6px;
+    padding: 4px 10px;
     border-radius: var(--radius-md);
-    font-size: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    border: 1px solid var(--p-ai-border-subtle);
+    background: var(--p-highlight);
+    color: var(--p-warn);
+  }
+  .ks-badge.clean {
+    background: var(--p-success-bg);
+    border-color: rgba(61, 122, 74, 0.12);
+    color: var(--p-success);
+  }
+  @media (hover: hover) {
+    .ks-badge:hover {
+      border-color: var(--p-border-s);
+    }
+  }
+  .ks-count {
+    font-family: var(--font-data);
+    font-size: 13px;
+    font-weight: 700;
+  }
+  .ks-label {
+    white-space: nowrap;
+  }
+  .ks-arrow {
+    opacity: 0.4;
+    font-size: 10px;
+  }
+  .ks-badge:hover .ks-arrow {
+    opacity: 0.8;
+  }
+
+  .ks-run-btn {
+    all: unset;
+    cursor: pointer;
+    padding: 4px 10px;
+    border-radius: var(--radius-md);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--p-ink2);
+    border: 1px solid var(--p-border-m);
+  }
+  @media (hover: hover) {
+    .ks-run-btn:hover {
+      border-color: var(--p-border-s);
+      color: var(--p-ink);
+    }
+  }
+  .ks-run-btn:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+
+  .lawyer-hint {
+    font-size: 11px;
+    color: var(--p-warn);
+    font-weight: 500;
+  }
+
+  .note-action {
+    all: unset;
+    cursor: pointer;
+    padding: 4px 10px;
+    border-radius: var(--radius-md);
+    font-size: 11px;
     font-weight: 500;
     color: var(--p-ink3);
     border: 1px solid var(--p-border);
   }
-  .note-action:hover {
-    background: var(--p-hover);
-    color: var(--p-ink);
+  @media (hover: hover) {
+    .note-action:hover {
+      background: var(--p-hover);
+      color: var(--p-ink);
+    }
   }
   .note-action:disabled {
     opacity: 0.4;
     cursor: default;
   }
-
-  /* Lawyer notice */
-  .lawyer-notice {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 12px;
-    border-radius: var(--radius-md);
-    background: var(--p-warn-bg);
-    border: 1px solid rgba(166, 123, 46, 0.12);
-    font-size: 12px;
-    color: var(--p-warn);
-    font-weight: 500;
-    margin-bottom: 16px;
+  .note-action.primary {
+    background: var(--p-ink);
+    color: var(--p-panel);
+    border-color: var(--p-ink);
+  }
+  @media (hover: hover) {
+    .note-action.primary:hover {
+      opacity: 0.85;
+    }
+  }
+  .complete-badge {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--p-success);
+    padding: 4px 10px;
   }
 
   /* Note content — AI-generated */
@@ -539,108 +571,7 @@
     border-color: var(--p-border-s);
   }
 
-  /* Workflow bar */
-  .workflow-bar {
-    margin-top: 32px;
-    padding-top: 20px;
-    border-top: 1px solid var(--p-border);
-  }
-  .workflow-step {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-  .workflow-label {
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--p-ink);
-  }
-  .workflow-desc {
-    font-size: 12px;
-    color: var(--p-ink3);
-    line-height: 1.45;
-  }
-  .workflow-actions {
-    display: flex;
-    gap: 8px;
-    align-items: center;
-  }
-  .workflow-btn {
-    all: unset;
-    padding: 12px 20px;
-    border-radius: var(--radius-lg);
-    background: var(--p-ink);
-    color: var(--p-panel);
-    font-size: 13px;
-    font-weight: 600;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-  .workflow-btn:hover {
-    opacity: 0.85;
-  }
-  .workflow-btn:disabled {
-    opacity: 0.5;
-    cursor: default;
-  }
-  .workflow-btn.secondary {
-    background: transparent;
-    color: var(--p-ink3);
-    border: 1px solid var(--p-border);
-    padding: 8px 16px;
-    font-size: 12px;
-  }
-  .workflow-btn.secondary:hover {
-    background: var(--p-hover);
-    color: var(--p-ink);
-  }
-
-  .qa-inline-summary {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 12px 16px;
-    border-radius: var(--radius-lg);
-    background: var(--p-warn-bg);
-    border: 1px solid var(--p-ai-border-subtle);
-    font-size: 13px;
-    color: var(--p-warn);
-    font-weight: 500;
-  }
-  .qa-inline-summary.clean {
-    background: var(--p-success-bg);
-    border-color: var(--p-success-border, rgba(61, 122, 74, 0.1));
-    color: var(--p-success);
-  }
-  .qa-inline-count {
-    font-size: 16px;
-    font-weight: 700;
-    font-family: var(--font-data);
-  }
-  .qa-detail-link {
-    all: unset;
-    cursor: pointer;
-    font-size: 12px;
-    font-weight: 500;
-    color: inherit;
-    opacity: 0.7;
-    margin-left: auto;
-  }
-  .qa-detail-link:hover {
-    opacity: 1;
-  }
-
-  .complete-badge {
-    padding: 12px 20px;
-    border-radius: var(--radius-lg);
-    background: var(--p-success-bg);
-    border: 1px solid var(--p-success-border, rgba(61, 122, 74, 0.1));
-    color: var(--p-success);
-    font-size: 13px;
-    font-weight: 600;
-  }
+  /* (workflow-bar styles removed — merged into note-header) */
 
   @media (max-width: 768px) {
     .synthesis-view {
