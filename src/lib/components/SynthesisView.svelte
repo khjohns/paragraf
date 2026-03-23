@@ -2,6 +2,7 @@
   import { analysisState } from '$lib/stores/analysis.svelte';
   import { screeningState } from '$lib/stores/screening.svelte';
   import { pipelineState } from '$lib/stores/pipeline.svelte';
+  import { uiState } from '$lib/stores/ui.svelte';
   import { synthesize, updateSynthesisNote } from '$lib/api/analyses';
   import { toastState } from '$lib/stores/toast.svelte';
 
@@ -227,13 +228,19 @@
             <div class="workflow-step">
               <div class="qa-inline-summary" class:clean={pipelineState.qaReport.total_flags === 0}>
                 <span class="qa-inline-count">{pipelineState.qaReport.total_flags}</span>
-                <span
-                  >{pipelineState.qaReport.total_flags === 0
+                <span>
+                  {pipelineState.qaReport.total_flags === 0
                     ? 'Ingen problemer funnet'
                     : pipelineState.qaReport.total_flags === 1
-                      ? 'problem funnet'
-                      : 'problemer funnet'}</span
+                      ? 'KS-merknad'
+                      : 'KS-merknader'}
+                </span>
+                <button
+                  class="qa-detail-link"
+                  onclick={() => (uiState.activeProcessView = 'synthesis-review')}
                 >
+                  Se detaljer →
+                </button>
               </div>
               <div class="workflow-actions">
                 <button
@@ -241,7 +248,7 @@
                   onclick={() => screeningState.startQaBatch()}
                   disabled={pipelineState.qaLoading}
                 >
-                  {pipelineState.qaLoading ? 'Kjører…' : 'Kjør QA på nytt'}
+                  {pipelineState.qaLoading ? 'Kjører…' : 'Kjør KS på nytt'}
                 </button>
                 {#if analysisState.analysis.status !== 'complete'}
                   <button class="workflow-btn" onclick={() => analysisState.markComplete()}>
@@ -611,6 +618,18 @@
     font-size: 16px;
     font-weight: 700;
     font-family: var(--font-data);
+  }
+  .qa-detail-link {
+    all: unset;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 500;
+    color: inherit;
+    opacity: 0.7;
+    margin-left: auto;
+  }
+  .qa-detail-link:hover {
+    opacity: 1;
   }
 
   .complete-badge {

@@ -248,7 +248,7 @@
         <div class="section-body">
           {#if pipelineState.synthesisMarkdown}
             <div class="synth-done">✓ Notat generert</div>
-            <button class="link-btn" onclick={() => uiState.setPhase(3)}> Åpne syntese </button>
+            <button class="link-btn" onclick={() => uiState.setPhase(3)}> Åpne notat </button>
           {:else if section3State === 'active'}
             <div class="synth-active">Syntese pågår…</div>
           {:else}

@@ -104,14 +104,16 @@ class UiState {
   /** Navigate to a phase/section. Sets both activePhase and the corresponding processView.
    *  Section 1 = Problemstilling → ContextView
    *  Section 2 = Gjennomgang → workspace (list/graph)
-   *  Section 3 = Syntese → SynthesisProcessView
+   *  Section 3 = Syntese → Notat-fanen (viewMode), prosessvisning bare under streaming
    */
   setPhase(phase: number) {
     this.activePhase = phase;
     if (phase === 1) {
       this.activeProcessView = 'context';
     } else if (phase === 3) {
-      this.activeProcessView = 'synthesis-review';
+      // Navigate to Notat tab instead of process view
+      this.activeProcessView = null;
+      this.viewMode = 'synthesis';
     } else {
       this.activeProcessView = null; // phase 2 = workspace
     }
