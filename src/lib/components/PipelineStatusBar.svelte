@@ -66,21 +66,22 @@
   }
 
   // ── Completed summaries ──
+  // Only show summary when something was *actively running* and then completed.
+  // Track "was active" to avoid firing on page load with historical data.
 
   let lastCompletedPhase = $state<string | null>(null);
   let lastSummary = $state<string | null>(null);
   let lastElapsed = $state<number>(0);
+  let wasActive = $state(false);
 
-  // Track phase transitions to capture summary
+  // Track when any operation starts
   $effect(() => {
-    if (
-      !isActive &&
-      screeningState.screeningStarted &&
-      screenedCount > 0 &&
-      !isSynthesizing &&
-      !isQa
-    ) {
-      // Screening just finished
+    if (isActive) wasActive = true;
+  });
+
+  // Screening just finished (was running → no longer running)
+  $effect(() => {
+    if (wasActive && !isActive && screeningState.screeningStarted && screenedCount > 0) {
       const cats = analysisState.catCounts;
       lastCompletedPhase = 'screening';
       lastSummary = `${screenedCount} screenet · ${cats.A}A ${cats.B}B ${cats.C}C`;
@@ -88,12 +89,9 @@
     }
   });
 
+  // Synthesis just finished
   $effect(() => {
-    if (
-      !pipelineState.synthesisStreaming &&
-      pipelineState.synthesisMarkdown &&
-      !pipelineState.qaStreaming
-    ) {
+    if (wasActive && !pipelineState.synthesisStreaming && pipelineState.synthesisMarkdown) {
       const cost = pipelineState.synthesisLlmMeta?.cost_usd;
       lastCompletedPhase = 'synthesis';
       lastSummary = `Notat generert${cost ? ` · $${cost.toFixed(2)}` : ''}`;
@@ -101,13 +99,13 @@
     }
   });
 
+  // QA just finished
   $effect(() => {
-    if (!pipelineState.qaStreaming && pipelineState.qaReport) {
+    if (wasActive && !pipelineState.qaStreaming && pipelineState.qaReport) {
       const flags = pipelineState.qaReport.total_flags;
       lastCompletedPhase = 'qa';
       lastSummary = flags > 0 ? `${flags} merknader` : 'ingen merknader';
       lastElapsed = elapsed;
-      // Auto-dismiss after 5s when no issues found
       if (flags === 0) {
         setTimeout(() => (dismissed = true), 5000);
       }

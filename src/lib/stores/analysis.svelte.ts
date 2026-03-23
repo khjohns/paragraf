@@ -306,10 +306,21 @@ class AnalysisState {
     screeningState.loadFromCandidates(data.candidates);
 
     // Delegate pipeline reset + rehydration
+    // Always try to load documents — status in DB may be stale if synthesis/QA
+    // were run outside the normal pipeline flow
     pipelineState.reset();
-    if (data.status === 'synthesis' || data.status === 'qa' || data.status === 'complete') {
-      pipelineState.loadDocuments(data.id).then(() => this.save());
-    }
+    pipelineState.loadDocuments(data.id).then(() => {
+      // If documents exist but status is behind, advance it
+      if (pipelineState.qaReport && data.status !== 'complete') {
+        this.setStatus('complete');
+      } else if (
+        pipelineState.synthesisMarkdown &&
+        !['synthesis', 'qa', 'complete'].includes(data.status ?? '')
+      ) {
+        this.setStatus('synthesis');
+      }
+      this.save();
+    });
 
     this.save();
   }
