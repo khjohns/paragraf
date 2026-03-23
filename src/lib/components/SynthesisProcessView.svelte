@@ -11,6 +11,7 @@
     type QAVerifiedQuote,
   } from '$lib/types/analysis';
   import WorkLog from './WorkLog.svelte';
+  import { uiState } from '$lib/stores/ui.svelte';
 
   const CITATION_SEVERITY: Record<QAVerifiedQuote['status'], 'high' | 'medium' | 'low'> = {
     inaccurate: 'high',
@@ -240,7 +241,16 @@
 <div class="synthesis-process">
   <!-- Header bar -->
   <div class="process-header">
-    <span class="process-title">Syntese-gjennomgang</span>
+    <button
+      class="back-btn"
+      onclick={() => {
+        uiState.activeProcessView = null;
+        uiState.viewMode = 'synthesis';
+      }}
+    >
+      ← Notat
+    </button>
+    <span class="process-title">Kvalitetssikring</span>
     <span class="header-spacer"></span>
     {#if hasNote && !editing}
       <div class="header-actions">
@@ -488,6 +498,21 @@
     border-bottom: 1px solid var(--p-border-m);
     background: var(--p-panel);
     flex-shrink: 0;
+  }
+  .back-btn {
+    all: unset;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--p-ink3);
+    padding: 4px 8px;
+    border-radius: var(--radius-md);
+  }
+  @media (hover: hover) {
+    .back-btn:hover {
+      color: var(--p-ink);
+      background: var(--p-hover);
+    }
   }
   .process-title {
     font-size: 13px;
