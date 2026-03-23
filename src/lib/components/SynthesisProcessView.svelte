@@ -630,7 +630,7 @@
 
   .two-column {
     display: grid;
-    grid-template-columns: 1fr 300px;
+    grid-template-columns: 1fr 420px;
     flex: 1;
     overflow: hidden;
   }
@@ -638,6 +638,7 @@
   .note-column {
     overflow-y: auto;
     padding: 24px 40px;
+    max-width: 800px;
   }
 
   .lawyer-notice {
