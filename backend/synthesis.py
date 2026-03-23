@@ -297,7 +297,7 @@ def _run_agentic_loop(
         t_turn = time.monotonic()
         response = client.messages.create(
             model=CLAUDE_MODEL,
-            max_tokens=16000,
+            max_tokens=32000,
             thinking={"type": "adaptive"},
             output_config=build_output_config(
                 schema=SYNTHESIS_SCHEMA, effort="high", model=CLAUDE_MODEL,
@@ -329,6 +329,11 @@ def _run_agentic_loop(
                 None,
             )
             if not text:
+                block_types = [b.type for b in response.content]
+                logger.warning(
+                    "Synthesis end_turn with no text (turn %d, blocks: %s, %d output tokens)",
+                    turn, block_types, response.usage.output_tokens,
+                )
                 raise SynthesisError("Agentisk loop ga ingen tekst-output")
 
             result = json_module.loads(text)
@@ -568,7 +573,7 @@ def generate_synthesis(analysis_id: str) -> dict:
                 system_prompt=SYNTHESIS_SYSTEM_PROMPT,
                 user_message=user_message,
                 schema=SYNTHESIS_SCHEMA,
-                max_tokens=12000,
+                max_tokens=32000,
                 effort="high",
                 log_label=f"Synthesis fallback for {analysis_id}",
             )
@@ -730,7 +735,7 @@ def generate_synthesis_stream(analysis_id: str):
         try:
             response = anthropic_client.messages.create(
                 model=CLAUDE_MODEL,
-                max_tokens=16000,
+                max_tokens=32000,
                 thinking={"type": "adaptive"},
                 output_config=build_output_config(
                     schema=SYNTHESIS_SCHEMA, effort="high", model=CLAUDE_MODEL,
