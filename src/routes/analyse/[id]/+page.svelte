@@ -13,6 +13,7 @@
   import NodeDetail from '$lib/components/NodeDetail.svelte';
   import ScopingOverlay from '$lib/components/ScopingOverlay.svelte';
   import KeyboardShortcuts from '$lib/components/KeyboardShortcuts.svelte';
+  import PipelineStatusBar from '$lib/components/PipelineStatusBar.svelte';
   import { onMount } from 'svelte';
   import { analysisState } from '$lib/stores/analysis.svelte';
   import { uiState } from '$lib/stores/ui.svelte';
@@ -94,6 +95,7 @@
 
     {#snippet middlePanel()}
       <Toolbar />
+      <PipelineStatusBar />
       {#if uiState.activeProcessView === 'synthesis-review'}
         <SynthesisProcessView />
       {:else if uiState.activeProcessView === 'context'}
