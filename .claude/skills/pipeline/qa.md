@@ -1,6 +1,7 @@
 ---
 name: pipeline:qa
 description: Kvalitetssikring av syntese-notat. Subagent-versjon av backend qa.py (agentisk modus).
+user-invocable: false
 ---
 
 # Kvalitetssikring (KS) — Subagent

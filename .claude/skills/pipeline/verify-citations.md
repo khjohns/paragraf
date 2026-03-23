@@ -1,6 +1,7 @@
 ---
 name: pipeline:verify-citations
 description: Verifiser sitater fra screening mot kildetekst. Subagent-versjon av backend qa.py citation QA.
+user-invocable: false
 ---
 
 # Sitatverifisering — Subagent

@@ -1,26 +1,25 @@
 ---
-name: pipeline:run
+name: pipeline-run
 description: Kjør analyse-pipeline med Claude Code subagenter. Samme prompts og DB-format som API-pipelinen. Null ekstra API-kostnad.
-user_invocable: true
+argument-hint: <analyse-id | "ny"> [steg] [problemstilling]
+allowed-tools: mcp__claude_ai_Supabase__execute_sql, Read, Agent
 ---
 
 # Pipeline Runner
 
 Kjører hele eller deler av Paragraf analyse-pipelinen med Claude Code subagenter i stedet for Anthropic API. Resultater lagres i samme DB-tabeller som API-pipelinen — frontend ser ingen forskjell.
 
-## Bruk
+**Argumenter:** $ARGUMENTS
 
-```
-/pipeline:run <analyse-id | "ny"> [steg] [problemstilling]
-```
+Parse: første argument er analyse-id (eller "ny"), andre er steg (valgfritt), resten er problemstilling (hvis ny).
 
 **Eksempler:**
 
 ```
-/pipeline:run ny "Må forpliktelseserklæring foreligge ved tilbudsfrist?"
-/pipeline:run 0dccaab9... all
-/pipeline:run 0dccaab9... cross
-/pipeline:run 0dccaab9... qa
+/pipeline-run ny "Må forpliktelseserklæring foreligge ved tilbudsfrist?"
+/pipeline-run 0dccaab9... all
+/pipeline-run 0dccaab9... cross
+/pipeline-run 0dccaab9... qa
 ```
 
 **Steg:**

@@ -1,6 +1,7 @@
 ---
 name: pipeline:scope-and-search
 description: Scoping av problemstilling + søk etter kandidater. For ny analyse fra scratch.
+user-invocable: false
 ---
 
 # Scoping & Søk — Subagent

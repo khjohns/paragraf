@@ -1,6 +1,7 @@
 ---
 name: pipeline:synthesize
 description: Generer syntese-notat. Subagent-versjon av backend synthesis.py.
+user-invocable: false
 ---
 
 # Syntese — Subagent

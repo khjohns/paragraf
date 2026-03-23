@@ -1,6 +1,7 @@
 ---
 name: pipeline:cross-propositions
 description: Kryssanalyse av rettssetninger på tvers av saker. Subagent-versjon av backend cross_propositions.py.
+user-invocable: false
 ---
 
 # Cross-Propositions — Subagent

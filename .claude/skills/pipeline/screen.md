@@ -1,6 +1,7 @@
 ---
 name: pipeline:screen
 description: Screen KOFA-saker for relevans. Subagent-versjon av backend screening.py.
+user-invocable: false
 ---
 
 # Screening — Subagent
