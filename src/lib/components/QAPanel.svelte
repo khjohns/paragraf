@@ -33,7 +33,7 @@
     >
       {#if pipelineState.qaLoading}
         <span class="spinner"></span>
-        Kjører QA…
+        Kjører KS…
       {:else}
         Kjør kvalitetssikring
       {/if}
@@ -151,7 +151,7 @@
       onclick={() => screeningState.startQaBatch()}
       disabled={pipelineState.qaLoading}
     >
-      {pipelineState.qaLoading ? 'Kjører…' : 'Kjør QA på nytt'}
+      {pipelineState.qaLoading ? 'Kjører…' : 'Kjør KS på nytt'}
     </button>
   {/if}
 </div>

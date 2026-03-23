@@ -256,7 +256,7 @@
       <div class="header-actions">
         <button class="header-btn" onclick={startEditing}>Rediger notat</button>
         <button class="header-btn" onclick={runQaStream} disabled={pipelineState.qaLoading}>
-          {pipelineState.qaLoading ? 'Kjører QA…' : 'Kjør QA på nytt'}
+          {pipelineState.qaLoading ? 'Kjører KS…' : 'Kjør KS på nytt'}
         </button>
         <button class="header-btn primary" onclick={exportMarkdown}>Eksporter markdown</button>
       </div>
@@ -268,7 +268,7 @@
     <div class="stream-progress">
       <div class="stream-header">
         <span class="stream-title">
-          {pipelineState.synthesisStreaming ? 'Genererer notat…' : 'Kjører QA…'}
+          {pipelineState.synthesisStreaming ? 'Genererer notat…' : 'Kjører kvalitetssikring…'}
         </span>
       </div>
       <div class="stream-log">
@@ -398,9 +398,9 @@
             <button class="qa-run-btn" onclick={runQaStream} disabled={pipelineState.qaLoading}>
               {#if pipelineState.qaLoading}
                 <span class="spinner"></span>
-                Kjører QA…
+                Kjører KS…
               {:else}
-                Kjør QA →
+                Kjør KS →
               {/if}
             </button>
           </div>
@@ -474,7 +474,7 @@
           {/if}
 
           <button class="qa-rerun-btn" onclick={runQaStream} disabled={pipelineState.qaLoading}>
-            {pipelineState.qaLoading ? 'Kjører…' : 'Kjør QA på nytt'}
+            {pipelineState.qaLoading ? 'Kjører…' : 'Kjør KS på nytt'}
           </button>
         {/if}
       </div>
