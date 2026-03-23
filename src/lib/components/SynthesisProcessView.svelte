@@ -183,13 +183,13 @@
       () => {
         pipelineState.endQaStream();
         qaAbort = null;
-        toastState.show('QA fullført', 'success');
+        toastState.show('Kvalitetssikring fullført', 'success');
       },
       (error) => {
         streamError = error;
         pipelineState.endQaStream();
         qaAbort = null;
-        toastState.show('QA feilet — prøv igjen', 'error');
+        toastState.show('Kvalitetssikring feilet — prøv igjen', 'error');
       }
     );
   }
@@ -378,7 +378,7 @@
         {/if}
 
         <WorkLog meta={pipelineState.synthesisLlmMeta} label="Syntese-logg" />
-        <WorkLog meta={pipelineState.qaLlmMeta} label="QA-logg" />
+        <WorkLog meta={pipelineState.qaLlmMeta} label="KS-logg" />
       </div>
 
       <!-- Right: QA Column -->

@@ -13,7 +13,7 @@
     { num: 3, label: 'Screening' },
     { num: 4, label: 'Ettersøk' },
     { num: 5, label: 'Syntese' },
-    { num: 6, label: 'QA' },
+    { num: 6, label: 'KS' },
     { num: 7, label: 'Deponering' },
   ] as const;
 

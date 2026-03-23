@@ -344,7 +344,7 @@ class ScreeningState {
         this.deps.pipeline.setQaLoading(false);
         this.deps.setStatus('qa');
         toastState.show(
-          `QA ferdig — ${report.total_flags} flagg`,
+          `KS ferdig — ${report.total_flags} merknader`,
           report.total_flags > 0 ? 'info' : 'success'
         );
       }

@@ -94,10 +94,9 @@
       pipelineState.synthesisMarkdown &&
       !pipelineState.qaStreaming
     ) {
-      const sections = pipelineState.synthesisResult?.sections.length ?? 0;
       const cost = pipelineState.synthesisLlmMeta?.cost_usd;
       lastCompletedPhase = 'synthesis';
-      lastSummary = `${sections} seksjoner${cost ? ` · $${cost.toFixed(2)}` : ''}`;
+      lastSummary = `Notat generert${cost ? ` · $${cost.toFixed(2)}` : ''}`;
       lastElapsed = elapsed;
     }
   });
@@ -108,6 +107,10 @@
       lastCompletedPhase = 'qa';
       lastSummary = flags > 0 ? `${flags} merknader` : 'ingen merknader';
       lastElapsed = elapsed;
+      // Auto-dismiss after 5s when no issues found
+      if (flags === 0) {
+        setTimeout(() => (dismissed = true), 5000);
+      }
     }
   });
 
@@ -138,13 +141,13 @@
         {:else if isSynthesizing}
           Genererer notat
         {:else if isQa}
-          Kjører KS
+          Kvalitetssikring
         {:else if lastCompletedPhase === 'screening'}
           Screening fullført
         {:else if lastCompletedPhase === 'synthesis'}
           Syntese fullført
         {:else if lastCompletedPhase === 'qa'}
-          KS fullført
+          Kvalitetssikring fullført
         {/if}
       </span>
 

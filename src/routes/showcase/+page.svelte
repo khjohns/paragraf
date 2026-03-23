@@ -321,7 +321,7 @@
           <div class="mock-bar active">
             <div class="bar-main">
               <span class="bar-icon"><span class="pulse">◐</span></span>
-              <span class="bar-label">Kjører KS</span>
+              <span class="bar-label">Kvalitetssikring</span>
               <span class="bar-detail">Sjekker sitater</span>
               <span class="bar-spacer"></span>
               <span class="bar-time">1:03</span>
@@ -334,7 +334,7 @@
           <div class="mock-bar completed">
             <div class="bar-main">
               <span class="bar-icon"><span class="check">✓</span></span>
-              <span class="bar-label">KS fullført</span>
+              <span class="bar-label">Kvalitetssikring fullført</span>
               <span class="bar-summary">2 merknader · 1 sitatfeil · 1 motstrid</span>
               <span class="bar-spacer"></span>
               <span class="bar-time">1:15</span>
@@ -348,7 +348,7 @@
           <div class="mock-bar completed">
             <div class="bar-main">
               <span class="bar-icon"><span class="check">✓</span></span>
-              <span class="bar-label">KS fullført</span>
+              <span class="bar-label">Kvalitetssikring fullført</span>
               <span class="bar-summary">Ingen merknader</span>
               <span class="bar-spacer"></span>
               <span class="bar-time">0:58</span>

@@ -114,12 +114,12 @@
     {#if !uiState.activeProcessView}
       {#if uiState.viewMode === 'synthesis'}
         <span class="toolbar-sep"></span>
-        {#if pipelineState.synthesisResult}
-          <span class="prop-count">{pipelineState.synthesisResult.sections.length} seksjoner</span>
+        {#if pipelineState.synthesisResult || pipelineState.synthesisMarkdown}
           {#if pipelineState.qaReport}
-            <span class="toolbar-sep-dot">·</span>
             <span class="qa-flag-count" class:has-flags={pipelineState.qaReport.total_flags > 0}>
-              {pipelineState.qaReport.total_flags} QA-flagg
+              {pipelineState.qaReport.total_flags > 0
+                ? `${pipelineState.qaReport.total_flags} KS-merknader`
+                : 'KS ok'}
             </span>
           {/if}
         {:else}

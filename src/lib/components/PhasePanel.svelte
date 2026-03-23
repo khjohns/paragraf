@@ -247,9 +247,7 @@
       {#if s3Open}
         <div class="section-body">
           {#if pipelineState.synthesisMarkdown}
-            <div class="synth-done">
-              ✓ {pipelineState.synthesisResult?.sections.length ?? 0} seksjoner
-            </div>
+            <div class="synth-done">✓ Notat generert</div>
             <button class="link-btn" onclick={() => uiState.setPhase(3)}> Åpne syntese </button>
           {:else if section3State === 'active'}
             <div class="synth-active">Syntese pågår…</div>
@@ -259,7 +257,7 @@
 
           {#if pipelineState.qaReport}
             <div class="qa-row">
-              <span class="qa-label">QA</span>
+              <span class="qa-label">KS</span>
               {#if pipelineState.qaReport.total_flags > 0}
                 <span class="qa-flags">⚠ {pipelineState.qaReport.total_flags} merknader</span>
               {:else}
