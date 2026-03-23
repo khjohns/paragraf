@@ -16,6 +16,61 @@ export interface StreamProgressItem {
   turn?: number;
 }
 
+/**
+ * Normalize QA report from DB — older Opus reports use a flat structure
+ * (reference_issues, logic_flags, untreated_cases) while the current frontend
+ * expects nested structure (citation_verification, logical_consistency, coverage, total_flags).
+ */
+function normalizeQaReport(raw: Record<string, unknown>): QAReport {
+  // Already in new format
+  if ('total_flags' in raw && typeof raw.total_flags === 'number') {
+    return raw as unknown as QAReport;
+  }
+
+  // Old flat format → map to expected structure
+  const refIssues = (raw.reference_issues ?? []) as Array<Record<string, unknown>>;
+  const logicFlags = (raw.logic_flags ?? []) as Array<Record<string, unknown>>;
+  const untreated = (raw.untreated_cases ?? []) as Array<Record<string, unknown>>;
+  const overall = (raw.overall_assessment ?? '') as string;
+
+  const mapped: QAReport = {
+    citation_verification: {
+      verified_quotes: refIssues.map((r) => ({
+        sak_nr: r.sak_nr as string,
+        paragraph: r.paragraph as number,
+        quoted_text: '',
+        status: 'inaccurate' as const,
+        issue: r.description as string,
+      })),
+      summary: `${refIssues.length} referanseproblemer`,
+    },
+    logical_consistency: {
+      flags: logicFlags.map((f) => ({
+        type: (f.issue_type ?? 'missing_nuance') as 'missing_nuance',
+        location: (f.sak_nr ?? '') as string,
+        description: f.description as string,
+        severity: (f.severity ?? 'medium') as 'high' | 'medium' | 'low',
+        suggestion: (f.suggestion ?? '') as string,
+      })),
+      summary: `${logicFlags.length} logikkmerknader`,
+    },
+    coverage: {
+      untreated_cases: untreated.map((u) => ({
+        sak_nr: (u.sak_nr ?? '') as string,
+        category: (u.category ?? '') as string,
+        proposition: (u.proposition ?? '') as string,
+        justified_omission: (u.justified_omission ?? false) as boolean,
+        reason: (u.reason ?? overall) as string,
+      })),
+      summary: `${untreated.length} ubehandlede saker`,
+    },
+    total_flags:
+      refIssues.length + logicFlags.length + untreated.filter((u) => !u.justified_omission).length,
+  };
+
+  return mapped;
+}
+
 class PipelineState {
   // ── Propositions ──
   propositions = $state<Proposition[]>([]);
@@ -165,7 +220,8 @@ class PipelineState {
       }
       if (docs.qa_report) {
         try {
-          this.qaReport = JSON.parse(docs.qa_report.content);
+          const raw = JSON.parse(docs.qa_report.content);
+          this.qaReport = normalizeQaReport(raw);
         } catch {
           console.error('Corrupt QA report in DB — could not parse');
         }
