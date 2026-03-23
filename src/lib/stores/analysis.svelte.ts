@@ -310,9 +310,10 @@ class AnalysisState {
     // were run outside the normal pipeline flow
     pipelineState.reset();
     pipelineState.loadDocuments(data.id).then(() => {
-      // If documents exist but status is behind, advance it
-      if (pipelineState.qaReport && data.status !== 'complete') {
-        this.setStatus('complete');
+      // If documents exist but status is behind, advance to the right phase
+      // Never auto-set 'complete' — that's a user action
+      if (pipelineState.qaReport && !['qa', 'complete'].includes(data.status ?? '')) {
+        this.setStatus('qa');
       } else if (
         pipelineState.synthesisMarkdown &&
         !['synthesis', 'qa', 'complete'].includes(data.status ?? '')
