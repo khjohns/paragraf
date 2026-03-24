@@ -11,26 +11,26 @@ user-invocable: false
 
 ## Steg
 
-1. Opprett/oppdater analyse via MCP SQL
+1. Opprett/oppdater analyse via MCP SQL (INSERT/UPDATE — eneste MCP-bruk)
 2. Analyser problemstillingen med scoping-prompten (les `backend/scoping.py` linje 73-138)
-3. Verifiser bestemmelser mot lovdata_sections via MCP SQL:
-   `SELECT content, title FROM lovdata_sections WHERE dok_id = ? AND section_id = ? LIMIT 1`
-   Alias-mapping: `foa` → `forskrift/2016-08-12-974`, `loa` → `lov/2016-06-17-73` (se `backend/provisions.py`)
+3. Verifiser bestemmelser via CLI:
+   `bash scripts/pipeline-cli.sh verify-provision foa:16-11`
+   Returnerer verified=true/false + tittel + utdrag (500 tegn).
 4. Lagre scoping-resultat via MCP SQL: `UPDATE analyses SET refined_problem = ?, sub_problems = ?, context = ?, scoping_result = ?`
    (NB: kolonner er `problem`, `refined_problem`, `sub_problems`, `context` — IKKE `seeds` eller `problem_statement`)
-5. Kjør søk — tre typer via MCP SQL:
-   - Ref: `SELECT DISTINCT sak_nr FROM kofa_law_references WHERE law_section LIKE '<section_id>%'`
-     (LIKE med `%` for å fange ledd-varianter, f.eks. `16-11` matcher `16-11` OG `16-11 (1)`)
-     NB: `law_section` er UTEN `§`-prefix (bruk `16-11`, ikke `§ 16-11`)
-   - FTS: `SELECT * FROM search_kofa_decision_text(?, 30)`
-   - Vektor: `bash scripts/pipeline-cli.sh vector-search "<query>" 30` (hybrid Gemini-embedding + FTS)
-     Krever GOOGLE_API_KEY. Returnerer sak_nr med similarity-score.
-6. Hent metadata: `SELECT sak_nr, avgjoerelse, saken_gjelder, avsluttet FROM kofa_cases WHERE sak_nr = ANY(ARRAY[...])`
+5. Kjør søk — tre typer via CLI:
+   - Ref: `bash scripts/pipeline-cli.sh ref-search 16-11 50`
+     Bruker LIKE for ledd-varianter (16-11 matcher 16-11 OG 16-11 (1)).
+     NB: section_id er UTEN `§`-prefix.
+   - FTS: `bash scripts/pipeline-cli.sh fts-search "konsortium" 30`
+   - Vektor: `bash scripts/pipeline-cli.sh vector-search "<query>" 30`
+     Krever GOOGLE_API_KEY. Hybrid Gemini-embedding + FTS.
+6. Sammenslå unike sak_nr fra alle søk. Beregn signals og kategori:
+   - A = ref+fts+vector (3 signaltyper), B = 2 signaltyper, C = 1 signaltype
 7. Lagre kandidater via MCP SQL: `INSERT INTO analysis_candidates`
-   Kategori: A = ref+fts (begge signaltyper), B = ref eller fts (én signaltype med 2+ treff), C = enkelt treff
 8. Oppdater: `UPDATE analyses SET status = 'candidates_ready'`
 
-Merk: Søk krever MCP SQL (RPC-funksjoner). CLI brukes for verifisering og kontekst etterpå.
+Merk: CLI for all lesing, MCP SQL kun for skriving (INSERT/UPDATE).
 
 ## Prompt
 

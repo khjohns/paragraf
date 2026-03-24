@@ -18,6 +18,9 @@ Commands:
     qa-report <id>                  QA report JSON
     case-text <sak_nr> [section]    Case decision text (default: vurdering)
     paragraphs <sak_nr> <p1,p2,...> Specific paragraphs from a case
+    verify-provision <ref>          Verify provision in lovdata (e.g. foa:16-11)
+    ref-search <section_id> [max]   Search kofa_law_references (e.g. 16-11)
+    fts-search <term> [max]         Full-text search in KOFA decisions
     vector-search <query> [max]     Hybrid vector+FTS search (Gemini embeddings)
 """
 import json
@@ -322,6 +325,86 @@ def cmd_paragraphs(sak_nr: str, paragraph_nrs: str):
         print(f"({p['paragraph_number']}) {p['text']}")
 
 
+def cmd_verify_provision(ref: str):
+    """Verify a provision exists in lovdata_sections and return excerpt."""
+    from provisions import _ALIAS_TO_DOK_ID
+
+    parts = ref.split(":")
+    if len(parts) != 2:
+        print(f"<provision ref=\"{ref}\" verified=\"false\">Ugyldig format (bruk foa:16-11)</provision>")
+        return
+
+    alias, section_id = parts
+    dok_id = _ALIAS_TO_DOK_ID.get(alias, alias)
+
+    client = get_client()
+    result = (
+        client.table("lovdata_sections")
+        .select("content, title")
+        .eq("dok_id", dok_id)
+        .eq("section_id", section_id)
+        .limit(1)
+        .execute()
+    )
+    section = (result.data or [None])[0]
+    if section:
+        content = section.get("content", "")
+        if len(content) > 500:
+            content = content[:500] + "…"
+        title = section.get("title", "")
+        print(f"<provision ref=\"{ref}\" verified=\"true\" title=\"{title}\">")
+        print(content)
+        print("</provision>")
+    else:
+        print(f"<provision ref=\"{ref}\" verified=\"false\">Ikke funnet i lovdata_sections</provision>")
+
+
+def cmd_ref_search(section_id: str, max_results: str = "50"):
+    """Search kofa_law_references for cases referencing a provision."""
+    client = get_client()
+    rows = (
+        client.table("kofa_law_references")
+        .select("sak_nr, law_section, context")
+        .or_(f"law_section.eq.{section_id},law_section.like.{section_id} %")
+        .limit(int(max_results))
+        .execute()
+        .data
+    ) or []
+
+    seen = {}
+    for r in rows:
+        sak = r["sak_nr"]
+        if sak not in seen:
+            seen[sak] = []
+        seen[sak].append(r["law_section"])
+
+    print(f"<ref_search section=\"{section_id}\" cases=\"{len(seen)}\">")
+    for sak, refs in sorted(seen.items()):
+        print(f"  {sak} [{', '.join(refs)}]")
+    print("</ref_search>")
+
+
+def cmd_fts_search(term: str, max_results: str = "30"):
+    """Full-text search in KOFA decision text."""
+    client = get_client()
+    result = client.rpc(
+        "search_kofa_decision_text",
+        {"search_query": term, "max_results": int(max_results)},
+    ).execute()
+
+    rows = result.data or []
+    seen = {}
+    for r in rows:
+        sak = r.get("sak_nr", "?")
+        if sak not in seen:
+            seen[sak] = r.get("rank", 0)
+
+    print(f"<fts_search term=\"{term}\" cases=\"{len(seen)}\">")
+    for sak, rank in sorted(seen.items(), key=lambda x: -x[1]):
+        print(f"  {sak} (rank={rank:.4f})")
+    print("</fts_search>")
+
+
 def cmd_vector_search(query: str, max_results: str = "30"):
     """Vector+FTS hybrid search via Gemini embeddings."""
     from vector_seed import _generate_query_embedding
@@ -361,6 +444,9 @@ COMMANDS = {
     "qa-report": (cmd_qa_report, 1),
     "case-text": (cmd_case_text, 1),
     "paragraphs": (cmd_paragraphs, 2),
+    "verify-provision": (cmd_verify_provision, 1),
+    "ref-search": (cmd_ref_search, 1),
+    "fts-search": (cmd_fts_search, 1),
     "vector-search": (cmd_vector_search, 1),
 }
 
