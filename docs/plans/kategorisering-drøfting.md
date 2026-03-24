@@ -143,7 +143,36 @@ Minst tre alternativer:
 7. Hva er riktig triage-terskel med rikere signals? (f.eks. "kun vec=true, ingen ref/fts" → triage-kandidat)
 8. Skal `signal_strength` beregnes fra boolean-count eller fra array-lengder? (3 ref-treff > 1 ref-treff?)
 
-### Thinking-partner utfordringer å ta med videre:
+### Thinking-partner utfordringer (runde 1):
 - **Chesterton's Fence:** Hvem bruker mekanisk kategori etter screening? Hvis ingen → ikke lag to felter.
 - **Pre-mortem:** To kategori-felter forvirrer. Ett felt med rikere signals er enklere.
 - **Reframing:** Problemet er signalformat, ikke kategorisering. Fiks signals → resten løser seg.
+
+### Thinking-partner utfordringer (runde 2 — hardere press):
+
+**1. Overskrivning = informasjonsdestruksjon.**
+Tallene 100% A-presisjon og 63% B-presisjon kan KUN beregnes hvis begge kategorier finnes.
+Mekanisk kategori er ikke for runtime-brukere — den er for pipeline-kalibrering over tid.
+En sak funnet via kun FTS (mekanisk C) som viser seg A (innholdsbasert) forteller deg noe
+om søkestrategien. Du trenger konfusjonsmatrisen.
+
+**2. signal_strength (int 0-3) kollapser distinkte mønstre.**
+ref+fts er fundamentalt annerledes enn ref+vec (metodikken definerer spesifikke
+interseksjonsmønstre). Enkel telling mister dette. Vurder beregnet discovery-kategori
+fra signal-mønster i stedet for ren telling.
+
+**3. Signalformat og kategorisering er ortogonale problemer.**
+Å fikse signals løser granularitet og triage-input, men løser IKKE at én category-kolonne
+kollapser oppdagelse og vurdering. Begge må løses.
+
+### Alt D: "Ett synlig felt, to lagret" (ny favoritt)
+- `category` — frontend viser, alltid beste tilgjengelige (mekanisk → innholdsbasert)
+- `discovery_category` — beregnet fra signals, satt én gang, aldri overskrevet (pipeline-kalibrering)
+- `signals` — arrays med rik informasjon
+- Frontend viser KUN `category` — ingen brukerforvirring
+- `discovery_category` er backend/analytics-felt, aldri i UI
+
+**Åpent nøkkelspørsmål:** Er pipeline-kalibrering over tid noe vi faktisk vil gjøre,
+eller er det hypotetisk? Svaret avgjør om Alt B holder eller om Alt D trengs.
+Svar: JA — metodikken har allerede en "søkeeffektivitet per notat"-tabell som
+akkumulerer presisjon over analyser. Vi VIL kalibrere.
