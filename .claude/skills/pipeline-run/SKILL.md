@@ -37,7 +37,8 @@ allowed-tools: mcp__claude_ai_Supabase__execute_sql, Read, Agent, AskUserQuestio
 
 Etter hvert steg, vis kort oppsummering (antall funn/saker/seksjoner) og spør:
 - Etter provisions: «{N} bestemmelser kartlagt, {M} interaksjoner funnet. Fortsett?»
-- Etter screen: «{A} A-saker, {B} B, {stars} gullkandidater. Fortsett?»
+- Etter screen: «{A} kjernesaker, {B} støttesaker, {stars} gullkandidater. Fortsett?»
+- Etter screen: **Kjør `/pipeline-analyst <id> --oppdater-metrikker`** — logg metrikker og vis presisjon/recall. Flagg triage false negatives.
 - Etter qa: «{flags} funn ({high} alvorlige). Vil du at funnene fikses i notatet? [ja, alle high / ja, alle / nei]»
 
 ## Dry-run (--dry-run)
@@ -50,4 +51,4 @@ Kjør analyse, men erstatt INSERT/UPDATE med visning av SQL + resultat-JSON. Fla
 - **All skriving via CLI**: `bash scripts/pipeline-cli.sh save-* / update-status` — via stdin for JSON/content
 - Eneste unntak: `create-analysis` (opprett ny analyse)
 - Eksakt samme JSON-format som API-pipelinen
-- Screening: Haiku-triage for C-saker, Sonnet full-screening i parallelle batches
+- Screening: Haiku-triage for discovery_rank=1 saker (ADR-006), Sonnet full-screening i parallelle batches

@@ -24,7 +24,11 @@ bash scripts/pipeline-cli.sh paragraphs <sak_nr> 35,36,37
 
 ## Steg
 
-### Steg 0: Haiku-triage (kun C-saker)
+### Steg 0: Haiku-triage (discovery_rank=1 saker)
+
+ADR-006: Triage opererer på signals + metadata, ikke på A/B/C-kategori (som nå er null inntil screening).
+Saker med discovery_rank ≥ 2 hopper over triage og går rett til full screening.
+Saker med discovery_rank = 1 triages basert på signaltype + metadata.
 
 Dispatch Haiku-subagenter (model: haiku) i batches à 20-25 saker med denne prompten:
 
@@ -35,28 +39,35 @@ Du er en STRENG juridisk triage-assistent. Vurder om hver sak er relevant for de
 
 For HVER sak, svar BARE med: sak_nr | JA eller NEI | 1 setning
 
-## STRENGE regler
+## Regler
 
 En sak er KUN JA hvis BEGGE er oppfylt:
-1. Signalet (fts/ref/vector) indikerer gruppering/konsortium-tema
+1. Signalet (fts/ref/vec) indikerer relevans for problemstillingen
 2. OG sakens `saken_gjelder`-kategorier OGSÅ indikerer at temaet er relevant
 
 En sak er NEI hvis:
 - Signal er generisk FTS-term men saken gjelder noe ANNET enn problemstillingens kjerne
 - Signal er ref[§-nr] og saken gjelder ren kvalifikasjon/dokumentasjon/ettersending uten kobling til problemstillingen
-- Signal er vector-only (ingen FTS-bekreftelse)
-- Saken er avvist/ubegrunnet
+- Saken er avvist/ubegrunnet og sakens kategorier ikke indikerer relevans
 - Sakens kategorier (habilitet, frister, ulovlig direkte anskaffelse, verdiberegning, o.l.) tyder på et annet kjernespørsmål
 
-**Vær STRENG. Kun saker som SANNSYNLIGVIS har problemstillingens tema som KJERNESPØRSMÅL.**
+**VIKTIG om vec-only saker:**
+Vec-only (vektorsøk uten FTS/ref-bekreftelse) er IKKE automatisk NEI.
+Vec-only saker kan være den eneste veien inn for konseptuelle temaer der terminologien varierer.
+Vurder vec-only basert på similarity-score og `saken_gjelder`:
+- Vec sim ≥ 0.75 + tema-match i saken_gjelder → JA
+- Vec sim ≥ 0.70 + delvis tema-match → JA (forsiktig)
+- Vec sim < 0.70 uten tema-match → NEI
+
+**Vær STRENG på ref-only og fts-only uten tema-match, men FORSIKTIG med vec-only.**
 ```
 
-Input per sak: `sak_nr | signal: {type}[{value}] | {saken_gjelder} | {avgjoerelse}`
+Input per sak: `sak_nr | signal: {type}[{value}] sim:{score} | {saken_gjelder} | {avgjoerelse}`
 
 Hent metadata via CLI:
 ```bash
 bash scripts/pipeline-cli.sh triage <analysis_id>
-# Returnerer alle pending C-saker med signals + saken_gjelder + avgjoerelse
+# Returnerer alle pending rank-1 saker med signals + saken_gjelder + avgjoerelse
 ```
 
 NEI-saker: lagre via CLI:
@@ -65,7 +76,7 @@ echo '["2023/123","2023/456"]' | bash scripts/pipeline-cli.sh save-triage-reject
 ```
 JA-saker: fortsett til full screening (steg 1-4).
 
-A- og B-saker hopper over triage og går rett til full screening.
+Saker med discovery_rank ≥ 2 hopper over triage og går rett til full screening.
 
 ### Steg 1-4: Full Sonnet-screening
 
