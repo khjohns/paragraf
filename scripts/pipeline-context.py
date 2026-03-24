@@ -10,6 +10,7 @@ Usage:
 Commands:
     context <id>                    Analysis context (problem, seeds, status)
     candidates <id>                 All candidates with screening status
+    triage <id> [category]          Pending candidates with metadata for Haiku triage (default: C)
     screening <id> <sak_nr>         Full screening input for one case
     screening-results <id>          All screening results (capsule format)
     propositions <id>               Cross-propositions (if they exist)
@@ -88,6 +89,52 @@ def cmd_candidates(analysis_id: str):
         prop = s.get("proposition", "")
         print(f"  {r['sak_nr']} ({r.get('category', '?')}{star}) [{status}] {prop}")
     print("</candidates>")
+
+
+def cmd_triage(analysis_id: str, category: str = "C"):
+    """Triage input: pending candidates with metadata for Haiku pre-filter."""
+    client = get_client()
+    rows = (
+        client.table("analysis_candidates")
+        .select("sak_nr, category, signals")
+        .eq("analysis_id", analysis_id)
+        .eq("category", category.upper())
+        .eq("screening_status", "pending")
+        .order("sak_nr")
+        .execute()
+        .data
+    ) or []
+
+    if not rows:
+        print(f"<triage category=\"{category}\">Ingen pending kandidater</triage>")
+        return
+
+    # Batch-fetch case metadata
+    sak_nrs = [r["sak_nr"] for r in rows]
+    cases = (
+        client.table("kofa_cases")
+        .select("sak_nr, saken_gjelder, avgjoerelse")
+        .in_("sak_nr", sak_nrs)
+        .execute()
+        .data
+    ) or []
+    case_map = {c["sak_nr"]: c for c in cases}
+
+    print(f"<triage category=\"{category}\" count=\"{len(rows)}\">")
+    for r in rows:
+        c = case_map.get(r["sak_nr"], {})
+        signals = r.get("signals") or {}
+        sig_parts = []
+        for sig_type, vals in signals.items():
+            if sig_type == "vector":
+                sig_parts.append(f"vector[{max(vals):.3f}]")
+            else:
+                sig_parts.append(f"{sig_type}[{','.join(str(v) for v in vals)}]")
+        sig_str = "+".join(sig_parts) if sig_parts else "?"
+        saken = c.get("saken_gjelder") or "(ukjent)"
+        avgj = c.get("avgjoerelse") or "?"
+        print(f"  {r['sak_nr']} | signal: {sig_str} | {saken} | {avgj}")
+    print("</triage>")
 
 
 def cmd_screening(analysis_id: str, sak_nr: str):
@@ -306,6 +353,7 @@ def cmd_vector_search(query: str, max_results: str = "30"):
 COMMANDS = {
     "context": (cmd_context, 1),
     "candidates": (cmd_candidates, 1),
+    "triage": (cmd_triage, 1),
     "screening": (cmd_screening, 2),
     "screening-results": (cmd_screening_results, 1),
     "propositions": (cmd_propositions, 1),

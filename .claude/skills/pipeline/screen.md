@@ -53,12 +53,10 @@ En sak er NEI hvis:
 
 Input per sak: `sak_nr | signal: {type}[{value}] | {saken_gjelder} | {avgjoerelse}`
 
-Hent metadata via MCP SQL:
-```sql
-SELECT ac.sak_nr, ac.signals, c.saken_gjelder, c.avgjoerelse
-FROM analysis_candidates ac JOIN kofa_cases c ON c.sak_nr = ac.sak_nr
-WHERE ac.analysis_id = '<id>' AND ac.category = 'C' AND ac.screening_status = 'pending'
-ORDER BY ac.sak_nr;
+Hent metadata via CLI:
+```bash
+bash scripts/pipeline-cli.sh triage <analysis_id>
+# Returnerer alle pending C-saker med signals + saken_gjelder + avgjoerelse
 ```
 
 NEI-saker: `UPDATE SET screening_status = 'ai_screened', ai_screening = '{"triage": "rejected", "model": "haiku"}'`
