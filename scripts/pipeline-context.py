@@ -17,6 +17,7 @@ Commands:
     qa-report <id>                  QA report JSON
     case-text <sak_nr> [section]    Case decision text (default: vurdering)
     paragraphs <sak_nr> <p1,p2,...> Specific paragraphs from a case
+    vector-search <query> [max]     Hybrid vector+FTS search (Gemini embeddings)
 """
 import json
 import os
@@ -28,11 +29,11 @@ from db import get_client
 
 
 def cmd_context(analysis_id: str):
-    """Analysis context: problem, seeds, status, scoping result."""
+    """Analysis context: problem, scoping result, status."""
     client = get_client()
     row = (
         client.table("analyses")
-        .select("problem_statement, seeds, status, scoping_result, iteration")
+        .select("problem, refined_problem, sub_problems, context, status, scoping_result, iteration")
         .eq("id", analysis_id)
         .single()
         .execute()
@@ -42,21 +43,25 @@ def cmd_context(analysis_id: str):
         print("ERROR: Analyse ikke funnet", file=sys.stderr)
         sys.exit(1)
 
-    seeds = row.get("seeds") or {}
     scoping = row.get("scoping_result") or {}
-    sub_problems = scoping.get("sub_problems") or []
+    sub_problems = row.get("sub_problems") or scoping.get("sub_problems") or []
+    provisions = scoping.get("provisions") or []
+    search_strategy = scoping.get("search_strategy") or {}
 
     print(f"<analysis id=\"{analysis_id}\" status=\"{row.get('status')}\" iteration=\"{row.get('iteration', 1)}\">")
-    print(f"<problemstilling>{row.get('problem_statement', '')}</problemstilling>")
+    print(f"<problemstilling>{row.get('problem', '')}</problemstilling>")
+    if row.get("refined_problem"):
+        print(f"<presisert>{row['refined_problem']}</presisert>")
     if sub_problems:
         print("<delspørsmål>")
         for i, sp in enumerate(sub_problems, 1):
             print(f"  {i}. {sp}")
         print("</delspørsmål>")
-    if seeds.get("provisions"):
-        print(f"<bestemmelser>{', '.join(seeds['provisions'])}</bestemmelser>")
-    if seeds.get("ftsTerms"):
-        print(f"<søkeord>{', '.join(seeds['ftsTerms'])}</søkeord>")
+    if provisions:
+        refs = [p["ref"] for p in provisions if p.get("primary")]
+        print(f"<bestemmelser>{', '.join(refs)}</bestemmelser>")
+    if search_strategy.get("fts"):
+        print(f"<søkeord>{', '.join(search_strategy['fts'])}</søkeord>")
     print("</analysis>")
 
 
@@ -74,7 +79,7 @@ def cmd_candidates(analysis_id: str):
     ) or []
 
     screened = sum(1 for r in rows if r.get("ai_screening"))
-    stars = sum(1 for r in rows if r.get("ai_screening", {}).get("star"))
+    stars = sum(1 for r in rows if (r.get("ai_screening") or {}).get("star"))
     print(f"<candidates total=\"{len(rows)}\" screened=\"{screened}\" stars=\"{stars}\">")
     for r in rows:
         s = r.get("ai_screening") or {}
@@ -270,6 +275,34 @@ def cmd_paragraphs(sak_nr: str, paragraph_nrs: str):
         print(f"({p['paragraph_number']}) {p['text']}")
 
 
+def cmd_vector_search(query: str, max_results: str = "30"):
+    """Vector+FTS hybrid search via Gemini embeddings."""
+    from vector_seed import _generate_query_embedding
+
+    query_embedding = list(_generate_query_embedding(query))
+    client = get_client()
+    result = client.rpc(
+        "search_kofa_decision_hybrid",
+        {
+            "query_text": query,
+            "query_embedding": query_embedding,
+            "match_count": int(max_results),
+        },
+    ).execute()
+
+    rows = result.data or []
+    seen = {}
+    for r in rows:
+        sak = r["sak_nr"]
+        if sak not in seen or r.get("combined_score", 0) > seen[sak]["score"]:
+            seen[sak] = {"score": r.get("combined_score", 0), "sim": r.get("similarity", 0)}
+
+    print(f"<vector_search query=\"{query}\" results=\"{len(seen)}\">")
+    for sak, info in sorted(seen.items(), key=lambda x: -x[1]["score"]):
+        print(f"  {sak} (score={info['score']:.3f} sim={info['sim']:.3f})")
+    print("</vector_search>")
+
+
 COMMANDS = {
     "context": (cmd_context, 1),
     "candidates": (cmd_candidates, 1),
@@ -280,6 +313,7 @@ COMMANDS = {
     "qa-report": (cmd_qa_report, 1),
     "case-text": (cmd_case_text, 1),
     "paragraphs": (cmd_paragraphs, 2),
+    "vector-search": (cmd_vector_search, 1),
 }
 
 if __name__ == "__main__":
