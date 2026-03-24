@@ -13,21 +13,21 @@ user-invocable: false
 
 ```bash
 # Kontekst + avgjørelsestekst for én sak (ferdigformatert XML):
-python scripts/pipeline-context.py screening <analysis_id> <sak_nr>
+bash scripts/pipeline-cli.sh screening <analysis_id> <sak_nr>
 
 # Alle kandidater med status:
-python scripts/pipeline-context.py candidates <analysis_id>
+bash scripts/pipeline-cli.sh candidates <analysis_id>
 
 # Spesifikke avsnitt:
-python scripts/pipeline-context.py paragraphs <sak_nr> 35,36,37
+bash scripts/pipeline-cli.sh paragraphs <sak_nr> 35,36,37
 ```
 
 Backend-secrets kreves: kjør via `source scripts/dev-backend.sh` eller sett SUPABASE_URL/KEY.
 
 ## Steg
 
-1. Hent kandidater: `python scripts/pipeline-context.py candidates <id>` — finn uscreenede
-2. For hver sak: `python scripts/pipeline-context.py screening <id> <sak_nr>` — gir kontekst + tekst
+1. Hent kandidater: `bash scripts/pipeline-cli.sh candidates <id>` — finn uscreenede
+2. For hver sak: `bash scripts/pipeline-cli.sh screening <id> <sak_nr>` — gir kontekst + tekst
 3. Analyser med prompten under
 4. Lagre via MCP SQL: `UPDATE analysis_candidates SET ai_screening = ?, category = ?`
 5. Rapporter: `✓ {sak_nr} — {relevance} {star ? '★' : ''} — {proposition kort}`

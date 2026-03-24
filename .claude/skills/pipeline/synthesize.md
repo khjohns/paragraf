@@ -13,16 +13,16 @@ user-invocable: false
 
 ```bash
 # Analyse-kontekst:
-python scripts/pipeline-context.py context <analysis_id>
+bash scripts/pipeline-cli.sh context <analysis_id>
 
 # Alle screening-resultater (capsule-format):
-python scripts/pipeline-context.py screening-results <analysis_id>
+bash scripts/pipeline-cli.sh screening-results <analysis_id>
 
 # Rettssetninger (hvis finnes):
-python scripts/pipeline-context.py propositions <analysis_id>
+bash scripts/pipeline-cli.sh propositions <analysis_id>
 
 # Hent avsnitt ved behov under skriving:
-python scripts/pipeline-context.py paragraphs <sak_nr> 35,36,37
+bash scripts/pipeline-cli.sh paragraphs <sak_nr> 35,36,37
 ```
 
 ## Steg

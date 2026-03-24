@@ -23,7 +23,7 @@ user-invocable: false
      (LIKE med `%` for å fange ledd-varianter, f.eks. `16-11` matcher `16-11` OG `16-11 (1)`)
      NB: `law_section` er UTEN `§`-prefix (bruk `16-11`, ikke `§ 16-11`)
    - FTS: `SELECT * FROM search_kofa_decision_text(?, 30)`
-   - Vektor: `python scripts/pipeline-context.py vector-search "<query>" 30` (hybrid Gemini-embedding + FTS)
+   - Vektor: `bash scripts/pipeline-cli.sh vector-search "<query>" 30` (hybrid Gemini-embedding + FTS)
      Krever GOOGLE_API_KEY. Returnerer sak_nr med similarity-score.
 6. Hent metadata: `SELECT sak_nr, avgjoerelse, saken_gjelder, avsluttet FROM kofa_cases WHERE sak_nr = ANY(ARRAY[...])`
 7. Lagre kandidater via MCP SQL: `INSERT INTO analysis_candidates`

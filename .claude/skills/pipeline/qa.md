@@ -13,13 +13,13 @@ user-invocable: false
 
 ```bash
 # Notat:
-python scripts/pipeline-context.py note <analysis_id>
+bash scripts/pipeline-cli.sh note <analysis_id>
 
 # Kandidat-oversikt:
-python scripts/pipeline-context.py candidates <analysis_id>
+bash scripts/pipeline-cli.sh candidates <analysis_id>
 
 # Verifiser avsnitt:
-python scripts/pipeline-context.py paragraphs <sak_nr> 35,36,37
+bash scripts/pipeline-cli.sh paragraphs <sak_nr> 35,36,37
 ```
 
 ## Steg

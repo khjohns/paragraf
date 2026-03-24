@@ -13,10 +13,10 @@ user-invocable: false
 
 ```bash
 # Alle screening-resultater (ferdigformatert XML med rettssetninger, sitater):
-python scripts/pipeline-context.py screening-results <analysis_id>
+bash scripts/pipeline-cli.sh screening-results <analysis_id>
 
 # Analyse-kontekst:
-python scripts/pipeline-context.py context <analysis_id>
+bash scripts/pipeline-cli.sh context <analysis_id>
 ```
 
 ## Steg

@@ -30,9 +30,9 @@ Din oppgave:
 3. Send revidert notat tilbake til KS-agenten etter hver revisjon
 
 Hent data via CLI (token-effektivt):
-- Kontekst: python scripts/pipeline-context.py context {analysis_id}
-- Screening: python scripts/pipeline-context.py screening-results {analysis_id}
-- Avsnitt: python scripts/pipeline-context.py paragraphs <sak_nr> 35,36,37
+- Kontekst: bash scripts/pipeline-cli.sh context {analysis_id}
+- Screening: bash scripts/pipeline-cli.sh screening-results {analysis_id}
+- Avsnitt: bash scripts/pipeline-cli.sh paragraphs <sak_nr> 35,36,37
 
 Bruk eksakt syntese-prompt fra backend/synthesis.py (SYNTHESIS_SYSTEM_PROMPT, linje 99-158).
 
@@ -56,9 +56,9 @@ Din oppgave:
 5. Vurder synth-agentens revisjoner — er innvendingene adressert?
 
 Hent data via CLI (token-effektivt):
-- Kandidater: python scripts/pipeline-context.py candidates {analysis_id}
-- Avsnitt: python scripts/pipeline-context.py paragraphs <sak_nr> 35,36,37
-- Notat (for revisjon): python scripts/pipeline-context.py note {analysis_id}
+- Kandidater: bash scripts/pipeline-cli.sh candidates {analysis_id}
+- Avsnitt: bash scripts/pipeline-cli.sh paragraphs <sak_nr> 35,36,37
+- Notat (for revisjon): bash scripts/pipeline-cli.sh note {analysis_id}
 
 Bruk KS-prompt fra backend/qa.py (COMBINED_QA_SYSTEM_PROMPT, linje ~620-670).
 

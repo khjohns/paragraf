@@ -13,10 +13,10 @@ user-invocable: false
 
 ```bash
 # Screening-resultater med sitater:
-python scripts/pipeline-context.py screening-results <analysis_id>
+bash scripts/pipeline-cli.sh screening-results <analysis_id>
 
 # Hent originalavsnitt for verifisering:
-python scripts/pipeline-context.py paragraphs <sak_nr> 35,36,37
+bash scripts/pipeline-cli.sh paragraphs <sak_nr> 35,36,37
 ```
 
 ## Steg
