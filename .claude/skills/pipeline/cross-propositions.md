@@ -6,134 +6,27 @@ user-invocable: false
 
 # Cross-Propositions — Subagent
 
-Analyser rettssetninger tverrgående: grupper tematisk, spor utvikling, identifiser spenninger.
-
 ## Input
-
-Du mottar: `analysis_id`
+`analysis_id`
 
 ## Steg
 
-### 1. Hent analyse-kontekst
+1. Hent kontekst fra `analyses` (problem_statement, scoping_result.sub_problems)
+2. Hent screenede saker: `analysis_candidates WHERE ai_screening IS NOT NULL` — ekstraher proposition, factum, assessment, quotes, nuances per sak
+3. Analyser med prompten under
+4. Lagre rettssetninger: `INSERT INTO analysis_propositions` (per proposition)
+5. Lagre komplett resultat: `INSERT INTO analysis_documents (doc_type='cross_propositions')`
 
-```sql
-SELECT problem_statement, seeds, scoping_result
-FROM analyses WHERE id = '{analysis_id}';
-```
+## Prompt
 
-### 2. Hent alle screenede kandidater
+Bruk eksakt system-prompt fra `backend/cross_propositions.py` (CROSS_PROPOSITIONS_SYSTEM_PROMPT, linje 89-139). Les filen.
 
-```sql
-SELECT sak_nr, category, ai_screening
-FROM analysis_candidates
-WHERE analysis_id = '{analysis_id}'
-  AND ai_screening IS NOT NULL
-ORDER BY category, sak_nr;
-```
+User-melding: XML-formaterte `<case>`-elementer per sak (sak_nr, category, rettssetning, faktum, vurdering, sitater, nyanser) + analysis_context med problemstilling og delspørsmål.
 
-### 3. Analyser med følgende prompt
+Se `backend/cross_propositions.py` linje 182-204 for eksakt format.
 
-Bygg input fra kandidatene — for hver sak:
+## Output-format
+JSON: `{propositions: [{id, theme, proposition, instances: [{caseId, paragraph, date, evolution, quote, suggested}], tension?}], themes: [string]}`
 
-```xml
-<case sak_nr="{sak_nr}" category="{category}" relevance="{ai_screening.relevance}">
-  <rettssetning>{ai_screening.proposition}</rettssetning>
-  <faktum>{ai_screening.factum}</faktum>
-  <vurdering>{ai_screening.assessment}</vurdering>
-  <sitater>
-    [{q.p}] «{q.text}»
-    ...
-  </sitater>
-  <nyanser>{ai_screening.nuances}</nyanser>
-</case>
-```
-
-<system-prompt>
-Du er en spesialisert juridisk forskningsassistent for norsk anskaffelsesrett. Du analyserer rettssetninger på tvers av KOFA-avgjørelser for å identifisere mønstre, utvikling og spenninger.
-
-<instructions>
-<role>
-Du mottar rettssetninger og nøkkelsitater fra screening av KOFA-avgjørelser, sammen med juristens problemstilling. Din oppgave er å organisere disse tverrgående — finne mønstre, spore utvikling og avdekke spenninger.
-</role>
-
-<task name="propositions">
-Formuler tverrgående rettssetninger basert på de individuelle rettssetningene fra screeningen. For hver rettssetning:
-
-1. **Tema**: Grupper relaterte rettssetninger under et kort, beskrivende tema.
-2. **Rettssetning**: Formuler en presis, gjenbrukbar rettssetning som syntetiserer innsikten fra flere saker. Én til to setninger.
-3. **Forekomster (instances)**: List sakene som underbygger rettssetningen, med:
-   - caseId: saksnummer
-   - paragraph: avsnittsnummer for det mest relevante sitatet
-   - date: avgjørelsesdato (YYYY-MM-DD format)
-   - evolution: klassifiser forekomsten:
-     * established: Første gang prinsippet formuleres
-     * confirmed: Bekrefter et allerede etablert prinsipp
-     * qualified: Presiserer eller nyanserer prinsippet
-     * consolidating: Konsoliderer en etablert rettsoppfatning
-   - quote: Ordrett sitat fra avgjørelsen som underbygger rettssetningen
-   - suggested: true hvis denne koblingen er en AI-vurdering (ikke eksplisitt i teksten)
-4. **Spenninger (tension)**: Identifiser spenninger mellom rettssetninger — der to prinsipper trekker i ulik retning. Bruk withId for å referere til ID-en til den andre rettssetningen, og note for å beskrive spenningen.
-</task>
-
-<task name="themes">
-List alle temaer i logisk rekkefølge — fra kjernespørsmål til perifere emner.
-</task>
-</instructions>
-
-<formatting_rules>
-- Skriv alltid på norsk (bokmål)
-- Rettssetninger skal være presise og formelle — de skal kunne brukes direkte i en juridisk analyse
-- Sitater skal være ordrett fra kildematerialet
-- Forekomster sorteres kronologisk innenfor hver rettssetning
-- Spenninger er like viktige som konsistens — jobb hardt for å finne dem
-- Bruk 'established' sparsomt — kun for den tidligste formuleringen av et prinsipp
-- Merk forekomster som 'suggested: true' når koblingen er en tolkning, ikke en eksplisitt referanse i teksten
-</formatting_rules>
-</system-prompt>
-
-User-melding:
-
-```
-<screened_cases>
-{alle case-elementer}
-</screened_cases>
-
-<analysis_context>
-<problemstilling>{problem_statement}</problemstilling>
-<delspørsmål>
-{sub_problems nummerert}
-</delspørsmål>
-</analysis_context>
-
-Analyser rettssetningene tverrgående. Grupper tematisk, spor utvikling over tid, og identifiser spenninger mellom rettssetninger.
-```
-
-### 4. Lagre resultat
-
-Output skal være JSON med `propositions` (array) og `themes` (array).
-
-Lagre hver proposition til DB:
-
-```sql
-INSERT INTO analysis_propositions (analysis_id, proposition_text, theme, source_case, source_paragraph, evolution_type, source, confirmed)
-VALUES ('{analysis_id}', '{proposition}', '{theme}', '{first_instance.caseId}', {first_instance.paragraph}, '{first_instance.evolution}', 'ai_cross', false)
-ON CONFLICT (analysis_id, source_case, source) DO UPDATE
-SET proposition_text = EXCLUDED.proposition_text, theme = EXCLUDED.theme;
-```
-
-Lagre også komplett resultat som dokument:
-
-```sql
-INSERT INTO analysis_documents (analysis_id, doc_type, content, version)
-VALUES ('{analysis_id}', 'cross_propositions', '{full_result_json}', 1)
-ON CONFLICT (analysis_id, doc_type) DO UPDATE SET content = EXCLUDED.content;
-```
-
-
-## Tørrkjøring (dry-run)
-
-Hvis orchestratoren sender dry-run-flagg:
-- Kjør all analyse som normalt (les fra DB, generer resultater)
-- **Ikke kjør INSERT/UPDATE** — vis SQL og resultat-JSON til brukeren i stedet
-- Marker output med `[DRY RUN]` prefix
-- SELECT-spørringer kjøres normalt (lesing er alltid OK)
+## Dry-run
+Vis resultat-JSON uten å skrive til DB.

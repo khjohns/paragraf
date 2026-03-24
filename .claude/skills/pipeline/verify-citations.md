@@ -6,115 +6,25 @@ user-invocable: false
 
 # Sitatverifisering — Subagent
 
-Verifiser at sitater fra screening er korrekt gjengitt ved å slå opp originalavsnittene.
-
 ## Input
-
-Du mottar: `analysis_id`
+`analysis_id`
 
 ## Steg
 
-### 1. Hent alle screenede saker med sitater
+1. Hent screenede saker med sitater: `analysis_candidates WHERE ai_screening->'quotes' IS NOT NULL`
+2. For hver sak — hent originalavsnittene: `kofa_decision_text WHERE sak_nr = ? AND paragraph_number IN (?)`
+3. Verifiser hvert sitat mot kildeteksten med prompten under
+4. Lagre: oppdater `ai_screening` med `quote_verification`-array per sak
+5. Oppdater `analyses.citation_summary` med teller
 
-```sql
-SELECT sak_nr, ai_screening
-FROM analysis_candidates
-WHERE analysis_id = '{analysis_id}'
-  AND ai_screening IS NOT NULL
-  AND ai_screening->'quotes' IS NOT NULL
-ORDER BY category, sak_nr;
-```
+## Prompt
 
-### 2. For hver sak — hent originalavsnittene
+Bruk eksakt system-prompt fra `backend/qa.py` (CITATION_QA_SYSTEM_PROMPT, linje 164-178). Les filen.
 
-Ekstraher avsnittsnumre fra `ai_screening.quotes[].p`, deretter:
+User-melding per batch (3-5 saker): kildetekst + sitater å verifisere.
 
-```sql
-SELECT paragraph_number, text FROM kofa_decision_text
-WHERE sak_nr = '{sak_nr}'
-  AND paragraph_number IN ({avsnittsnumre})
-ORDER BY paragraph_number;
-```
+## Output per sitat
+`{sak_nr, paragraph, status: verified|truncated|inaccurate|not_found, issue: string|null}`
 
-### 3. Verifiser med følgende prompt
-
-For hver sak, bygg en verifiseringsmelding med originalavsnittene og sitatene.
-
-<system-prompt>
-Du er en juridisk kvalitetssikrer. Din oppgave er å verifisere sitater fra KOFA-avgjørelser.
-
-<instructions>
-Du mottar sitater fra en rettslig analyse sammen med originalteksten de er hentet fra. For hvert sitat, vurder:
-- **verified**: Sitatet er korrekt gjengitt
-- **truncated**: Sitatet er trunkert på en måte som fjerner kvalifikasjoner
-- **inaccurate**: Sitatet avviker vesentlig fra originalteksten
-- **not_found**: Sitatet finnes ikke i den oppgitte teksten
-
-Trunkering som fjerner «men»/«under forutsetning av»/«med mindre» er særlig problematisk og skal flagges.
-</instructions>
-</system-prompt>
-
-User-melding per sak (eller batch med 3-5 saker):
-
-```
-<kildetekst sak_nr="{sak_nr}">
-({paragraph_number}) {text}
-...
-</kildetekst>
-
-<sitater_å_verifisere>
-- {sak_nr} §{p}: «{quote_text}»
-...
-</sitater_å_verifisere>
-
-Verifiser hvert sitat mot kildeteksten. For hvert sitat, angi status (verified/truncated/inaccurate/not_found) og beskriv eventuelle problemer.
-```
-
-### 4. Lagre resultater
-
-For hvert verifisert sitat, oppdater screening-resultatet med verifiseringsstatus.
-Bygg `quote_verification`-array og merge inn i `ai_screening`:
-
-```sql
-UPDATE analysis_candidates
-SET ai_screening = ai_screening || jsonb_build_object(
-  'quote_verification',
-  '{verification_array}'::jsonb
-)
-WHERE analysis_id = '{analysis_id}' AND sak_nr = '{sak_nr}';
-```
-
-Verifiserings-array format:
-```json
-[
-  {"sak_nr": "2024/408", "paragraph": 51, "status": "verified", "issue": null},
-  {"sak_nr": "2024/408", "paragraph": 54, "status": "truncated", "issue": "Sitatet utelater kvalifikasjonen «under forutsetning av at...»"}
-]
-```
-
-### 5. Oppdater oppsummering på analysen
-
-Tell opp resultater og lagre oppsummering:
-
-```sql
-UPDATE analyses
-SET citation_summary = '{summary_json}'::jsonb
-WHERE id = '{analysis_id}';
-```
-
-Summary format: `{"verified": N, "truncated": N, "inaccurate": N, "not_found": N}`
-
-### 6. Rapporter
-
-Oppsummer: `✓ {verified} verifisert · ⚠ {truncated} trunkert · ✗ {inaccurate + not_found} feil`
-
-List opp alle ikke-verifiserte sitater med beskrivelse.
-
-
-## Tørrkjøring (dry-run)
-
-Hvis orchestratoren sender dry-run-flagg:
-- Kjør all analyse som normalt (les fra DB, generer resultater)
-- **Ikke kjør INSERT/UPDATE** — vis SQL og resultat-JSON til brukeren i stedet
-- Marker output med `[DRY RUN]` prefix
-- SELECT-spørringer kjøres normalt (lesing er alltid OK)
+## Dry-run
+Vis verifiseringsresultater uten å oppdatere `ai_screening`.
