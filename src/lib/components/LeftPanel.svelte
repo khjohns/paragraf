@@ -92,10 +92,9 @@
     <!-- 3. Resultater -->
     <LeftPanelSection num="3" title="Resultater" subtitle="{counts.total} treff" defaultOpen>
       <div class="results-content">
-        {#each [{ cat: 'A' as const, desc: 'Sentral for problemstillingen', count: counts.A }, { cat: 'B' as const, desc: 'Supplerer eller nyanserer', count: counts.B }, { cat: 'C' as const, desc: 'Gir kontekst eller avgrensning', count: counts.C }] as item}
+        {#each [{ cat: 'A' as const, count: counts.A }, { cat: 'B' as const, count: counts.B }, { cat: 'C' as const, count: counts.C }] as item}
           <div class="result-row">
             <CategoryBadge category={item.cat} />
-            <span class="result-desc">{item.desc}</span>
             <span class="result-count">{item.count}</span>
           </div>
         {/each}
@@ -172,7 +171,7 @@
           <div class="mapping-label">Lesestatus</div>
           {#each [{ cat: 'A' as const, total: counts.A, read: readCounts.A }, { cat: 'B' as const, total: counts.B, read: readCounts.B }, { cat: 'C' as const, total: counts.C, read: readCounts.C }] as item}
             <div class="progress-row">
-              <CategoryBadge category={item.cat} small />
+              <CategoryBadge category={item.cat} />
               <div class="progress-bar">
                 <div
                   class="progress-fill"
@@ -369,11 +368,6 @@
     border-radius: var(--radius-md);
     background: var(--p-surface);
     border: 1px solid var(--p-border);
-  }
-  .result-desc {
-    font-size: 12px;
-    color: var(--p-ink2);
-    flex: 1;
   }
   .result-count {
     font-size: 13px;

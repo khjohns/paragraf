@@ -161,17 +161,17 @@
             <span class="results-label">kandidater funnet</span>
             <div class="results-cats">
               <span title="Kjernesak: Sentral for problemstillingen"
-                ><CategoryBadge category="A" small /><span class="cat-num"
+                ><CategoryBadge category="A" compact /><span class="cat-num"
                   >{analysisState.catCounts.A}</span
                 ></span
               >
               <span title="Støttesak: Supplerer eller nyanserer"
-                ><CategoryBadge category="B" small /><span class="cat-num"
+                ><CategoryBadge category="B" compact /><span class="cat-num"
                   >{analysisState.catCounts.B}</span
                 ></span
               >
               <span title="Kontekstsak: Gir kontekst eller avgrensning"
-                ><CategoryBadge category="C" small /><span class="cat-num"
+                ><CategoryBadge category="C" compact /><span class="cat-num"
                   >{analysisState.catCounts.C}</span
                 ></span
               >

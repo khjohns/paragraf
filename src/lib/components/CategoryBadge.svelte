@@ -2,13 +2,13 @@
   import type { Category } from '$lib/types/graph';
   import { CATEGORY_LABELS } from '$lib/types/analysis';
 
-  let { category, small = false }: { category: Category; small?: boolean } = $props();
+  let { category, compact = false }: { category: Category; compact?: boolean } = $props();
 
   let label = $derived(CATEGORY_LABELS[category]);
 </script>
 
-<span class="badge cat-{category.toLowerCase()}" class:small title="{category}: {label}"
-  >{small ? category : label}</span
+<span class="badge cat-{category.toLowerCase()}" class:compact title={label}
+  >{compact ? label.slice(0, 3) + '.' : label}</span
 >
 
 <style>
@@ -20,13 +20,13 @@
     border-radius: var(--radius-badge);
     font-size: 10px;
     font-weight: 600;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.02em;
     font-family: var(--font-data);
     flex-shrink: 0;
   }
-  .badge.small {
+  .badge.compact {
     padding: 1px 4px;
-    font-size: 10px;
+    font-size: 9px;
   }
   .cat-a {
     background: rgba(26, 24, 20, 0.08);

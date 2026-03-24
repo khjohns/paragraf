@@ -175,9 +175,6 @@
       <div class="row-content">
         <div class="row-line1">
           <span class="node-label">{node.label}</span>
-          {#if node.category}
-            <CategoryBadge category={node.category} small />
-          {/if}
           {#if node.signals}
             <span class="signal-dots" title="R: Referanse  F: Fulltekst  V: Vektor">
               <span class="dot" class:on={hasSignal(node.signals.ref)} title="R: Referansetabell"
@@ -214,8 +211,11 @@
           {/if}
           <span class="subtitle">{node.subtitle}</span>
         </div>
-        {#if node.date || node.outcome || node.citations > 0 || node.directive || valenceEntries.length > 0}
+        {#if node.category || node.date || node.outcome || node.citations > 0 || node.directive || valenceEntries.length > 0}
           <div class="row-line2">
+            {#if node.category}
+              <CategoryBadge category={node.category} />
+            {/if}
             {#if node.date}<span>{node.date}</span>{/if}
             {#if node.outcome}
               <span

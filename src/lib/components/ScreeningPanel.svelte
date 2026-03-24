@@ -88,7 +88,7 @@
     {#if count > 0}
       <div class="cat-block">
         <div class="cat-info">
-          <CategoryBadge category={cat as 'A' | 'B' | 'C'} small />
+          <CategoryBadge category={cat as 'A' | 'B' | 'C'} />
           <div class="progress-bar">
             <div
               class="progress-fill"
