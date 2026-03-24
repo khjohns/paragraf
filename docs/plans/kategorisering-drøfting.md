@@ -70,21 +70,31 @@ Bruk `/thinking-partner`-skill for å utfordre antakelser og teste designalterna
 - Identifiser hva som fungerer og hva som mangler
 
 ### Steg 3: Formuler designalternativer
-Minst tre:
 
-**Alt A: To felter, rikere signals**
+**Innsikt fra thinking-partner-analyse:**
+Mekanisk kategori er en *prediksjon*, innholdsbasert er en *vurdering*. Etter screening trenger ingen mekanisk kategori. Det egentlige problemet er ikke A/B/C-kategorisering, men at boolean signals mister informasjonen triage og prioritering trenger.
+
+Minst tre alternativer:
+
+**Alt A: To felter, rikere signals** (opprinnelig forslag)
 - `signal_category` (A/B/C) — mekanisk, beregnet fra signals
 - `relevance` (A/B/C) — innholdsbasert, satt av screening
 - Signals tilbake til arrays: `{ref: ["16-11"], fts: ["konsortium"], vec: [0.78]}`
-- Mekanisk kategori beregnes fra interseksjon (primær ∩ sekundær ∩ FTS)
+- ⚠️ Risiko: to kategori-felter forvirrer frontend og utviklere
 
-**Alt B: To felter, boolean signals**
-- Som Alt A, men signals forblir boolean `{ref, fts, vec}`
-- Mekanisk kategori basert på antall signaltyper (enklere, mindre presist)
+**Alt B: Ett felt, rikere signals** (thinking-partner-alternativ)
+- `category` forblir ett felt — starter mekanisk, overskrives av screening
+- `signals` tilbake til arrays (rik informasjon bevart for etterprøving)
+- Nytt: `signal_strength` (int, 0-3) — antall signaltyper, for sortering/triage
+- Triage opererer på `signals` + metadata, ikke kategori
+- Screening-prioritering bruker `signal_strength`
+- Frontend viser alltid `category` (beste tilgjengelige vurdering)
+- ✅ Enklere: ett felt, ingen forvirring, rik signal-historikk
 
-**Alt C: Ett felt, to faser**
-- `category` starter mekanisk, overskrives av screening til innholdsbasert
-- Enklere, men mister mekanisk informasjon
+**Alt C: Boolean signals, én kategori** (nåværende)
+- `category` ett felt, `signals` boolean `{ref, fts, vec}`
+- ⚠️ Mister granularitet: kan ikke skille primær/sekundær bestemmelse
+- ⚠️ Ingen C-saker → triage meningsløs
 
 ### Steg 4: Vurder mot bruksscenarier
 - **Triage:** Hvilken informasjon trenger Haiku for å filtrere?
@@ -119,10 +129,21 @@ Minst tre:
 ## Avhengigheter
 - Bør gjøres FØR API-pipeline-forbedringer implementeres
 
-## Nøkkelspørsmål å utfordre (thinking-partner)
-1. Er boolean signals riktig? Metodikken bruker interseksjon av *spesifikke* bestemmelser — boolean mister dette
-2. Bør mekanisk kategori være A/B/C eller en numerisk score?
-3. Gir det mening med triage når alle kandidater har minst 1 signal?
-4. Skal innholdsbasert relevans overskrive mekanisk, eller leve ved siden av?
-5. Hva skjer med frontend-UX når bruker ser to ulike kategorier for samme sak?
-6. Er interseksjon av primær ∩ sekundær bestemmelse realistisk for alle problemstillinger, eller er det spesifikt for § 16-10-type spørsmål?
+## Nøkkelspørsmål (oppdatert etter thinking-partner)
+
+### Besvart:
+1. ~~Er boolean signals riktig?~~ → **Nei.** Mister granularitet. Arrays bevarer hvilke bestemmelser/termer som traff.
+2. ~~Bør mekanisk kategori være A/B/C eller numerisk?~~ → **Trolig `signal_strength` (int 0-3)** — enklere, brukes kun for sortering.
+3. ~~Gir triage mening når alle har minst 1 signal?~~ → **Ja, men triage bør operere på signals+metadata, ikke kategori.**
+4. ~~Skal innholdsbasert overskrive mekanisk?~~ → **Ja.** Mekanisk er scaffolding. Etter screening er den utdatert.
+
+### Gjenstår:
+5. Frontend-UX: Bør `signal_strength` vises i tillegg til `category`? Eller kun som sorteringskriterium?
+6. Er interseksjon av primær ∩ sekundær bestemmelse realistisk for alle problemstillinger?
+7. Hva er riktig triage-terskel med rikere signals? (f.eks. "kun vec=true, ingen ref/fts" → triage-kandidat)
+8. Skal `signal_strength` beregnes fra boolean-count eller fra array-lengder? (3 ref-treff > 1 ref-treff?)
+
+### Thinking-partner utfordringer å ta med videre:
+- **Chesterton's Fence:** Hvem bruker mekanisk kategori etter screening? Hvis ingen → ikke lag to felter.
+- **Pre-mortem:** To kategori-felter forvirrer. Ett felt med rikere signals er enklere.
+- **Reframing:** Problemet er signalformat, ikke kategorisering. Fiks signals → resten løser seg.
