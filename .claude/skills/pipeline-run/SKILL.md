@@ -9,7 +9,7 @@ allowed-tools: mcp__claude_ai_Supabase__execute_sql, Read, Agent, AskUserQuestio
 
 **Argumenter:** $ARGUMENTS — første=analyse-id (eller "ny"), andre=steg, `--dry-run` for tørrkjøring.
 
-**Steg:** `scope` · `screen` · `verify` · `cross` · `synthesize` · `qa` · `all` · `from:<steg>`
+**Steg:** `scope` · `screen` · `verify` · `cross` · `synthesize` · `qa` · `adversarial-qa` · `all` · `from:<steg>`
 
 **Full rekkefølge:** scope → screen → verify → cross → synthesize → qa
 
@@ -28,6 +28,9 @@ allowed-tools: mcp__claude_ai_Supabase__execute_sql, Read, Agent, AskUserQuestio
 | cross | `pipeline/cross-propositions.md` | `post_search` |
 | synthesize | `pipeline/synthesize.md` | `synthesis` |
 | qa | `pipeline/qa.md` (med iterativ revisjon) | `qa` |
+| adversarial-qa | `pipeline/adversarial-qa.md` (agent teams) | `qa` |
+
+`adversarial-qa` erstatter `synthesize` + `qa` med en agent teams-variant der synth-agent og ks-agent diskuterer notatet i sanntid. Krever `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`.
 
 ## Sjekkpunkter
 
