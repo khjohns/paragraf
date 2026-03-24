@@ -41,9 +41,11 @@ Minst tre:
 - **Ettersøk/gap:** Brukes kategori for å identifisere hull?
 
 ### Steg 5: Valider mot historiske data
-- Kjør valgt modell mot de 4 analysene som er gjennomført
+- Historiske analyser er i `~/Projects/Catenda/kofa/docs/research/` (markdown, ikke DB)
+- Parse kandidatlister og screening-resultater fra markdown-filer
 - Sammenlign mekanisk vs innholdsbasert kategori — bekrefter vi 100%/63% presisjon?
 - Sjekk om C-saker som ble innholdsmessig A ville blitt triaged out
+- Kan også validere mot test-run analyse `8c2c8b4d` (denne er i DB)
 
 ### Steg 6: ADR + implementeringsplan
 - Skriv ADR-006 med beslutning og begrunnelse
@@ -52,9 +54,14 @@ Minst tre:
 ## Hvem gjør hva
 - Steg 1-2: Kan gjøres av Claude med DB-tilgang og fillesing
 - Steg 3-4: Drøftes med bruker (sjekkpunkt)
-- Steg 5: Claude med DB-tilgang
+- Steg 5: Claude med tilgang til `~/Projects/Catenda/kofa` + Supabase
 - Steg 6: Claude skriver, bruker godkjenner
 
+## Datakilder
+- **Historiske analyser:** `~/Projects/Catenda/kofa/docs/research/` — markdown (kandidatlister, screening, notater)
+- **Metodikk:** `~/Projects/Catenda/kofa/docs/design/metode-rettslig-analyse.md` (kilde til sannhet, kopiert til dette repo)
+- **Test-run:** Supabase DB analyse `8c2c8b4d-e13c-46d8-9fde-712303f18801`
+- **Frontend/backend:** dette repo
+
 ## Avhengigheter
-- Krever tilgang til historiske analyser i DB for validering
 - Bør gjøres FØR API-pipeline-forbedringer implementeres
