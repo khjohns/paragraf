@@ -634,7 +634,23 @@ def cmd_save_scoping(analysis_id: str):
         update["context"] = data["context"]
 
     client.table("analyses").update(update).eq("id", analysis_id).execute()
-    print(f"✓ scoping lagret ({len(data.get('provisions', []))} bestemmelser)")
+
+    # Also populate analysis_seeds (required by frontend for traversal/graph)
+    seeds = []
+    for p in data.get("provisions", []):
+        if p.get("primary") and p.get("ref"):
+            seeds.append({"analysis_id": analysis_id, "seed_type": "provision", "value": p["ref"],
+                          "iteration": 1, "source": "ai_suggested", "confirmed": True})
+    for term in (data.get("search_strategy") or {}).get("fts", []):
+        seeds.append({"analysis_id": analysis_id, "seed_type": "fts", "value": term,
+                      "iteration": 1, "source": "ai_suggested", "confirmed": True})
+    for query in (data.get("search_strategy") or {}).get("vector", []):
+        seeds.append({"analysis_id": analysis_id, "seed_type": "vector", "value": query,
+                      "iteration": 1, "source": "ai_suggested", "confirmed": True})
+    if seeds:
+        client.table("analysis_seeds").upsert(seeds, on_conflict="analysis_id,seed_type,value").execute()
+
+    print(f"✓ scoping lagret ({len(data.get('provisions', []))} bestemmelser, {len(seeds)} seeds)")
 
 
 COMMANDS = {
