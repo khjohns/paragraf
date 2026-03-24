@@ -137,12 +137,8 @@ def cmd_triage(analysis_id: str, category: str = "C"):
     for r in rows:
         c = case_map.get(r["sak_nr"], {})
         signals = r.get("signals") or {}
-        sig_parts = []
-        for sig_type, vals in signals.items():
-            if sig_type == "vector":
-                sig_parts.append(f"vector[{max(vals):.3f}]")
-            else:
-                sig_parts.append(f"{sig_type}[{','.join(str(v) for v in vals)}]")
+        # Canonical format is boolean {ref, fts, vec}
+        sig_parts = [k for k, v in signals.items() if v]
         sig_str = "+".join(sig_parts) if sig_parts else "?"
         saken = c.get("saken_gjelder") or "(ukjent)"
         avgj = c.get("avgjoerelse") or "?"
@@ -617,6 +613,24 @@ def cmd_save_document(analysis_id: str, doc_type: str):
         print(f"✓ {doc_type} opprettet (v1)")
 
 
+def _normalize_signals(raw: dict) -> dict:
+    """Normalize signals to canonical boolean format {ref, fts, vec}.
+
+    Accepts both boolean format (traversal) and legacy array format (CLI pipeline).
+    Boolean format: {"ref": True, "fts": False, "vec": True}
+    Legacy format:  {"ref": ["16-11"], "fts": ["term"], "vector": [0.78]}
+    """
+    result = {}
+    for key, val in raw.items():
+        # Normalize key: "vector" -> "vec"
+        norm_key = "vec" if key == "vector" else key
+        result[norm_key] = bool(val)
+    # Ensure all three keys are present
+    for k in ("ref", "fts", "vec"):
+        result.setdefault(k, False)
+    return result
+
+
 def cmd_save_candidates(analysis_id: str):
     """Batch-insert candidates. Reads JSON array from stdin: [{sak_nr, category, signals}]."""
     candidates = json.loads(sys.stdin.read())
@@ -626,7 +640,7 @@ def cmd_save_candidates(analysis_id: str):
             "analysis_id": analysis_id,
             "sak_nr": c["sak_nr"],
             "category": c.get("category", "C"),
-            "signals": c.get("signals", {}),
+            "signals": _normalize_signals(c.get("signals", {})),
             "iteration": c.get("iteration", 1),
             "screening_status": "pending",
         }

@@ -396,6 +396,7 @@ def _build_case_nodes(
         if not case:
             continue
 
+        # Canonical format: boolean {ref, fts, vec} — must match frontend SignalHits type
         signals = {"ref": sak_nr in ref_cases, "fts": sak_nr in fts_cases, "vec": sak_nr in vec_cases}
         category = _classify_category(sum(signals.values()))
         reg = case_reg.get(sak_nr)
