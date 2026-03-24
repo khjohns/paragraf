@@ -176,3 +176,52 @@ kollapser oppdagelse og vurdering. Begge må løses.
 eller er det hypotetisk? Svaret avgjør om Alt B holder eller om Alt D trengs.
 Svar: JA — metodikken har allerede en "søkeeffektivitet per notat"-tabell som
 akkumulerer presisjon over analyser. Vi VIL kalibrere.
+
+### Thinking-partner runde 3: Distinkte vokabular + vec-problemet
+
+**Skjult konflikt:** CLAUDE.md sier "A/B/C = signaldekning, IKKE kvalitetsvurdering."
+Men category skal bli innholdsbasert (= kvalitetsvurdering). Samme bokstav, to betydninger.
+
+**Løsning — distinkte vokabular:**
+- `discovery_category`: beskrivende labels for signalmønster (IKKE A/B/C)
+  - Kandidater: `triple` / `double` / `single` / `vec-only` — eller numerisk rank
+  - Alternativt: bare lagre signals (arrays) og beregn mønster on-demand
+- `category`: A/B/C = alltid innholdsrelevans (direkte/utfyllende/perifer)
+  - Settes av screening, A/B/C betyr ALLTID det samme
+  - Frontend viser kun dette
+
+**Vec passer ikke i metodikkens hierarki:**
+Metodikken ble skrevet før vektorsøk. Vec har 100% recall for konseptuelle spørsmål —
+en vec-only sak kan være den eneste veien inn. Kan ikke automatisk rangeres lavere
+enn ref+fts uten å systematisk nedprioritere konseptuelle funn.
+
+Tolkningsalternativer:
+1. Vec ≈ FTS (tell likt) — enklest, men upresis
+2. Vec svakere (vekt ned) — risikerer å miste konseptuelle funn
+3. Vec ortogonal (egen dimensjon) — mest korrekt, mest komplekst
+
+**Avgrensning (delimitation) er ortogonal:**
+`is_delimitation` er allerede et eget felt i screening. A/B/C trenger ikke fange dette.
+En A-sak kan være delimitation (out of scope men relevant for avgrensningsargument).
+
+### Oppdatert Alt D (med distinkte vokabular)
+
+```
+analysis_candidates:
+  signals        jsonb    — arrays: {ref: ["16-11"], fts: ["konsortium"], vec: [0.78]}
+  discovery_rank text     — "triple"/"double"/"single"/"vec-only" (settes av scope, aldri endret)
+  category       text     — A/B/C innholdsrelevans (settes av screening, vist i frontend)
+  is_delimitation boolean — ortogonalt (allerede eksisterer)
+  ai_screening   jsonb    — full screening-data inkl. relevance_reasoning
+```
+
+Frontend: viser `category` + `is_delimitation`. Aldri `discovery_rank`.
+Pipeline: bruker `discovery_rank` + `signals` for prioritering og triage.
+Kalibrering: sammenlign `discovery_rank` med `category` over tid.
+
+### Gjenstående beslutninger for neste sesjon
+1. Eksakt discovery_rank-beregning (hvordan vec vektes)
+2. Triage-regler basert på signals (ikke discovery_rank)
+3. Frontend: vis signal-badges (●●● for triple) eller bare category?
+4. Migrering: hvordan konvertere eksisterende boolean signals til arrays
+5. Validering mot DB-analyse 0dccaab9 og 8c2c8b4d
