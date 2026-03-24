@@ -382,8 +382,6 @@ def cmd_verify_provision(ref: str):
     section = (result.data or [None])[0]
     if section:
         content = section.get("content", "")
-        if len(content) > 500:
-            content = content[:500] + "…"
         title = section.get("title", "")
         print(f"<provision ref=\"{ref}\" verified=\"true\" title=\"{title}\">")
         print(content)
