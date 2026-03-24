@@ -24,6 +24,7 @@ Commands:
     vector-search <query> [max]     Hybrid vector+FTS search (Gemini embeddings)
 
 Write commands (read JSON/content from stdin):
+    create-analysis <title>         Create new analysis (problem via stdin, prints ID)
     save-screening <id> <sak_nr>    Save screening result (JSON via stdin)
     save-triage-reject <id>         Mark sak_nrs as triaged out (JSON array via stdin)
     save-document <id> <doc_type>   Save/upsert document (content via stdin)
@@ -524,6 +525,20 @@ def cmd_update_status(analysis_id: str, status: str):
     print(f"✓ status → {status}")
 
 
+def cmd_create_analysis(title: str):
+    """Create a new analysis. Reads problem statement from stdin. Returns analysis ID."""
+    problem = sys.stdin.read().strip()
+    if not problem:
+        print("ERROR: Problemstilling mangler (send via stdin)", file=sys.stderr)
+        sys.exit(1)
+    client = get_client()
+    result = client.table("analyses").insert(
+        {"title": title, "problem": problem, "status": "scoping"}
+    ).execute()
+    row = result.data[0]
+    print(row["id"])
+
+
 def cmd_save_scoping(analysis_id: str):
     """Save scoping result. Reads JSON from stdin: {refined_problem, sub_problems, context, ...full scoping result}."""
     data = json.loads(sys.stdin.read())
@@ -560,6 +575,7 @@ COMMANDS = {
     "fts-search": (cmd_fts_search, 1),
     "vector-search": (cmd_vector_search, 1),
     # Write commands (read JSON/content from stdin)
+    "create-analysis": (cmd_create_analysis, 1),
     "save-screening": (cmd_save_screening, 2),
     "save-triage-reject": (cmd_save_triage_reject, 1),
     "save-document": (cmd_save_document, 2),

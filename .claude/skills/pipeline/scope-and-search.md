@@ -11,7 +11,11 @@ user-invocable: false
 
 ## Steg
 
-1. Opprett/oppdater analyse via MCP SQL (INSERT/UPDATE — eneste MCP-bruk)
+1. Opprett analyse via CLI:
+   ```bash
+   echo '<problemstilling>' | bash scripts/pipeline-cli.sh create-analysis "<tittel>"
+   # Returnerer analyse-ID (UUID)
+   ```
 2. Analyser problemstillingen med scoping-prompten (les `backend/scoping.py` linje 73-138)
 3. Verifiser bestemmelser via CLI:
    `bash scripts/pipeline-cli.sh verify-provision foa:16-11`
