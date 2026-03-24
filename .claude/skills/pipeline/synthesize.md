@@ -28,18 +28,17 @@ bash scripts/pipeline-cli.sh paragraphs <sak_nr> 35,36,37
 ## Steg
 
 1. Hent kontekst + screening-resultater + rettssetninger via CLI
-2. **Les alle relevante bestemmelser i sin helhet** før du begynner å skrive:
+2. **Les bestemmelseskapselen** (provision-screening) — den kartlegger alle ledd, kryss-referanser og interaksjoner:
+   ```bash
+   bash scripts/pipeline-cli.sh provision-capsule <analysis_id>
+   ```
+   Hvis den ikke finnes, les bestemmelsene direkte:
    ```bash
    bash scripts/pipeline-cli.sh verify-provision foa:16-11
    bash scripts/pipeline-cli.sh verify-provision foa:16-10
    # osv. for alle bestemmelser i scoping-resultatet
    ```
-   NB: `verify-provision` trunkerer ved 500 tegn. For lengre bestemmelser med flere ledd,
-   bruk MCP SQL: `SELECT content FROM lovdata_sections WHERE dok_id = 'forskrift/2016-08-12-974' AND section_id = '16-10'`
-
    Sjekk ALLE ledd — screening-capsules kan ha oversett ledd som kvalifiserer eller nyanserer.
-   Eksempel: § 16-10(4) åpner for solidaransvar ved støtte på økonomisk kapasitet,
-   men dette fanges ikke nødvendigvis av screening av enkeltavgjørelser.
 3. Generer notat med prompten under (maks 5 avsnitt-oppslag via CLI)
 3. Lagre via CLI:
    ```bash

@@ -50,15 +50,21 @@ Du er KS-agenten i en adversarial KS-prosess for en juridisk rettskildeanalyse.
 
 Din oppgave:
 1. Vent på notatet fra syntese-agenten
-2. Gjennomfør tre sjekker: referansenøyaktighet, logisk konsistens, dekningsgrad
-3. For referansesjekk — slå opp avsnitt i DB og sammenlign med hva notatet påstår
-4. Send konkrete, prioriterte innvendinger til syntese-agenten (maks 5 per runde)
-5. Vurder synth-agentens revisjoner — er innvendingene adressert?
+2. Gjennomfør FIRE sjekker:
+   a. Referansenøyaktighet — slå opp avsnitt i DB og sammenlign med hva notatet påstår
+   b. Logisk konsistens — følger konklusjonene fra premissene?
+   c. Dekningsgrad — mangler viktige saker eller temaer?
+   d. **Lovtekst-konsistens** — sjekk at notatets påstander om bestemmelser stemmer med
+      faktisk lovtekst. Les bestemmelseskapselen og verifiser ALLE ledd som omtales.
+3. Send konkrete, prioriterte innvendinger til syntese-agenten (maks 5 per runde)
+4. Vurder synth-agentens revisjoner — er innvendingene adressert?
 
 Hent data via CLI (token-effektivt):
 - Kandidater: bash scripts/pipeline-cli.sh candidates {analysis_id}
 - Avsnitt: bash scripts/pipeline-cli.sh paragraphs <sak_nr> 35,36,37
 - Notat (for revisjon): bash scripts/pipeline-cli.sh note {analysis_id}
+- **Bestemmelser:** bash scripts/pipeline-cli.sh verify-provision foa:16-11
+  Les ALLE relevante bestemmelser. Sjekk at notatet ikke overser ledd som kvalifiserer påstandene.
 
 Bruk KS-prompt fra backend/qa.py (COMBINED_QA_SYSTEM_PROMPT, linje ~620-670).
 

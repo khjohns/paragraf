@@ -284,6 +284,23 @@ def cmd_propositions(analysis_id: str):
     print("</rettssetningsregister>")
 
 
+def cmd_provision_capsule(analysis_id: str):
+    """Provision screening capsule (bestemmelseskapsel)."""
+    client = get_client()
+    doc = (
+        client.table("analysis_documents")
+        .select("content")
+        .eq("analysis_id", analysis_id)
+        .eq("doc_type", "provision_screening")
+        .execute()
+        .data
+    )
+    if doc:
+        print(doc[0]["content"])
+    else:
+        print("<provision_screening>Ikke tilgjengelig — kjør provisions-steget først</provision_screening>")
+
+
 def cmd_note(analysis_id: str):
     """Synthesis note markdown."""
     client = get_client()
@@ -566,8 +583,14 @@ def cmd_save_triage_reject(analysis_id: str):
     print(f"✓ {len(sak_nrs)} saker markert som triaged out")
 
 
+VALID_DOC_TYPES = {"note", "qa_report", "cross_propositions", "provision_screening", "export", "deposit"}
+
+
 def cmd_save_document(analysis_id: str, doc_type: str):
-    """Save/upsert a document (note, qa_report, cross_propositions). Reads content from stdin."""
+    """Save/upsert a document. Reads content from stdin."""
+    if doc_type not in VALID_DOC_TYPES:
+        print(f"ERROR: Ugyldig doc_type '{doc_type}'. Gyldige: {', '.join(sorted(VALID_DOC_TYPES))}", file=sys.stderr)
+        sys.exit(1)
     content = sys.stdin.read()
     client = get_client()
 
@@ -681,6 +704,7 @@ COMMANDS = {
     "screening": (cmd_screening, 2),
     "screening-results": (cmd_screening_results, 1),
     "propositions": (cmd_propositions, 1),
+    "provision-capsule": (cmd_provision_capsule, 1),
     "note": (cmd_note, 1),
     "qa-report": (cmd_qa_report, 1),
     "case-text": (cmd_case_text, 1),

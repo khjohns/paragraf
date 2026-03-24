@@ -69,7 +69,15 @@ A- og B-saker hopper over triage og går rett til full screening.
 
 ### Steg 1-4: Full Sonnet-screening
 
-1. Hent kandidater: `bash scripts/pipeline-cli.sh candidates <id>` — finn uscreenede
+1. Hent kandidater + bestemmelseskapsel:
+   ```bash
+   bash scripts/pipeline-cli.sh candidates <id>
+   bash scripts/pipeline-cli.sh propositions <id>   # provision_screening hvis tilgjengelig
+   ```
+   Bestemmelseskapselen (provision_screening) gir screening-agenten kunnskap om hva
+   bestemmelsene faktisk sier — ikke bare hva KOFA-avgjørelser sier om dem.
+   Inkluder kapselen som kontekst i subagent-prompten.
+
 2. For hver sak: `bash scripts/pipeline-cli.sh screening <id> <sak_nr>` — gir kontekst + tekst
 3. Analyser med prompten fra `backend/screening.py` (SCREENING_SYSTEM_PROMPT, linje 90-142).
    CLI-output inkluderer `<regelverksnotat>` for pre-2017 saker. Når denne finnes:
