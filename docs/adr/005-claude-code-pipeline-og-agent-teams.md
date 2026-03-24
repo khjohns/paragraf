@@ -49,13 +49,14 @@ Frontend ser ingen forskjell — begge skriver til samme tabeller i samme format
 | Steg | API-pipeline | Claude Code pipeline |
 |------|-------------|---------------------|
 | Scoping | `scoping.py` → Sonnet | Skill leser prompt fra `scoping.py`, Claude Code gjør analysen |
-| Søk | `traversal.py` → Supabase RPC | MCP SQL for ref+FTS, CLI for vektorsøk (Gemini embedding) |
-| Triage | *(ikke implementert)* | Haiku-subagenter filtrerer C-saker på metadata |
+| Søk | `traversal.py` → Supabase RPC | CLI for ref+FTS+vektorsøk |
+| **Bestemmelsesscreening** | *(ikke implementert)* | **Haiku leser alle bestemmelser i sin helhet, kartlegger ledd og interaksjoner** |
+| Triage | *(ikke implementert)* | Haiku filtrerer C-saker på metadata |
 | Screening | `screening.py` → Sonnet, én SSE per sak | Sonnet-subagenter i parallelle batches |
-| Sitatverifisering | `qa.py` → Haiku + Citations API | Skill sammenligner sitater manuelt (ingen Citations API) |
-| Cross-propositions | `cross_propositions.py` → Sonnet | Skill med samme prompt |
-| Syntese | `synthesis.py` → Opus/Sonnet, agentisk med tools | Skill med DB-oppslag via MCP |
-| KS | `qa.py` → Opus/Sonnet, agentisk | Skill med DB-oppslag via MCP |
+| Sitatverifisering | `qa.py` → Haiku + Citations API | Haiku med `verify-quotes` CLI (side-om-side) |
+| Cross-propositions | `cross_propositions.py` → Sonnet | Sonnet med samme prompt |
+| Syntese | `synthesis.py` → Opus/Sonnet, agentisk med tools | Opus med bestemmelseskapsel + screening |
+| KS | `qa.py` → Opus/Sonnet, agentisk | Agent teams (adversarial KS) |
 
 ### Forskjeller fra API-pipeline
 
@@ -141,6 +142,48 @@ Haiku-triage kan implementeres i API-pipelinen som et mellomsteg mellom søk og 
 3. `screening.py` screener kun accepted + A + B
 
 Kostnad: ~$0.01 for triage vs. ~$0.05-0.10 per full screening → vesentlig besparelse ved 80+ C-saker.
+
+---
+
+## Bestemmelsesscreening — beslutning og validering
+
+### Problemstilling
+
+Hele pipelinen — scope, screen, cross, synthesize — jobbet kun med KOFA-avgjørelsers *omtale* av bestemmelsene. Ingen agent leste selve forskriftsteksten. Dette førte til en substansiell feil: syntese-notatet hevdet at leverandører kan unngå solidaransvar ved å velge § 16-10-konstellasjon — men § 16-10(4) åpner eksplisitt for solidaransvar ved støtte på økonomisk kapasitet.
+
+**Rotårsak:** Sak 2016/177 omtalte skillet mellom § 16-11 og § 16-10 solidaransvar, men nemnda trengte ikke drøfte § 16-10(4) i den saken. Dermed var leddet usynlig for hele kjeden.
+
+### Beslutning
+
+Nytt pipeline-steg: **bestemmelsesscreening** (`screen-provisions`). Kjøres etter scope (som identifiserer bestemmelser) og før case-screening (som evaluerer avgjørelser mot dem).
+
+### Hva steget gjør
+
+1. Leser HVER bestemmelse i sin helhet (alle ledd)
+2. Kartlegger kryss-referanser (§ 16-10(7) → § 16-11)
+3. Identifiserer key_qualifications — vilkår/unntak som lett overses
+4. Oppdager relaterte bestemmelser som scoping kan ha misset
+5. Mapper bestemmelsesinteraksjoner (der ledd i én bestemmelse kvalifiserer en annen)
+
+### Validering (test-run 2026-03-24)
+
+Haiku screenet § 16-11, § 16-10, § 19-2 + kryss-refererte § 16-3, § 16-5.
+
+**Funn Haiku fanget som hele pipeline-kjøringen misset:**
+- § 16-10(4): Solidaransvar KAN kreves ved støtte på finansiell kapasitet
+- § 16-10(5): Faglige kvalifikasjoner krever aktiv utførelse, ikke bare kapasitetsdokumentasjon
+- § 16-10(7): Fellesskap-medlemmer kan selv støtte seg på andre — lagdeling tillatt
+- § 19-2(4): Obligatorisk underleverandør-rapportering for tjenester (SKAL-krav)
+
+**Modell:** Haiku — bestemmelseslesing er systematisk, ikke kreativt. Billig (~$0.005 per kjøring).
+
+### Konsekvens
+
+Bestemmelseskapselen lagres som `provision_screening` i `analysis_documents` og følger med til alle downstream-agenter. Syntese-agenten leser den i tillegg til screening-resultater og cross-propositions.
+
+### Mulig utvidelse til API-pipeline
+
+Enkelt å implementere: nytt steg mellom scope og screen som kaller Haiku med `lovdata_sections`-innhold. Kostnad neglisjerbar. Bør prioriteres — feilen vi fant ville også oppstått i API-pipelinen.
 
 ---
 

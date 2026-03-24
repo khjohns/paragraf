@@ -9,32 +9,34 @@ allowed-tools: mcp__claude_ai_Supabase__execute_sql, Read, Agent, AskUserQuestio
 
 **Argumenter:** $ARGUMENTS — første=analyse-id (eller "ny"), andre=steg, `--dry-run` for tørrkjøring.
 
-**Steg:** `scope` · `screen` · `verify` · `cross` · `synthesize` · `qa` · `adversarial-qa` · `all` · `from:<steg>`
+**Steg:** `scope` · `provisions` · `screen` · `verify` · `cross` · `synthesize` · `qa` · `adversarial-qa` · `all` · `from:<steg>`
 
-**Full rekkefølge:** scope → screen → verify → cross → synthesize → qa
+**Full rekkefølge:** scope → provisions → screen → verify → cross → synthesize → qa
 
 ## Orkestrering
 
-1. Parse argumenter. Hent kontekst: `SELECT id, problem_statement, seeds, status FROM analyses WHERE id = '<id>'`
+1. Parse argumenter. Hent kontekst: `bash scripts/pipeline-cli.sh context <id>`
 2. Bestem startpunkt (ny → scope, eksisterende uten steg → neste logiske, spesifikt steg → bare det)
 3. For hvert steg: les skill-filen fra `pipeline/`, dispatch subagent, oppdater status
 4. **Etter hvert steg: vis oppsummering og spør brukeren** (fortsett/hopp/stopp)
 
-| Steg | Skill-fil | Status etter |
-|------|-----------|--------------|
-| scope | `pipeline/scope-and-search.md` | `candidates_ready` |
-| screen | `pipeline/screen.md` (1 per sak) | `screening_complete` |
-| verify | `pipeline/verify-citations.md` | `screening_complete` |
-| cross | `pipeline/cross-propositions.md` | `post_search` |
-| synthesize | `pipeline/synthesize.md` | `synthesis` |
-| qa | `pipeline/qa.md` (med iterativ revisjon) | `qa` |
-| adversarial-qa | `pipeline/adversarial-qa.md` (agent teams) | `qa` |
+| Steg | Skill-fil | Modell | Status etter |
+|------|-----------|--------|--------------|
+| scope | `pipeline/scope-and-search.md` | Sonnet | `candidates_ready` |
+| provisions | `pipeline/screen-provisions.md` | Haiku | `candidates_ready` |
+| screen | `pipeline/screen.md` (triage + full) | Haiku+Sonnet | `screening_complete` |
+| verify | `pipeline/verify-citations.md` | Haiku | `screening_complete` |
+| cross | `pipeline/cross-propositions.md` | Sonnet | `post_search` |
+| synthesize | `pipeline/synthesize.md` | Opus | `synthesis` |
+| qa | `pipeline/qa.md` (med iterativ revisjon) | Opus | `qa` |
+| adversarial-qa | `pipeline/adversarial-qa.md` (agent teams) | Opus | `qa` |
 
 `adversarial-qa` erstatter `synthesize` + `qa` med en agent teams-variant der synth-agent og ks-agent diskuterer notatet i sanntid. Krever `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`.
 
 ## Sjekkpunkter
 
 Etter hvert steg, vis kort oppsummering (antall funn/saker/seksjoner) og spør:
+- Etter provisions: «{N} bestemmelser kartlagt, {M} interaksjoner funnet. Fortsett?»
 - Etter screen: «{A} A-saker, {B} B, {stars} gullkandidater. Fortsett?»
 - Etter qa: «{flags} funn ({high} alvorlige). Vil du at funnene fikses i notatet? [ja, alle high / ja, alle / nei]»
 
@@ -44,8 +46,8 @@ Kjør analyse, men erstatt INSERT/UPDATE med visning av SQL + resultat-JSON. Fla
 
 ## Viktig
 
-- **Datahenting via CLI** (ikke MCP): `python scripts/pipeline-context.py <cmd> <args>` — token-effektivt, ferdigformatert output
-- **DB-skriving via MCP SQL**: `mcp__claude_ai_Supabase__execute_sql` (project_id: `iyetsvrteyzpirygxenu`) — kun for INSERT/UPDATE
+- **All datahenting via CLI**: `bash scripts/pipeline-cli.sh <cmd> <args>` — token-effektivt, ferdigformatert
+- **All skriving via CLI**: `bash scripts/pipeline-cli.sh save-* / update-status` — via stdin for JSON/content
+- Eneste unntak: `create-analysis` (opprett ny analyse)
 - Eksakt samme JSON-format som API-pipelinen
-- Screening: én sak om gangen (sekvensielt)
-- Backend-secrets kreves for CLI: kjør via `source scripts/dev-backend.sh` eller sett env-vars
+- Screening: Haiku-triage for C-saker, Sonnet full-screening i parallelle batches
