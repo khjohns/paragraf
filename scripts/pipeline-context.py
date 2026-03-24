@@ -510,6 +510,30 @@ def cmd_save_screening(analysis_id: str, sak_nr: str):
     print(f"✓ {sak_nr} — {data.get('relevance', '?')}{star} — {data.get('proposition', '')[:80]}")
 
 
+def cmd_save_quote_verification(analysis_id: str, sak_nr: str):
+    """Add quote_verification to existing ai_screening (merge, not replace). JSON array via stdin."""
+    verification = json.loads(sys.stdin.read())
+    client = get_client()
+    # Fetch existing
+    row = (
+        client.table("analysis_candidates")
+        .select("ai_screening")
+        .eq("analysis_id", analysis_id)
+        .eq("sak_nr", sak_nr)
+        .single()
+        .execute()
+        .data
+    )
+    existing = row.get("ai_screening") or {}
+    existing["quote_verification"] = verification
+    client.table("analysis_candidates").update(
+        {"ai_screening": existing}
+    ).eq("analysis_id", analysis_id).eq("sak_nr", sak_nr).execute()
+    v = sum(1 for q in verification if q.get("status") == "verified")
+    t = sum(1 for q in verification if q.get("status") == "truncated")
+    print(f"✓ {sak_nr} — {v} verified, {t} truncated, {len(verification)-v-t} andre")
+
+
 def cmd_save_triage_reject(analysis_id: str):
     """Mark candidates as triage-rejected. Reads JSON array of sak_nrs from stdin."""
     sak_nrs = json.loads(sys.stdin.read())
@@ -632,6 +656,7 @@ COMMANDS = {
     # Write commands (read JSON/content from stdin)
     "create-analysis": (cmd_create_analysis, 1),
     "save-screening": (cmd_save_screening, 2),
+    "save-quote-verification": (cmd_save_quote_verification, 2),
     "save-triage-reject": (cmd_save_triage_reject, 1),
     "save-document": (cmd_save_document, 2),
     "save-candidates": (cmd_save_candidates, 1),
