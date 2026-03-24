@@ -18,6 +18,7 @@ Commands:
     qa-report <id>                  QA report JSON
     case-text <sak_nr> [section]    Case decision text (default: vurdering)
     paragraphs <sak_nr> <p1,p2,...> Specific paragraphs from a case
+    verify-quotes <id> <sak_nr>     Quote vs original text side-by-side
     verify-provision <ref>          Verify provision in lovdata (e.g. foa:16-11)
     ref-search <section_id> [max]   Search kofa_law_references (e.g. 16-11)
     fts-search <term> [max]         Full-text search in KOFA decisions
@@ -414,6 +415,59 @@ def cmd_fts_search(term: str, max_results: str = "30"):
     print("</fts_search>")
 
 
+def cmd_verify_quotes(analysis_id: str, sak_nr: str):
+    """Fetch quotes from screening + original paragraph text side-by-side for verification."""
+    client = get_client()
+
+    # Get screening result
+    candidate = (
+        client.table("analysis_candidates")
+        .select("ai_screening")
+        .eq("analysis_id", analysis_id)
+        .eq("sak_nr", sak_nr)
+        .single()
+        .execute()
+        .data
+    )
+    if not candidate or not candidate.get("ai_screening"):
+        print(f"<verify_quotes sak_nr=\"{sak_nr}\">Ingen screening funnet</verify_quotes>")
+        return
+
+    quotes = candidate["ai_screening"].get("quotes", [])
+    if not quotes:
+        print(f"<verify_quotes sak_nr=\"{sak_nr}\">Ingen sitater</verify_quotes>")
+        return
+
+    # Fetch all referenced paragraphs in one query
+    p_nrs = [q.get("p") for q in quotes if q.get("p")]
+    paragraphs = (
+        client.table("kofa_decision_text")
+        .select("paragraph_number, text")
+        .eq("sak_nr", sak_nr)
+        .in_("paragraph_number", p_nrs)
+        .order("paragraph_number")
+        .execute()
+        .data
+    ) or []
+    p_map = {p["paragraph_number"]: p["text"] for p in paragraphs}
+
+    print(f"<verify_quotes sak_nr=\"{sak_nr}\" count=\"{len(quotes)}\">")
+    for i, q in enumerate(quotes, 1):
+        p_nr = q.get("p", "?")
+        quoted = q.get("text", "")
+        original = p_map.get(p_nr)
+        if original is None:
+            print(f"  <quote nr=\"{i}\" p=\"{p_nr}\" found=\"false\">")
+            print(f"    <sitat>{quoted}</sitat>")
+            print(f"    <original>AVSNITT IKKE FUNNET</original>")
+        else:
+            print(f"  <quote nr=\"{i}\" p=\"{p_nr}\" found=\"true\">")
+            print(f"    <sitat>{quoted}</sitat>")
+            print(f"    <original>{original}</original>")
+        print(f"  </quote>")
+    print("</verify_quotes>")
+
+
 def cmd_vector_search(query: str, max_results: str = "30"):
     """Vector+FTS hybrid search via Gemini embeddings."""
     from vector_seed import _generate_query_embedding
@@ -570,6 +624,7 @@ COMMANDS = {
     "qa-report": (cmd_qa_report, 1),
     "case-text": (cmd_case_text, 1),
     "paragraphs": (cmd_paragraphs, 2),
+    "verify-quotes": (cmd_verify_quotes, 2),
     "verify-provision": (cmd_verify_provision, 1),
     "ref-search": (cmd_ref_search, 1),
     "fts-search": (cmd_fts_search, 1),
