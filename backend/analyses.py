@@ -1,5 +1,6 @@
 """CRUD operations for analyses."""
 from db import get_client
+from traversal import apply_case_meta
 
 
 def list_analyses(user_id=None):
@@ -56,6 +57,22 @@ def get_analysis(analysis_id):
     # Rename joined keys to match API contract
     result["seeds"] = result.pop("analysis_seeds", [])
     result["candidates"] = result.pop("analysis_candidates", [])
+
+    # Enrich candidates with case metadata (subtitle, date, outcome)
+    sak_nrs = [c["sak_nr"] for c in result["candidates"]]
+    if sak_nrs:
+        cases = (
+            get_client()
+            .table("kofa_cases")
+            .select("sak_nr, saken_gjelder, avsluttet, avgjoerelse")
+            .in_("sak_nr", sak_nrs)
+            .execute()
+            .data
+        ) or []
+        case_meta = {c["sak_nr"]: c for c in cases}
+        for candidate in result["candidates"]:
+            apply_case_meta(candidate, case_meta.get(candidate["sak_nr"], {}))
+
     return result
 
 

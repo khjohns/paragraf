@@ -48,32 +48,44 @@
     }
     hydrated = true;
 
-    // Reload recovery: if analysis has seeds but no cached nodes, re-traverse
+    // Reload recovery after hydration
     const { status } = analysisState.analysis;
     const hasSeeds =
       analysisState.analysis.seeds.provisions.length > 0 ||
       analysisState.analysis.seeds.ftsTerms.length > 0;
-    const needsTraversal =
-      hasSeeds &&
-      analysisState.nodes.length === 0 &&
-      status !== 'scoping' &&
-      status !== 'searching';
+    const noNodes = analysisState.nodes.length === 0;
+    const noEdges = analysisState.edges.length === 0;
+    const isActive = status !== 'scoping' && status !== 'searching';
 
-    if (needsTraversal) {
+    // Case 1: no nodes at all (cleared cache, not a CLI-pipeline analysis) → full traversal
+    // Case 2: has nodes (from candidates) but no edges → merge-only traversal for graph structure
+    const needsFullTraversal = hasSeeds && noNodes && isActive;
+    const needsEdges = hasSeeds && !noNodes && noEdges && isActive;
+
+    if (needsFullTraversal || needsEdges) {
       try {
         const result = await traverseAnalysis(
           analysisState.analysis.id,
           analysisState.analysis.iteration,
           uiState.regulationFilter ? 'new' : 'all'
         );
-        analysisState.setResults(
-          result.nodes,
-          result.edges,
-          result.gaps,
-          result.suggestedProvisions
-        );
+        if (needsFullTraversal) {
+          analysisState.setResults(
+            result.nodes,
+            result.edges,
+            result.gaps,
+            result.suggestedProvisions
+          );
+        } else {
+          analysisState.mergeEdgesFromTraversal(
+            result.nodes,
+            result.edges,
+            result.gaps,
+            result.suggestedProvisions
+          );
+        }
       } catch {
-        // Traversal failed — user will see empty workspace, can retry via ContextView
+        // Traversal failed — user will see workspace without graph edges
       }
     }
   });

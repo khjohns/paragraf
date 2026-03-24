@@ -78,6 +78,9 @@ export interface AnalysisCandidate {
   user_notes: string | null;
   is_delimitation: boolean;
   read_at: string | null;
+  saken_gjelder?: string;
+  avsluttet?: string | null;
+  avgjoerelse?: string | null;
 }
 
 /** Scoping result from Claude */

@@ -115,6 +115,13 @@ def simplify_outcome(avgjoerelse: str | None) -> str | None:
     return avgjoerelse
 
 
+def apply_case_meta(record: dict, meta: dict) -> None:
+    """Enrich a mutable dict with saken_gjelder/avsluttet/avgjoerelse from a kofa_cases row."""
+    record["saken_gjelder"] = meta.get("saken_gjelder") or ""
+    record["avsluttet"] = str(meta["avsluttet"]) if meta.get("avsluttet") else None
+    record["avgjoerelse"] = simplify_outcome(meta.get("avgjoerelse"))
+
+
 def _build_provision_nodes(client, provisions: list[str]) -> list[dict]:
     """Build GraphNode dicts for seed provisions from lovdata_sections."""
     if not provisions:

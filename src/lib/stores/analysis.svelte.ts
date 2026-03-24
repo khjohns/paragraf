@@ -139,6 +139,25 @@ class AnalysisState {
     }
   }
 
+  mergeEdgesFromTraversal(
+    traversalNodes: GraphNode[],
+    edges: GraphEdge[],
+    gaps: GapPair[],
+    suggested?: SuggestedProvision[]
+  ) {
+    const existingIds = new Set(this.nodes.map((n) => n.id));
+    const newNodes = traversalNodes.filter((n) => !existingIds.has(n.id));
+    if (this.analysis.iteration > 1 && this.previousNodeIds.size > 0) {
+      this.applyIterationMarkers(newNodes);
+    }
+    this.nodes = [...this.nodes, ...newNodes];
+    this.edges = edges;
+    this.gaps = gaps;
+    this.suggestedProvisions = suggested ?? [];
+    this.previousSeeds = { ...this.analysis.seeds };
+    this.debouncedSave();
+  }
+
   setProblemStatement(text: string) {
     this.analysis.problemStatement = text;
     this.touch();
@@ -298,7 +317,27 @@ class AnalysisState {
         }
       }
     } catch {
-      // Corrupt localStorage — nodes will be empty, traversal query will re-fetch
+      // Corrupt localStorage — nodes will be empty, fall through to candidate rebuild below
+    }
+
+    // If no nodes from cache (CLI-pipeline analyses never wrote to localStorage),
+    // build minimal nodes from candidates to avoid triggering a stale traversal
+    if (this.nodes.length === 0 && data.candidates.length > 0) {
+      this.nodes = data.candidates.map((c) => ({
+        id: `kofa:${c.sak_nr}`,
+        type: 'kofa_case' as const,
+        label: c.sak_nr,
+        subtitle: c.saken_gjelder ?? '',
+        date: c.avsluttet ?? undefined,
+        outcome: c.avgjoerelse ?? undefined,
+        citations: 0,
+        iteration: c.iteration,
+        isSeed: false,
+        isDelimitation: c.is_delimitation,
+        category: c.category ?? undefined,
+        signals: c.signals,
+      }));
+      this.previousNodeIds = new Set(this.nodes.map((n) => n.id));
     }
 
     // Delegate screening hydration
