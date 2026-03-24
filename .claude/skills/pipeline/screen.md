@@ -71,7 +71,11 @@ A- og B-saker hopper over triage og går rett til full screening.
 
 1. Hent kandidater: `bash scripts/pipeline-cli.sh candidates <id>` — finn uscreenede
 2. For hver sak: `bash scripts/pipeline-cli.sh screening <id> <sak_nr>` — gir kontekst + tekst
-3. Analyser med prompten fra `backend/screening.py` (SCREENING_SYSTEM_PROMPT, linje 90-142)
+3. Analyser med prompten fra `backend/screening.py` (SCREENING_SYSTEM_PROMPT, linje 90-142).
+   CLI-output inkluderer `<regelverksnotat>` for pre-2017 saker. Når denne finnes:
+   - Bruk korrekte paragrafnumre fra den forskriften saken ble avgjort under
+   - Angi i `proposition` om rettssetningen er fra gammel eller ny forskrift
+   - Vurder i `nuances` om prinsippet er videreført i gjeldende FOA
 4. Lagre via CLI:
    ```bash
    echo '{"factum":"...","proposition":"...","relevance":"A","star":true}' | bash scripts/pipeline-cli.sh save-screening <id> <sak_nr>

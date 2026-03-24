@@ -180,7 +180,31 @@ def cmd_screening(analysis_id: str, sak_nr: str):
             .data
         ) or []
 
-    print(f"<case sak_nr=\"{sak_nr}\">")
+    # Case metadata
+    case_meta = (
+        client.table("kofa_cases")
+        .select("avsluttet, regelverk, saken_gjelder, avgjoerelse")
+        .eq("sak_nr", sak_nr)
+        .limit(1)
+        .execute()
+        .data
+    )
+    meta = (case_meta or [{}])[0]
+    avsluttet = meta.get("avsluttet", "")
+    regelverk = meta.get("regelverk") or ""
+    gammel_foa = avsluttet < "2017-01-01" if avsluttet else False
+    forskrift_hint = "gammel FOA (pre-2017)" if gammel_foa else ("ny FOA (2017+)" if avsluttet else "ukjent")
+
+    print(f"<case sak_nr=\"{sak_nr}\" avsluttet=\"{avsluttet}\" forskrift=\"{forskrift_hint}\">")
+    if meta.get("saken_gjelder"):
+        print(f"<saken_gjelder>{meta['saken_gjelder']}</saken_gjelder>")
+    if gammel_foa:
+        print("<regelverksnotat>OBS: Denne saken er avgjort under den gamle anskaffelsesforskriften (pre-2017). "
+              "Paragrafnumre i teksten refererer til gammel FOA. Nøkkelmapping: "
+              "§ 17-7 → ny § 16-11 (leverandørgrupperinger), "
+              "§ 17-8/§ 17-9 → ny § 16-10 (støtte fra andre), "
+              "§ 3-7 → ny § 19-2 (underleverandører). "
+              "Vurder om rettssetningen er videreført i gjeldende forskrift.</regelverksnotat>")
     print("<avgjørelsestekst>")
     for p in paragraphs:
         print(f"({p['paragraph_number']}) {p['text']}")
