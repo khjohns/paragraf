@@ -24,8 +24,11 @@ bash scripts/pipeline-cli.sh paragraphs <sak_nr> 35,36,37
 1. Hent screening-resultater via CLI — ekstraher alle sitater med avsnittsnumre
 2. For hver sak: hent originalavsnittene via CLI
 3. Verifiser hvert sitat mot kildeteksten med prompten under
-4. Lagre via MCP SQL: oppdater `ai_screening` med `quote_verification`-array
-5. Oppdater `analyses.citation_summary`
+4. Lagre via CLI — oppdater `ai_screening` med `quote_verification`-array:
+   ```bash
+   echo '{"factum":"...","proposition":"...","relevance":"A","star":true,"quote_verification":[{"paragraph":35,"status":"verified","issue":null}]}' | bash scripts/pipeline-cli.sh save-screening <id> <sak_nr>
+   ```
+5. Oppdater `analyses.citation_summary` via CLI (samme `save-screening` per sak)
 
 ## Prompt
 

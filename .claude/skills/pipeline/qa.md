@@ -26,8 +26,14 @@ bash scripts/pipeline-cli.sh paragraphs <sak_nr> 35,36,37
 
 1. Hent notat + kandidater via CLI
 2. Kvalitetssikre med prompten under — verifiser 3-8 referanser via CLI
-3. Lagre rapport via MCP SQL: `INSERT INTO analysis_documents (doc_type='qa_report')`
-4. Oppdater: `UPDATE analyses SET status = 'qa'`
+3. Lagre rapport via CLI:
+   ```bash
+   echo '<qa_json>' | bash scripts/pipeline-cli.sh save-document <id> qa_report
+   ```
+4. Oppdater status via CLI:
+   ```bash
+   bash scripts/pipeline-cli.sh update-status <id> qa
+   ```
 
 ## Prompt
 
@@ -40,7 +46,10 @@ JSON: `{reference_issues, logic_flags, untreated_cases, overall_assessment, tota
 
 1. Les KS-rapporten og notatet
 2. For hvert funn: revider seksjonen (hent korrekt avsnitt via CLI)
-3. Skriv oppdatert notat: `UPDATE analysis_documents SET content = ? WHERE doc_type = 'note'`
+3. Skriv oppdatert notat via CLI:
+   ```bash
+   cat revidert-notat.md | bash scripts/pipeline-cli.sh save-document <id> note
+   ```
 4. Kjør KS på nytt (steg 1-4). Maks 2 runder.
 
 ## Dry-run

@@ -23,7 +23,10 @@ bash scripts/pipeline-cli.sh context <analysis_id>
 
 1. Hent screening-resultater + kontekst via CLI
 2. Analyser med prompten under
-3. Lagre via MCP SQL: `INSERT INTO analysis_propositions` + `analysis_documents (doc_type='cross_propositions')`
+3. Lagre via CLI:
+   ```bash
+   echo '<json>' | bash scripts/pipeline-cli.sh save-document <id> cross_propositions
+   ```
 
 ## Prompt
 

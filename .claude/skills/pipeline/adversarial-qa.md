@@ -36,10 +36,10 @@ Hent data via CLI (token-effektivt):
 
 Bruk eksakt syntese-prompt fra backend/synthesis.py (SYNTHESIS_SYSTEM_PROMPT, linje 99-158).
 
-Etter maks 3 meldingsutvekslinger med KS-agenten: lagre endelig notat til DB:
-INSERT INTO analysis_documents (analysis_id, doc_type, content, version)
-VALUES ('{analysis_id}', 'note', '{markdown}', 1)
-ON CONFLICT (analysis_id, doc_type) DO UPDATE SET content = EXCLUDED.content;
+Etter maks 3 meldingsutvekslinger med KS-agenten: lagre endelig notat via CLI:
+```bash
+cat endelig-notat.md | bash scripts/pipeline-cli.sh save-document {analysis_id} note
+```
 ```
 
 ### Teammate 2: ks-agent
@@ -65,10 +65,10 @@ Bruk KS-prompt fra backend/qa.py (COMBINED_QA_SYSTEM_PROMPT, linje ~620-670).
 Prioriter: high-severity funn først. Vær konkret — referer til spesifikke avsnitt og seksjoner.
 Vær genuint kritisk — ikke «bli enig» bare fordi synth-agenten forsvarer seg. Sjekk kildene.
 
-Etter siste runde: bygg KS-rapport i standard JSON-format og lagre:
-INSERT INTO analysis_documents (analysis_id, doc_type, content, version)
-VALUES ('{analysis_id}', 'qa_report', '{qa_json}', 1)
-ON CONFLICT (analysis_id, doc_type) DO UPDATE SET content = EXCLUDED.content;
+Etter siste runde: bygg KS-rapport i standard JSON-format og lagre via CLI:
+```bash
+echo '<qa_json>' | bash scripts/pipeline-cli.sh save-document {analysis_id} qa_report
+```
 ```
 
 ## Oppgaveliste for teamet
@@ -87,5 +87,5 @@ Lead oppretter følgende oppgaver:
 Lead samler inn:
 - Notat fra synth-agent (allerede lagret i DB)
 - KS-rapport fra ks-agent (allerede lagret i DB)
-- Oppdater status: `UPDATE analyses SET status = 'qa' WHERE id = '{analysis_id}'`
+- Oppdater status via CLI: `bash scripts/pipeline-cli.sh update-status {analysis_id} qa`
 - Rapporter til bruker: antall runder, antall innvendinger, antall fikset, gjenstående funn

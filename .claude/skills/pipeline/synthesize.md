@@ -29,8 +29,14 @@ bash scripts/pipeline-cli.sh paragraphs <sak_nr> 35,36,37
 
 1. Hent kontekst + screening-resultater + rettssetninger via CLI
 2. Generer notat med prompten under (maks 5 avsnitt-oppslag via CLI)
-3. Lagre via MCP SQL: `INSERT INTO analysis_documents (doc_type='note', content=markdown)`
-4. Oppdater status: `UPDATE analyses SET status = 'synthesis'`
+3. Lagre via CLI:
+   ```bash
+   cat note.md | bash scripts/pipeline-cli.sh save-document <id> note
+   ```
+4. Oppdater status via CLI:
+   ```bash
+   bash scripts/pipeline-cli.sh update-status <id> synthesis
+   ```
 
 ## Prompt
 

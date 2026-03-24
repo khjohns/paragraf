@@ -16,8 +16,11 @@ user-invocable: false
 3. Verifiser bestemmelser via CLI:
    `bash scripts/pipeline-cli.sh verify-provision foa:16-11`
    Returnerer verified=true/false + tittel + utdrag (500 tegn).
-4. Lagre scoping-resultat via MCP SQL: `UPDATE analyses SET refined_problem = ?, sub_problems = ?, context = ?, scoping_result = ?`
-   (NB: kolonner er `problem`, `refined_problem`, `sub_problems`, `context` — IKKE `seeds` eller `problem_statement`)
+4. Lagre scoping-resultat via CLI:
+   ```bash
+   echo '<json>' | bash scripts/pipeline-cli.sh save-scoping <id>
+   ```
+   JSON-strukturen følger kolonner `problem`, `refined_problem`, `sub_problems`, `context` — IKKE `seeds` eller `problem_statement`.
 5. Kjør søk — tre typer via CLI:
    - Ref: `bash scripts/pipeline-cli.sh ref-search 16-11 50`
      Bruker LIKE for ledd-varianter (16-11 matcher 16-11 OG 16-11 (1)).
@@ -27,10 +30,14 @@ user-invocable: false
      Krever GOOGLE_API_KEY. Hybrid Gemini-embedding + FTS.
 6. Sammenslå unike sak_nr fra alle søk. Beregn signals og kategori:
    - A = ref+fts+vector (3 signaltyper), B = 2 signaltyper, C = 1 signaltype
-7. Lagre kandidater via MCP SQL: `INSERT INTO analysis_candidates`
-8. Oppdater: `UPDATE analyses SET status = 'candidates_ready'`
-
-Merk: CLI for all lesing, MCP SQL kun for skriving (INSERT/UPDATE).
+7. Lagre kandidater via CLI:
+   ```bash
+   echo '[{"sak_nr":"2023/123","category":"A","signals":["ref","fts"]}]' | bash scripts/pipeline-cli.sh save-candidates <id>
+   ```
+8. Oppdater status via CLI:
+   ```bash
+   bash scripts/pipeline-cli.sh update-status <id> candidates_ready
+   ```
 
 ## Prompt
 

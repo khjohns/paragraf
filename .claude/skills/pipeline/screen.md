@@ -59,7 +59,10 @@ bash scripts/pipeline-cli.sh triage <analysis_id>
 # Returnerer alle pending C-saker med signals + saken_gjelder + avgjoerelse
 ```
 
-NEI-saker: `UPDATE SET screening_status = 'ai_screened', ai_screening = '{"triage": "rejected", "model": "haiku"}'`
+NEI-saker: lagre via CLI:
+```bash
+echo '["2023/123","2023/456"]' | bash scripts/pipeline-cli.sh save-triage-reject <id>
+```
 JA-saker: fortsett til full screening (steg 1-4).
 
 A- og B-saker hopper over triage og går rett til full screening.
@@ -69,7 +72,10 @@ A- og B-saker hopper over triage og går rett til full screening.
 1. Hent kandidater: `bash scripts/pipeline-cli.sh candidates <id>` — finn uscreenede
 2. For hver sak: `bash scripts/pipeline-cli.sh screening <id> <sak_nr>` — gir kontekst + tekst
 3. Analyser med prompten fra `backend/screening.py` (SCREENING_SYSTEM_PROMPT, linje 90-142)
-4. Lagre via MCP SQL: `UPDATE analysis_candidates SET ai_screening = '<json>'::jsonb, screening_status = 'ai_screened'`
+4. Lagre via CLI:
+   ```bash
+   echo '{"factum":"...","proposition":"...","relevance":"A","star":true}' | bash scripts/pipeline-cli.sh save-screening <id> <sak_nr>
+   ```
 5. Rapporter: `✓ {sak_nr} — {relevance} {★ hvis star} — {proposition kort}`
 
 Dispatch Sonnet-subagenter i batches à 7-12 saker (parallelt).

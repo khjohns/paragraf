@@ -22,6 +22,14 @@ Commands:
     ref-search <section_id> [max]   Search kofa_law_references (e.g. 16-11)
     fts-search <term> [max]         Full-text search in KOFA decisions
     vector-search <query> [max]     Hybrid vector+FTS search (Gemini embeddings)
+
+Write commands (read JSON/content from stdin):
+    save-screening <id> <sak_nr>    Save screening result (JSON via stdin)
+    save-triage-reject <id>         Mark sak_nrs as triaged out (JSON array via stdin)
+    save-document <id> <doc_type>   Save/upsert document (content via stdin)
+    save-candidates <id>            Batch-insert candidates (JSON array via stdin)
+    save-scoping <id>               Save scoping result (JSON via stdin)
+    update-status <id> <status>     Update analysis status
 """
 import json
 import os
@@ -433,6 +441,109 @@ def cmd_vector_search(query: str, max_results: str = "30"):
     print("</vector_search>")
 
 
+# ── Write commands (accept JSON via stdin) ────────────────────────────────────
+
+
+def cmd_save_screening(analysis_id: str, sak_nr: str):
+    """Save screening result for one case. Reads JSON from stdin."""
+    data = json.loads(sys.stdin.read())
+    client = get_client()
+    client.table("analysis_candidates").update(
+        {"ai_screening": data, "screening_status": "ai_screened"}
+    ).eq("analysis_id", analysis_id).eq("sak_nr", sak_nr).execute()
+    star = " ★" if data.get("star") else ""
+    print(f"✓ {sak_nr} — {data.get('relevance', '?')}{star} — {data.get('proposition', '')[:80]}")
+
+
+def cmd_save_triage_reject(analysis_id: str):
+    """Mark candidates as triage-rejected. Reads JSON array of sak_nrs from stdin."""
+    sak_nrs = json.loads(sys.stdin.read())
+    client = get_client()
+    for sak_nr in sak_nrs:
+        client.table("analysis_candidates").update(
+            {"ai_screening": {"triage": "rejected", "model": "haiku"}, "screening_status": "ai_screened"}
+        ).eq("analysis_id", analysis_id).eq("sak_nr", sak_nr).execute()
+    print(f"✓ {len(sak_nrs)} saker markert som triaged out")
+
+
+def cmd_save_document(analysis_id: str, doc_type: str):
+    """Save/upsert a document (note, qa_report, cross_propositions). Reads content from stdin."""
+    content = sys.stdin.read()
+    client = get_client()
+
+    existing = (
+        client.table("analysis_documents")
+        .select("id, version")
+        .eq("analysis_id", analysis_id)
+        .eq("doc_type", doc_type)
+        .execute()
+        .data
+    )
+
+    if existing:
+        doc = existing[0]
+        new_version = (doc.get("version") or 0) + 1
+        client.table("analysis_documents").update(
+            {"content": content, "version": new_version}
+        ).eq("id", doc["id"]).execute()
+        print(f"✓ {doc_type} oppdatert (v{new_version})")
+    else:
+        client.table("analysis_documents").insert(
+            {"analysis_id": analysis_id, "doc_type": doc_type, "content": content, "version": 1}
+        ).execute()
+        print(f"✓ {doc_type} opprettet (v1)")
+
+
+def cmd_save_candidates(analysis_id: str):
+    """Batch-insert candidates. Reads JSON array from stdin: [{sak_nr, category, signals}]."""
+    candidates = json.loads(sys.stdin.read())
+    client = get_client()
+    rows = [
+        {
+            "analysis_id": analysis_id,
+            "sak_nr": c["sak_nr"],
+            "category": c.get("category", "C"),
+            "signals": c.get("signals", {}),
+            "iteration": c.get("iteration", 1),
+            "screening_status": "pending",
+        }
+        for c in candidates
+    ]
+    result = client.table("analysis_candidates").upsert(
+        rows, on_conflict="analysis_id,sak_nr"
+    ).execute()
+    print(f"✓ {len(rows)} kandidater lagret")
+
+
+def cmd_update_status(analysis_id: str, status: str):
+    """Update analysis status."""
+    client = get_client()
+    client.table("analyses").update(
+        {"status": status, "updated_at": "now()"}
+    ).eq("id", analysis_id).execute()
+    print(f"✓ status → {status}")
+
+
+def cmd_save_scoping(analysis_id: str):
+    """Save scoping result. Reads JSON from stdin: {refined_problem, sub_problems, context, ...full scoping result}."""
+    data = json.loads(sys.stdin.read())
+    client = get_client()
+    update = {
+        "scoping_result": data,
+        "status": "searching",
+        "updated_at": "now()",
+    }
+    if "refined_problem" in data:
+        update["refined_problem"] = data["refined_problem"]
+    if "sub_problems" in data:
+        update["sub_problems"] = data["sub_problems"]
+    if "context" in data:
+        update["context"] = data["context"]
+
+    client.table("analyses").update(update).eq("id", analysis_id).execute()
+    print(f"✓ scoping lagret ({len(data.get('provisions', []))} bestemmelser)")
+
+
 COMMANDS = {
     "context": (cmd_context, 1),
     "candidates": (cmd_candidates, 1),
@@ -448,6 +559,13 @@ COMMANDS = {
     "ref-search": (cmd_ref_search, 1),
     "fts-search": (cmd_fts_search, 1),
     "vector-search": (cmd_vector_search, 1),
+    # Write commands (read JSON/content from stdin)
+    "save-screening": (cmd_save_screening, 2),
+    "save-triage-reject": (cmd_save_triage_reject, 1),
+    "save-document": (cmd_save_document, 2),
+    "save-candidates": (cmd_save_candidates, 1),
+    "save-scoping": (cmd_save_scoping, 1),
+    "update-status": (cmd_update_status, 2),
 }
 
 if __name__ == "__main__":
