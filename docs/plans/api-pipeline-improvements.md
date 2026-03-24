@@ -2,6 +2,16 @@
 
 Basert på funn fra Claude Code pipeline test-run 2026-03-24.
 
+## Hovedinnsikt
+
+**Bedre data inn > flere runder med dårlig data.**
+
+Provision-screening (les lovteksten) var den store gevinsten. Uten den misset alle agenter § 16-10(4) solidaransvar — inkludert adversarial KS med to runder. Med den fanget KS-agent feilen som KRITISK innvending på første forsøk.
+
+Adversarial QA (agent teams, flere diskusjonsrunder) ga marginalt bedre notat — men funnene var mest formelle (manglende ledd-referanser, ufullstendige sitater). Substansielle feil ble kun fanget fordi agenten hadde provision-kapselen, ikke fordi den diskuterte med en motpart.
+
+**Anbefaling for API:** Implementér provision-screening + én KS-runde med lovtekst-sjekk. Ikke implementér adversarial multi-runde KS — ikke verdt API-kostnaden.
+
 ## Kritisk (samme feil ville oppstått)
 
 ### 1. Bestemmelsesscreening
