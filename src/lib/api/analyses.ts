@@ -371,6 +371,7 @@ export function runQA(analysisId: string): Promise<QAReport> {
 export interface AnalysisDocuments {
   note?: { content: string; version: number };
   qa_report?: { content: string; version: number };
+  cross_propositions?: { content: string; version: number };
 }
 
 export function fetchDocuments(analysisId: string): Promise<AnalysisDocuments> {

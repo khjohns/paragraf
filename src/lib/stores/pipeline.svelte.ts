@@ -17,6 +17,34 @@ export interface StreamProgressItem {
 }
 
 /**
+ * Normalize cross-propositions from DB — the CLI pipeline stores a JSON object with
+ * `themes` (array of {id, title}) and `propositions` (array of {id, themeId, statement,
+ * instances, tensions}). Map to the frontend Proposition[] format which uses `proposition`,
+ * `theme` (title string), and `tension` (singular, first element).
+ */
+function normalizeCrossPropositions(raw: Record<string, unknown>): Proposition[] {
+  const themes = (raw.themes ?? []) as Array<{ id: string; title: string }>;
+  const themeMap = new Map(themes.map((t) => [t.id, t.title]));
+  const rawProps = (raw.propositions ?? []) as Array<Record<string, unknown>>;
+
+  return rawProps.map((p) => {
+    const tensions = (p.tensions ?? []) as Array<{ withId: string; note: string }>;
+    const prop: Proposition = {
+      id: p.id as string,
+      theme: themeMap.get(p.themeId as string) ?? (p.themeId as string) ?? '',
+      proposition: (p.statement ?? p.proposition ?? '') as string,
+      instances: (p.instances ?? []) as Proposition['instances'],
+      confirmed: false,
+      source: 'ai_cross',
+    };
+    if (tensions.length > 0) {
+      prop.tension = tensions[0];
+    }
+    return prop;
+  });
+}
+
+/**
  * Normalize QA report from DB — older Opus reports use a flat structure
  * (reference_issues, logic_flags, untreated_cases) while the current frontend
  * expects nested structure (citation_verification, logical_consistency, coverage, total_flags).
@@ -211,7 +239,7 @@ class PipelineState {
     this.qaLlmMeta = null;
   }
 
-  /** Load synthesis note and QA report from the DB */
+  /** Load synthesis note, QA report and cross-propositions from the DB */
   async loadDocuments(analysisId: string) {
     try {
       const docs: AnalysisDocuments = await fetchDocuments(analysisId);
@@ -224,6 +252,14 @@ class PipelineState {
           this.qaReport = normalizeQaReport(raw);
         } catch {
           console.error('Corrupt QA report in DB — could not parse');
+        }
+      }
+      if (docs.cross_propositions) {
+        try {
+          const raw = JSON.parse(docs.cross_propositions.content);
+          this.propositions = normalizeCrossPropositions(raw);
+        } catch {
+          console.error('Corrupt cross-propositions in DB — could not parse');
         }
       }
     } catch {

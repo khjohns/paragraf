@@ -146,7 +146,10 @@ class AnalysisState {
     suggested?: SuggestedProvision[]
   ) {
     const existingIds = new Set(this.nodes.map((n) => n.id));
-    const newNodes = traversalNodes.filter((n) => !existingIds.has(n.id));
+    // Only add new provision/EU/forarbeid nodes — never new kofa_case nodes.
+    // Traversal may discover referenced cases not in our candidates; adding them
+    // would inflate the node count (e.g. 132 instead of 101).
+    const newNodes = traversalNodes.filter((n) => !existingIds.has(n.id) && n.type !== 'kofa_case');
     if (this.analysis.iteration > 1 && this.previousNodeIds.size > 0) {
       this.applyIterationMarkers(newNodes);
     }

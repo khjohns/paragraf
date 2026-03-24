@@ -190,13 +190,13 @@ def parse_seed_rows(seed_rows):
 
 
 def get_analysis_documents(analysis_id):
-    """Get synthesis note and QA report for an analysis from analysis_documents."""
+    """Get synthesis note, QA report and cross-propositions for an analysis from analysis_documents."""
     rows = (
         get_client()
         .table("analysis_documents")
         .select("doc_type, content, version")
         .eq("analysis_id", analysis_id)
-        .in_("doc_type", ["note", "qa_report"])
+        .in_("doc_type", ["note", "qa_report", "cross_propositions"])
         .execute()
         .data
     )
