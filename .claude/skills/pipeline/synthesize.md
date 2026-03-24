@@ -160,3 +160,12 @@ Oppdater status:
 ```sql
 UPDATE analyses SET status = 'synthesis' WHERE id = '{analysis_id}';
 ```
+
+
+## Tørrkjøring (dry-run)
+
+Hvis orchestratoren sender dry-run-flagg:
+- Kjør all analyse som normalt (les fra DB, generer resultater)
+- **Ikke kjør INSERT/UPDATE** — vis SQL og resultat-JSON til brukeren i stedet
+- Marker output med `[DRY RUN]` prefix
+- SELECT-spørringer kjøres normalt (lesing er alltid OK)

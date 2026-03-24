@@ -192,3 +192,12 @@ Søk fullført:
   {vec_count} fra vektorsøk
   {total_unique} unike kandidater lagret
 ```
+
+
+## Tørrkjøring (dry-run)
+
+Hvis orchestratoren sender dry-run-flagg:
+- Kjør all analyse som normalt (les fra DB, generer resultater)
+- **Ikke kjør INSERT/UPDATE** — vis SQL og resultat-JSON til brukeren i stedet
+- Marker output med `[DRY RUN]` prefix
+- SELECT-spørringer kjøres normalt (lesing er alltid OK)

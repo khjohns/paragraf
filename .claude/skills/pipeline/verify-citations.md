@@ -109,3 +109,12 @@ Summary format: `{"verified": N, "truncated": N, "inaccurate": N, "not_found": N
 Oppsummer: `✓ {verified} verifisert · ⚠ {truncated} trunkert · ✗ {inaccurate + not_found} feil`
 
 List opp alle ikke-verifiserte sitater med beskrivelse.
+
+
+## Tørrkjøring (dry-run)
+
+Hvis orchestratoren sender dry-run-flagg:
+- Kjør all analyse som normalt (les fra DB, generer resultater)
+- **Ikke kjør INSERT/UPDATE** — vis SQL og resultat-JSON til brukeren i stedet
+- Marker output med `[DRY RUN]` prefix
+- SELECT-spørringer kjøres normalt (lesing er alltid OK)

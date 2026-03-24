@@ -147,3 +147,12 @@ ON CONFLICT (analysis_id, source_case, source) DO UPDATE SET proposition_text = 
 ### 6. Rapporter fremdrift
 
 Etter hver sak, rapporter: `✓ {sak_nr} — {relevance} {star ? '★' : ''} — {proposition kort}`
+
+
+## Tørrkjøring (dry-run)
+
+Hvis orchestratoren sender dry-run-flagg:
+- Kjør all analyse som normalt (les fra DB, generer resultater)
+- **Ikke kjør INSERT/UPDATE** — vis SQL og resultat-JSON til brukeren i stedet
+- Marker output med `[DRY RUN]` prefix
+- SELECT-spørringer kjøres normalt (lesing er alltid OK)

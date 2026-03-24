@@ -128,3 +128,12 @@ INSERT INTO analysis_documents (analysis_id, doc_type, content, version)
 VALUES ('{analysis_id}', 'cross_propositions', '{full_result_json}', 1)
 ON CONFLICT (analysis_id, doc_type) DO UPDATE SET content = EXCLUDED.content;
 ```
+
+
+## Tørrkjøring (dry-run)
+
+Hvis orchestratoren sender dry-run-flagg:
+- Kjør all analyse som normalt (les fra DB, generer resultater)
+- **Ikke kjør INSERT/UPDATE** — vis SQL og resultat-JSON til brukeren i stedet
+- Marker output med `[DRY RUN]` prefix
+- SELECT-spørringer kjøres normalt (lesing er alltid OK)

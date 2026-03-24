@@ -151,3 +151,60 @@ UPDATE analyses SET status = 'qa' WHERE id = '{analysis_id}';
 ### 6. Rapporter
 
 Oppsummer funnene: antall referanseproblemer, logikkmerknader, ubehandlede saker. Vis de viktigste funnene med severity=high.
+
+### 7. Iterativ revisjon (hvis forespurt)
+
+Orchestratoren spør brukeren etter KS om funnene skal fikses. Hvis ja:
+
+**a) Les KS-rapporten og notatet**
+
+Identifiser hvilke funn som skal fikses (brukeren kan velge: bare high, alle, eller spesifikke).
+
+**b) For hvert funn — revider notatet**
+
+For `reference_issues`:
+- Hent det korrekte avsnittet via SQL
+- Rett sitatet/påstanden i notatet til å matche kilden
+- Legg til manglende nyanser/kvalifikasjoner
+
+For `logic_flags`:
+- Les `suggestion`-feltet fra KS-rapporten
+- Implementer forslaget i den aktuelle seksjonen
+- For `missing_nuance`: legg til nyanseringen
+- For `unsupported_conclusion`: kvalifiser påstanden eller legg til kilde
+- For `analogy_not_flagged`: marker eksplisitt som analogi
+
+For `untreated_cases` (som ikke er justified):
+- Vurder om saken bør nevnes — hent screening-capsule
+- Legg til kort omtale i relevant seksjon, eller legg til begrunnet utelatelse
+
+**c) Skriv oppdatert notat tilbake til DB**
+
+```sql
+UPDATE analysis_documents SET content = '{revidert_markdown}'
+WHERE analysis_id = '{analysis_id}' AND doc_type = 'note';
+```
+
+**d) Kjør KS på nytt (steg 1-6)**
+
+Maks 2 revisjonsrunder totalt. Etter andre runde, rapporter gjenstående funn uten videre revisjon.
+
+**e) Rapporter endringer**
+
+```
+Revisjon runde {N}:
+  Fikset: {count} funn
+  - {kort beskrivelse av hver fiks}
+  Gjenstående: {remaining} funn
+
+{Hvis runde 2: "Maks revisjonsrunder nådd. Gjenstående funn krever manuell vurdering."}
+```
+
+
+## Tørrkjøring (dry-run)
+
+Hvis orchestratoren sender dry-run-flagg:
+- Kjør all analyse som normalt (les fra DB, generer resultater)
+- **Ikke kjør INSERT/UPDATE** — vis SQL og resultat-JSON til brukeren i stedet
+- Marker output med `[DRY RUN]` prefix
+- SELECT-spørringer kjøres normalt (lesing er alltid OK)
