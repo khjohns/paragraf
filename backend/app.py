@@ -298,13 +298,26 @@ def traverse_analysis_route(analysis_id):
             regulation_filter=body.get("regulationFilter", "new"),
         )
 
-        # Persist candidates
-        candidate_count = persist_candidates(analysis_id, result["nodes"], iteration)
+        # Persist candidates — but skip if analysis already has screened candidates
+        # (re-traversal for edges only should not overwrite categories or add new cases)
+        existing_screened = (
+            get_client()
+            .table("analysis_candidates")
+            .select("id", count="exact")
+            .eq("analysis_id", analysis_id)
+            .eq("screening_status", "ai_screened")
+            .limit(1)
+            .execute()
+        )
+        if existing_screened.count and existing_screened.count > 0:
+            candidate_count = 0  # Skip persist — candidates already screened
+        else:
+            candidate_count = persist_candidates(analysis_id, result["nodes"], iteration)
 
         # Persist gaps on the analysis
         update_analysis(analysis_id, {
             "gaps": result.get("gaps", []),
-            "status": "candidates_ready",
+            "status": analysis.get("status", "candidates_ready"),  # Don't regress status
         })
 
         result["candidateCount"] = candidate_count
