@@ -150,11 +150,10 @@ class AnalysisState {
     if (this.analysis.iteration > 1 && this.previousNodeIds.size > 0) {
       this.applyIterationMarkers(newNodes);
     }
-    this.nodes = [...this.nodes, ...newNodes];
+    if (newNodes.length > 0) this.nodes.push(...newNodes);
     this.edges = edges;
     this.gaps = gaps;
     this.suggestedProvisions = suggested ?? [];
-    this.previousSeeds = { ...this.analysis.seeds };
     this.debouncedSave();
   }
 
