@@ -1,6 +1,6 @@
 ---
 name: pipeline:screen
-description: Screen KOFA-saker for relevans. Subagent-versjon av backend screening.py.
+description: Screen KOFA-saker for relevans. Haiku-triage for C-saker, Sonnet full-screening.
 user-invocable: false
 ---
 
@@ -22,22 +22,59 @@ bash scripts/pipeline-cli.sh candidates <analysis_id>
 bash scripts/pipeline-cli.sh paragraphs <sak_nr> 35,36,37
 ```
 
-Backend-secrets kreves: kjør via `source scripts/dev-backend.sh` eller sett SUPABASE_URL/KEY.
-
 ## Steg
+
+### Steg 0: Haiku-triage (kun C-saker)
+
+Dispatch Haiku-subagenter (model: haiku) i batches à 20-25 saker med denne prompten:
+
+```
+Du er en STRENG juridisk triage-assistent. Vurder om hver sak er relevant for denne problemstillingen:
+
+**Problemstilling:** {refined_problem}
+
+For HVER sak, svar BARE med: sak_nr | JA eller NEI | 1 setning
+
+## STRENGE regler
+
+En sak er KUN JA hvis BEGGE er oppfylt:
+1. Signalet (fts/ref/vector) indikerer gruppering/konsortium-tema
+2. OG sakens `saken_gjelder`-kategorier OGSÅ indikerer at temaet er relevant
+
+En sak er NEI hvis:
+- Signal er generisk FTS-term men saken gjelder noe ANNET enn problemstillingens kjerne
+- Signal er ref[§-nr] og saken gjelder ren kvalifikasjon/dokumentasjon/ettersending uten kobling til problemstillingen
+- Signal er vector-only (ingen FTS-bekreftelse)
+- Saken er avvist/ubegrunnet
+- Sakens kategorier (habilitet, frister, ulovlig direkte anskaffelse, verdiberegning, o.l.) tyder på et annet kjernespørsmål
+
+**Vær STRENG. Kun saker som SANNSYNLIGVIS har problemstillingens tema som KJERNESPØRSMÅL.**
+```
+
+Input per sak: `sak_nr | signal: {type}[{value}] | {saken_gjelder} | {avgjoerelse}`
+
+Hent metadata via MCP SQL:
+```sql
+SELECT ac.sak_nr, ac.signals, c.saken_gjelder, c.avgjoerelse
+FROM analysis_candidates ac JOIN kofa_cases c ON c.sak_nr = ac.sak_nr
+WHERE ac.analysis_id = '<id>' AND ac.category = 'C' AND ac.screening_status = 'pending'
+ORDER BY ac.sak_nr;
+```
+
+NEI-saker: `UPDATE SET screening_status = 'ai_screened', ai_screening = '{"triage": "rejected", "model": "haiku"}'`
+JA-saker: fortsett til full screening (steg 1-4).
+
+A- og B-saker hopper over triage og går rett til full screening.
+
+### Steg 1-4: Full Sonnet-screening
 
 1. Hent kandidater: `bash scripts/pipeline-cli.sh candidates <id>` — finn uscreenede
 2. For hver sak: `bash scripts/pipeline-cli.sh screening <id> <sak_nr>` — gir kontekst + tekst
-3. Analyser med prompten under
-4. Lagre via MCP SQL: `UPDATE analysis_candidates SET ai_screening = ?, category = ?`
-5. Rapporter: `✓ {sak_nr} — {relevance} {star ? '★' : ''} — {proposition kort}`
+3. Analyser med prompten fra `backend/screening.py` (SCREENING_SYSTEM_PROMPT, linje 90-142)
+4. Lagre via MCP SQL: `UPDATE analysis_candidates SET ai_screening = '<json>'::jsonb, screening_status = 'ai_screened'`
+5. Rapporter: `✓ {sak_nr} — {relevance} {★ hvis star} — {proposition kort}`
 
-## Prompt
-
-Bruk eksakt system-prompt fra `backend/screening.py` (SCREENING_SYSTEM_PROMPT, linje 73-139). Les filen.
-
-CLI-output er allerede formatert som user-melding — legg til:
-`Screen denne KOFA-avgjørelsen for relevans til problemstillingen over.`
+Dispatch Sonnet-subagenter i batches à 7-12 saker (parallelt).
 
 ## Output-format
 JSON: `{factum, assessment, proposition, quotes: [{p, text}], nuances, relevance: A/B/C, relevance_reasoning, star: bool}`
