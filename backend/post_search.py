@@ -116,7 +116,7 @@ def _compress_screening_results(analysis_id: str) -> str:
     for c in candidates:
         screening = c["ai_screening"]
         parts.append(
-            f"- {c['sak_nr']} (kat. {c['category']}): "
+            f"- {c['sak_nr']} (kat. {c.get('category') or '?'}): "
             f"{screening.get('proposition', '—')} "
             f"[Relevans: {screening.get('relevance', '?')}]"
         )

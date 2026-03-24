@@ -71,7 +71,12 @@ export interface AnalysisCandidate {
   id: string;
   sak_nr: string;
   category: 'A' | 'B' | 'C' | null;
-  signals: { ref: boolean; fts: boolean; vec: boolean };
+  signals: {
+    ref: boolean | string[];
+    fts: boolean | string[];
+    vec: boolean | number[];
+    discovery_rank?: number;
+  };
   iteration: number;
   screening_status: 'pending' | 'ai_screened' | 'user_read' | 'both';
   ai_screening: ScreeningResult | null;
@@ -140,6 +145,25 @@ export type ScreeningAssignment = 'claude' | 'me';
 
 /** Category-level screening mode */
 export type ScreeningMode = 'claude' | 'me' | 'pick';
+
+/** Funksjonelle labels for A/B/C-kategorier (vises til bruker i stedet for bokstav) */
+export const CATEGORY_LABELS = {
+  A: 'Kjernesak',
+  B: 'Støttesak',
+  C: 'Kontekstsak',
+} as const;
+
+/** Lengre beskrivelser for kategorier (tooltips, kontekstvisning) */
+export const CATEGORY_DESCRIPTIONS = {
+  A: 'Sentral for problemstillingen',
+  B: 'Supplerer eller nyanserer',
+  C: 'Gir kontekst eller avgrensning',
+} as const;
+
+/** Hent funksjonell label for en kategori, med fallback */
+export function getCategoryLabel(cat: string | null | undefined): string {
+  return CATEGORY_LABELS[cat as keyof typeof CATEGORY_LABELS] ?? cat ?? '?';
+}
 
 /** Evolution type for a proposition instance */
 export type EvolutionType = 'established' | 'confirmed' | 'qualified' | 'consolidating';

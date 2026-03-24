@@ -179,7 +179,7 @@ def generate_cross_propositions(analysis_id: str) -> dict:
             for q in screening.get("quotes", [])
         )
         nuances = screening.get("nuances") or ""
-        case_parts.append(f"""<case sak_nr="{c['sak_nr']}" category="{c['category']}" relevance="{screening.get('relevance', '?')}">
+        case_parts.append(f"""<case sak_nr="{c['sak_nr']}" category="{c.get('category') or '?'}" relevance="{screening.get('relevance', '?')}">
   <rettssetning>{screening.get('proposition', '—')}</rettssetning>
   <faktum>{screening.get('factum', '—')}</faktum>
   <vurdering>{screening.get('assessment', '—')}</vurdering>

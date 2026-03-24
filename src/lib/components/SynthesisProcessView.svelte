@@ -4,6 +4,7 @@
   import { synthesizeStream, qaStream, updateSynthesisNote } from '$lib/api/analyses';
   import type { StreamEvent } from '$lib/api/analyses';
   import type { SynthesisResult } from '$lib/types/analysis';
+  import { getCategoryLabel } from '$lib/types/analysis';
   import { toastState } from '$lib/stores/toast.svelte';
   import {
     QA_SEVERITY_CONFIG,
@@ -466,7 +467,7 @@
               <div class="qa-section-label">Ubehandlet</div>
               {#each untreatedCases as uc}
                 <div class="qa-flag">
-                  <span class="qa-flag-case">{uc.sak_nr} ({uc.category})</span>
+                  <span class="qa-flag-case">{uc.sak_nr} ({getCategoryLabel(uc.category)})</span>
                   <div class="qa-flag-text">{uc.reason}</div>
                 </div>
               {/each}

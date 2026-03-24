@@ -46,7 +46,7 @@ def _parse_screening(raw) -> dict | None:
 
 def _format_candidate_line(c: dict) -> str:
     """Format a single candidate as a compact context line."""
-    line = f"  {c['sak_nr']} [{c['category']}]"
+    line = f"  {c['sak_nr']} [{c.get('category') or '?'}]"
     if c.get("is_delimitation"):
         line += " [AVGRENSET]"
     screening = _parse_screening(c.get("ai_screening"))

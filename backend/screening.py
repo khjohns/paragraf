@@ -329,11 +329,18 @@ def _persist_screening_result(analysis_id: str, sak_nr: str, result: dict):
     """Save screening result to analysis_candidates and extract propositions."""
     client = get_client()
 
-    # Update candidate with screening result
-    client.table("analysis_candidates").update({
+    # ADR-006: category is set by screening (ai_screening.relevance), not by traversal
+    update_data = {
         "ai_screening": result,
         "screening_status": "ai_screened",
-    }).eq("analysis_id", analysis_id).eq("sak_nr", sak_nr).execute()
+    }
+    relevance = result.get("relevance")
+    if relevance in ("A", "B", "C"):
+        update_data["category"] = relevance
+
+    client.table("analysis_candidates").update(
+        update_data
+    ).eq("analysis_id", analysis_id).eq("sak_nr", sak_nr).execute()
 
     # Increment total_cost_usd on the analysis
     cost = (result.get("_llm_meta") or {}).get("cost_usd", 0)

@@ -129,24 +129,31 @@ Minst tre alternativer:
 ## Avhengigheter
 - Bør gjøres FØR API-pipeline-forbedringer implementeres
 
-## Nøkkelspørsmål (oppdatert etter thinking-partner)
+## Nøkkelspørsmål — alle besvart
 
-### Besvart:
-1. ~~Er boolean signals riktig?~~ → **Nei.** Mister granularitet. Arrays bevarer hvilke bestemmelser/termer som traff.
-2. ~~Bør mekanisk kategori være A/B/C eller numerisk?~~ → **Trolig `signal_strength` (int 0-3)** — enklere, brukes kun for sortering.
-3. ~~Gir triage mening når alle har minst 1 signal?~~ → **Ja, men triage bør operere på signals+metadata, ikke kategori.**
-4. ~~Skal innholdsbasert overskrive mekanisk?~~ → **Ja.** Mekanisk er scaffolding. Etter screening er den utdatert.
+### Runde 1 (thinking-partner):
+1. ~~Er boolean signals riktig?~~ → **Nei.** Arrays bevarer hvilke bestemmelser/termer som traff.
+2. ~~Bør mekanisk kategori være A/B/C eller numerisk?~~ → **`discovery_rank` (int 1-3)** fryst i signals-objektet.
+3. ~~Gir triage mening når alle har minst 1 signal?~~ → **Ja, triage opererer på signals+metadata, ikke kategori.**
+4. ~~Skal innholdsbasert overskrive mekanisk?~~ → **Ja, men mekanisk bevares som `discovery_rank` i signals.**
 
-### Gjenstår:
-5. Frontend-UX: Bør `signal_strength` vises i tillegg til `category`? Eller kun som sorteringskriterium?
-6. Er interseksjon av primær ∩ sekundær bestemmelse realistisk for alle problemstillinger?
-7. Hva er riktig triage-terskel med rikere signals? (f.eks. "kun vec=true, ingen ref/fts" → triage-kandidat)
-8. Skal `signal_strength` beregnes fra boolean-count eller fra array-lengder? (3 ref-treff > 1 ref-treff?)
+### Runde 2 (thinking-partner + ekstern Claude):
+5. ~~Frontend-UX: Bør discovery_rank vises?~~ → **Signal-prikker pre-screening, A/B/C post-screening.** Metode-dashboard fremtidig.
+6. ~~Vec i hierarkiet?~~ → **Ortogonal dimensjon.** `ref+fts+vec > ref+fts > ref+vec > fts+vec > ref-only > fts-only > vec-only`.
+7. ~~Triage-regler med rikere signals?~~ → **Operér på signals + metadata.** Se ADR-006 triage-tabell.
+8. ~~Distinkte vokabular?~~ → **`category` = alltid innholdsrelevans (A/B/C). `discovery_rank` = int i signals.**
+9. ~~CLAUDE.md-inkonistens?~~ → **Oppdateres: A/B/C = innholdsrelevans, ikke signaldekning.**
 
-### Thinking-partner utfordringer (runde 1):
-- **Chesterton's Fence:** Hvem bruker mekanisk kategori etter screening? Hvis ingen → ikke lag to felter.
-- **Pre-mortem:** To kategori-felter forvirrer. Ett felt med rikere signals er enklere.
-- **Reframing:** Problemet er signalformat, ikke kategorisering. Fiks signals → resten løser seg.
+### Thinking-partner-utfordringer som formet beslutningen:
+- **Chesterton's Fence:** Metodikken selv bruker mekanisk kategori for kalibrering → bevar som `discovery_rank`.
+- **Pre-mortem:** To kategori-felter med A/B/C forvirrer → ett felt + fryst rank i signals.
+- **Reframing:** Problemet er *både* signalformat og kategori-semantikk — ortogonale problemer, begge løst.
+- **Informasjonsteori:** Overskriving av mekanisk kategori er destruksjon → `discovery_rank` bevarer øyeblikksbildet.
+- **First Principles:** `signal_strength` som count fanger ikke interseksjonsmønstre → `discovery_rank` + arrays.
+
+## Beslutning
+
+**Se [ADR-006: Kategorisering og signalmodell](../adr/006-kategorisering-og-signalmodell.md)** for fullstendig beslutning, begrunnelse og handlingsplan.
 
 ### Thinking-partner utfordringer (runde 2 — hardere press):
 

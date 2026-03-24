@@ -84,7 +84,7 @@ def cmd_candidates(analysis_id: str):
     client = get_client()
     rows = (
         client.table("analysis_candidates")
-        .select("sak_nr, category, screening_status, ai_screening")
+        .select("sak_nr, category, signals, screening_status, ai_screening")
         .eq("analysis_id", analysis_id)
         .order("category")
         .order("sak_nr")
@@ -100,7 +100,10 @@ def cmd_candidates(analysis_id: str):
         status = "screened" if s else r.get("screening_status", "pending")
         star = " ★" if s.get("star") else ""
         prop = s.get("proposition", "")
-        print(f"  {r['sak_nr']} ({r.get('category', '?')}{star}) [{status}] {prop}")
+        cat = r.get("category") or "–"  # ADR-006: null until screening
+        signals = _normalize_signals(r.get("signals") or {})
+        rank = signals.get("discovery_rank", "?")
+        print(f"  {r['sak_nr']} (cat={cat} rank={rank}{star}) [{status}] {prop}")
     print("</candidates>")
 
 
@@ -136,13 +139,23 @@ def cmd_triage(analysis_id: str, category: str = "C"):
     print(f"<triage category=\"{category}\" count=\"{len(rows)}\">")
     for r in rows:
         c = case_map.get(r["sak_nr"], {})
-        signals = r.get("signals") or {}
-        # Canonical format is boolean {ref, fts, vec}
-        sig_parts = [k for k, v in signals.items() if v]
+        signals = _normalize_signals(r.get("signals") or {})
+        # ADR-006: show signal type + details
+        sig_parts = []
+        for k in ("ref", "fts", "vec"):
+            vals = signals.get(k, [])
+            if vals:
+                if k == "vec" and vals and isinstance(vals[0], (int, float)):
+                    sig_parts.append(f"vec({vals[0]:.2f})")
+                elif isinstance(vals, list) and len(vals) > 0:
+                    sig_parts.append(f"{k}({','.join(str(v) for v in vals)})")
+                else:
+                    sig_parts.append(k)
         sig_str = "+".join(sig_parts) if sig_parts else "?"
+        rank = signals.get("discovery_rank", "?")
         saken = c.get("saken_gjelder") or "(ukjent)"
         avgj = c.get("avgjoerelse") or "?"
-        print(f"  {r['sak_nr']} | signal: {sig_str} | {saken} | {avgj}")
+        print(f"  {r['sak_nr']} | rank={rank} signal: {sig_str} | {saken} | {avgj}")
     print("</triage>")
 
 
@@ -537,8 +550,13 @@ def cmd_save_screening(analysis_id: str, sak_nr: str):
     """Save screening result for one case. Reads JSON from stdin."""
     data = json.loads(sys.stdin.read())
     client = get_client()
+    # ADR-006: category is set by screening (relevance), not by traversal
+    update_data = {"ai_screening": data, "screening_status": "ai_screened"}
+    relevance = data.get("relevance")
+    if relevance in ("A", "B", "C"):
+        update_data["category"] = relevance
     client.table("analysis_candidates").update(
-        {"ai_screening": data, "screening_status": "ai_screened"}
+        update_data
     ).eq("analysis_id", analysis_id).eq("sak_nr", sak_nr).execute()
     star = " ★" if data.get("star") else ""
     print(f"✓ {sak_nr} — {data.get('relevance', '?')}{star} — {data.get('proposition', '')[:80]}")
@@ -614,20 +632,48 @@ def cmd_save_document(analysis_id: str, doc_type: str):
 
 
 def _normalize_signals(raw: dict) -> dict:
-    """Normalize signals to canonical boolean format {ref, fts, vec}.
+    """Normalize signals to ADR-006 array format for display and persistence.
 
-    Accepts both boolean format (traversal) and legacy array format (CLI pipeline).
-    Boolean format: {"ref": True, "fts": False, "vec": True}
-    Legacy format:  {"ref": ["16-11"], "fts": ["term"], "vector": [0.78]}
+    Accepts three formats:
+    1. ADR-006 arrays: {"ref": ["16-11"], "fts": ["konsortium"], "vec": [0.78], "discovery_rank": 2}
+    2. Legacy boolean:  {"ref": true, "fts": false, "vec": true}
+    3. Legacy CLI:      {"ref": ["16-11"], "fts": ["term"], "vector": [0.78]}
+
+    Always returns ADR-006 format with arrays + discovery_rank.
     """
-    result = {}
+    result: dict = {}
     for key, val in raw.items():
         # Normalize key: "vector" -> "vec"
         norm_key = "vec" if key == "vector" else key
-        result[norm_key] = bool(val)
+        if norm_key == "discovery_rank":
+            result["discovery_rank"] = val
+            continue
+        if norm_key not in ("ref", "fts", "vec"):
+            continue
+        # Convert boolean to empty array, keep arrays as-is
+        if isinstance(val, bool):
+            # Legacy boolean: content is lost, but track presence for discovery_rank
+            result[norm_key] = []
+            if val:
+                result.setdefault("_legacy_true", set()).add(norm_key)
+        elif isinstance(val, list):
+            result[norm_key] = val
+        else:
+            result[norm_key] = [val] if val else []
+
     # Ensure all three keys are present
     for k in ("ref", "fts", "vec"):
-        result.setdefault(k, False)
+        result.setdefault(k, [])
+
+    # Compute discovery_rank if not already present
+    if "discovery_rank" not in result:
+        legacy_true = result.pop("_legacy_true", set())
+        result["discovery_rank"] = sum(
+            1 for k in ("ref", "fts", "vec") if result[k] or k in legacy_true
+        )
+    else:
+        result.pop("_legacy_true", None)
+
     return result
 
 
@@ -639,7 +685,7 @@ def cmd_save_candidates(analysis_id: str):
         {
             "analysis_id": analysis_id,
             "sak_nr": c["sak_nr"],
-            "category": c.get("category", "C"),
+            "category": c.get("category"),  # ADR-006: None until screening
             "signals": _normalize_signals(c.get("signals", {})),
             "iteration": c.get("iteration", 1),
             "screening_status": "pending",

@@ -148,11 +148,11 @@
         <section class="card">
           <div class="card-label">Resultater</div>
           <p class="card-desc">
-            Alle KOFA-avgjørelser som ble funnet av minst én søkemetode. Hver sak får en kategori
-            basert på hvor mange metoder som fant den: <strong>A</strong> = alle tre (R+F+V),
-            <strong>B</strong>
-            = to, <strong>C</strong> = én. Dette er et mål på <em>oppdagbarhet</em>, ikke relevans —
-            en C-sak kan være svært viktig.
+            Alle KOFA-avgjørelser som ble funnet av minst én søkemetode. Etter screening
+            kategoriseres sakene etter innholdsrelevans:
+            <strong>Kjernesak</strong> = sentral for problemstillingen,
+            <strong>Støttesak</strong> = supplerer eller nyanserer,
+            <strong>Kontekstsak</strong> = gir kontekst eller avgrensning.
           </p>
 
           <!-- Candidate summary -->
@@ -160,17 +160,17 @@
             <span class="results-count">{analysisState.caseNodes.length}</span>
             <span class="results-label">kandidater funnet</span>
             <div class="results-cats">
-              <span title="A-saker: Treff på alle tre søkemetoder (R+F+V)"
+              <span title="Kjernesak: Sentral for problemstillingen"
                 ><CategoryBadge category="A" small /><span class="cat-num"
                   >{analysisState.catCounts.A}</span
                 ></span
               >
-              <span title="B-saker: Treff på to av tre søkemetoder"
+              <span title="Støttesak: Supplerer eller nyanserer"
                 ><CategoryBadge category="B" small /><span class="cat-num"
                   >{analysisState.catCounts.B}</span
                 ></span
               >
-              <span title="C-saker: Treff på én søkemetode"
+              <span title="Kontekstsak: Gir kontekst eller avgrensning"
                 ><CategoryBadge category="C" small /><span class="cat-num"
                   >{analysisState.catCounts.C}</span
                 ></span

@@ -50,7 +50,11 @@ VIKTIG:
 
 ## Domene-spesifikke regler
 
-- **A/B/C-kategori** = signaldekning (R+F+V), IKKE kvalitetsvurdering
+- **A/B/C-kategori** = innholdsrelevans etter screening (A=Kjernesak, B=Støttesak, C=Kontekstsak). Se ADR-006.
+- **Frontend-labels:** A→«Kjernesak», B→«Støttesak», C→«Kontekstsak» (A/B/C kun internt i DB/API)
+- **signals** = søke-signaler (ref/fts/vec arrays + discovery_rank), brukes for prioritering og kalibrering
+- **category = null** betyr ikke screenet ennå — vis signal-prikker, ikke kategori-badge
+- **Signals-invariant:** `signals` settes én gang av scope/traversal, overskrives ALDRI av downstream-steg
 - **AI-tillitsgrense:** DB-tekst umarkert, AI-tekst har gull-brun venstre-border (`--p-ai-border`)
 - **INGEN skygger** — borders-only + surface shifts (se `.interface-design/system.md`)
 - Backend-kanter peker **case→provision** (ikke provision→case)

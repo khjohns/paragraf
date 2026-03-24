@@ -4,9 +4,19 @@ export type Valence = 'confirming' | 'distinguishing' | 'departing' | 'unknown';
 export type RegulationVersion = 'new' | 'old';
 
 export interface SignalHits {
-  ref: boolean;
-  fts: boolean;
-  vec: boolean;
+  ref: string[]; // Bestemmelser som ga ref-treff
+  fts: string[]; // FTS-termer som matchet
+  vec: number[]; // Similarity-scores fra vektorsøk
+  discovery_rank: number; // Fryst: antall signaltyper (1-3)
+}
+
+/**
+ * Legacy-kompatibel signalsjekk.
+ * Håndterer både nytt array-format og gammelt boolean-format fra DB.
+ */
+export function hasSignal(signal: boolean | string[] | number[] | undefined): boolean {
+  if (Array.isArray(signal)) return signal.length > 0;
+  return !!signal;
 }
 
 export interface GraphNode {

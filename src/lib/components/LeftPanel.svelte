@@ -16,7 +16,7 @@
   import type { AnalysisStatus } from '$lib/types/analysis';
 
   // Stats
-  let cases = $derived(analysisState.nodes.filter((n) => n.category));
+  let cases = $derived(analysisState.caseNodes);
   let counts = $derived({
     total: cases.length,
     A: cases.filter((n) => n.category === 'A').length,
@@ -45,7 +45,7 @@
     if (analysisState.analysis.status) return analysisState.analysis.status;
     if (analysisState.nodes.length === 0) return 'scoping';
     const readCount = Object.values(analysisState.analysis.readStatus).filter(Boolean).length;
-    const caseCount = analysisState.nodes.filter((n) => n.category).length;
+    const caseCount = analysisState.caseNodes.length;
     if (readCount === 0) return 'candidates_ready';
     if (readCount < caseCount) return 'screening';
     return 'screening_complete';
@@ -92,7 +92,7 @@
     <!-- 3. Resultater -->
     <LeftPanelSection num="3" title="Resultater" subtitle="{counts.total} treff" defaultOpen>
       <div class="results-content">
-        {#each [{ cat: 'A' as const, desc: 'Ref + FTS + Vektor', count: counts.A }, { cat: 'B' as const, desc: 'To av tre signaler', count: counts.B }, { cat: 'C' as const, desc: 'Ett signal', count: counts.C }] as item}
+        {#each [{ cat: 'A' as const, desc: 'Sentral for problemstillingen', count: counts.A }, { cat: 'B' as const, desc: 'Supplerer eller nyanserer', count: counts.B }, { cat: 'C' as const, desc: 'Gir kontekst eller avgrensning', count: counts.C }] as item}
           <div class="result-row">
             <CategoryBadge category={item.cat} />
             <span class="result-desc">{item.desc}</span>

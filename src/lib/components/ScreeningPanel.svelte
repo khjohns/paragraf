@@ -13,12 +13,12 @@
     let me = 0;
 
     for (const n of cases) {
-      const cat = n.category as 'A' | 'B' | 'C';
+      const cat = n.category;
       const assignment = screeningState.getAssignment(n.label, cat);
       if (assignment === 'claude') claude++;
       else me++;
-      if (screeningState.screeningResults[n.label]) catScreened[cat]++;
-      if (assignment === 'me' && analysisState.analysis.readStatus[n.id]) catRead[cat]++;
+      if (cat && screeningState.screeningResults[n.label]) catScreened[cat]++;
+      if (cat && assignment === 'me' && analysisState.analysis.readStatus[n.id]) catRead[cat]++;
     }
 
     return {

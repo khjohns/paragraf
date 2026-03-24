@@ -2,7 +2,11 @@
   import { analysisState } from '$lib/stores/analysis.svelte';
   import { screeningState } from '$lib/stores/screening.svelte';
   import { pipelineState } from '$lib/stores/pipeline.svelte';
-  import { QA_SEVERITY_CONFIG, CITATION_STATUS_CONFIG } from '$lib/types/analysis';
+  import {
+    QA_SEVERITY_CONFIG,
+    CITATION_STATUS_CONFIG,
+    getCategoryLabel,
+  } from '$lib/types/analysis';
 
   let expanded = $state<string | null>(null);
 
@@ -133,7 +137,7 @@
           <div class="flag-item">
             <div class="flag-header">
               <span class="flag-case">{uc.sak_nr}</span>
-              <span class="flag-cat">{uc.category}</span>
+              <span class="flag-cat">{getCategoryLabel(uc.category)}</span>
             </div>
             <div class="flag-desc">{uc.proposition}</div>
             <div class="flag-issue">{uc.reason}</div>

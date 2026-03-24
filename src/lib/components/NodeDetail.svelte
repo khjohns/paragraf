@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { GraphNode } from '$lib/types/graph';
+  import { hasSignal } from '$lib/types/graph';
   import { uiState } from '$lib/stores/ui.svelte';
   import { analysisState } from '$lib/stores/analysis.svelte';
   import { createCurationQuery } from '$lib/queries/curation';
@@ -131,7 +132,7 @@
         {/if}
         {#if selectedNode.signals}
           <span class="signal-dots" title="R: Referanse  F: Fulltekst  V: Vektor">
-            {#each [{ key: 'ref', on: selectedNode.signals.ref }, { key: 'fts', on: selectedNode.signals.fts }, { key: 'vec', on: selectedNode.signals.vec }] as sig}
+            {#each [{ key: 'ref', on: hasSignal(selectedNode.signals.ref) }, { key: 'fts', on: hasSignal(selectedNode.signals.fts) }, { key: 'vec', on: hasSignal(selectedNode.signals.vec) }] as sig}
               <span class="sig-dot" class:on={sig.on}></span>
             {/each}
           </span>

@@ -444,7 +444,7 @@ def _compress_screening_for_synthesis(
     def _format_full(c: dict) -> str:
         s = c.get("ai_screening", {})
         lines = [
-            f"### {c['sak_nr']} (kat. {c['category']}) {'★' if s.get('star') else ''}",
+            f"### {c['sak_nr']} (kat. {c.get('category') or '?'}) {'★' if s.get('star') else ''}",
             f"**Rettssetning:** {s.get('proposition', '—')}",
             f"**Faktum:** {s.get('factum', '—')}",
             f"**Vurdering:** {s.get('assessment', '—')}",
@@ -461,7 +461,7 @@ def _compress_screening_for_synthesis(
     def _format_compressed(c: dict) -> str:
         s = c.get("ai_screening", {})
         return (
-            f"- **{c['sak_nr']}** (kat. {c['category']}): "
+            f"- **{c['sak_nr']}** (kat. {c.get('category') or '?'}): "
             f"{s.get('proposition', '—')} "
             f"[Relevans: {s.get('relevance', '?')}] "
             f"{'★' if s.get('star') else ''}"

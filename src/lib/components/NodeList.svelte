@@ -4,6 +4,8 @@
   import NodeRow from './NodeRow.svelte';
 
   const categoryOrder: Record<string, number> = { A: 0, B: 1, C: 2 };
+  // Null category (unscreened) sorts after C, with higher discovery_rank first
+  const UNSCREENED_ORDER = 3;
 
   function isNodeDimmed(node: (typeof analysisState.nodes)[0]): boolean {
     if (
@@ -35,10 +37,16 @@
     // Sort by chosen criterion
     nodes.sort((a, b) => {
       if (uiState.listSort === 'category') {
-        const ca = categoryOrder[a.category ?? 'C'] ?? 3;
-        const cb = categoryOrder[b.category ?? 'C'] ?? 3;
+        const ca = a.category ? (categoryOrder[a.category] ?? UNSCREENED_ORDER) : UNSCREENED_ORDER;
+        const cb = b.category ? (categoryOrder[b.category] ?? UNSCREENED_ORDER) : UNSCREENED_ORDER;
         if (ca !== cb) return ca - cb;
-        return b.citations - a.citations;
+        // Within unscreened: sort by discovery_rank descending (3→2→1)
+        if (!a.category && !b.category) {
+          const ra = a.signals?.discovery_rank ?? 0;
+          const rb = b.signals?.discovery_rank ?? 0;
+          if (ra !== rb) return rb - ra;
+        }
+        return (b.score ?? b.citations) - (a.score ?? a.citations);
       }
       if (uiState.listSort === 'citations') {
         return b.citations - a.citations;

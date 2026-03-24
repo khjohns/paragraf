@@ -61,20 +61,20 @@ def _generate_query_embedding(query: str) -> tuple[float, ...]:
     return tuple(normalized)
 
 
-def search_vector_cases(query: str, max_results: int = 50) -> set[str]:
+def search_vector_cases(query: str, max_results: int = 50) -> dict[str, float]:
     """Search KOFA decisions by vector similarity.
 
-    Returns set of sak_nr found via hybrid vector+FTS search.
-    Falls back to empty set if embedding API fails.
+    Returns {sak_nr: similarity_score} (ADR-006: rich signals).
+    Falls back to empty dict if embedding API fails.
     """
     if not query.strip():
-        return set()
+        return {}
 
     try:
         query_embedding = list(_generate_query_embedding(query))
     except Exception as e:
         logger.error(f"Gemini embedding failed, skipping V signal: {e}")
-        return set()
+        return {}
 
     client = get_client()
     result = client.rpc(
@@ -86,4 +86,11 @@ def search_vector_cases(query: str, max_results: int = 50) -> set[str]:
         },
     ).execute()
 
-    return {row["sak_nr"] for row in (result.data or [])}
+    # Keep highest score per sak_nr (RPC may return multiple paragraphs per case)
+    scores: dict[str, float] = {}
+    for row in result.data or []:
+        sak = row["sak_nr"]
+        sim = row.get("similarity") or row.get("combined_score") or 0.0
+        if sak not in scores or sim > scores[sak]:
+            scores[sak] = round(sim, 4)
+    return scores

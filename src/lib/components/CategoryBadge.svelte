@@ -1,10 +1,15 @@
 <script lang="ts">
   import type { Category } from '$lib/types/graph';
+  import { CATEGORY_LABELS } from '$lib/types/analysis';
 
   let { category, small = false }: { category: Category; small?: boolean } = $props();
+
+  let label = $derived(CATEGORY_LABELS[category]);
 </script>
 
-<span class="badge cat-{category.toLowerCase()}" class:small>{category}</span>
+<span class="badge cat-{category.toLowerCase()}" class:small title="{category}: {label}"
+  >{small ? category : label}</span
+>
 
 <style>
   .badge {

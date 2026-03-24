@@ -6,6 +6,7 @@
   import PostSearchPanel from './PostSearchPanel.svelte';
   import EuScreeningPanel from './EuScreeningPanel.svelte';
   import type { ScreeningMode } from '$lib/types/analysis';
+  import { getCategoryLabel } from '$lib/types/analysis';
 
   let showPostSearch = $derived(
     analysisState.isScreeningPhase ||
@@ -26,11 +27,11 @@
     let claude = 0;
     let me = 0;
     for (const n of cases) {
-      const cat = n.category as 'A' | 'B' | 'C';
+      const cat = n.category;
       const assignment = screeningState.getAssignment(n.label, cat);
       if (assignment === 'claude') claude++;
       else me++;
-      if (screeningState.screeningResults[n.label]) catScreened[cat]++;
+      if (cat && screeningState.screeningResults[n.label]) catScreened[cat]++;
     }
     return { catScreened, claudeCount: claude, meCount: me };
   });
@@ -76,7 +77,7 @@
           <div class="cat-card">
             <div class="cat-card-header">
               <CategoryBadge category={cat as 'A' | 'B' | 'C'} />
-              <span class="cat-card-label">{cat}-kandidater ({count})</span>
+              <span class="cat-card-label">{getCategoryLabel(cat)} ({count})</span>
               {#if screened > 0}
                 <span class="cat-card-progress">{screened}/{count} screenet</span>
               {/if}
@@ -102,8 +103,8 @@
       <div class="filter-notice">
         ☑ Kun gjeldende FOA (2017–)
         <span class="filter-count">
-          {analysisState.nodes.filter((n) => n.regulation === 'old' && n.category).length} eldre saker
-          filtrert
+          {analysisState.nodes.filter((n) => n.regulation === 'old' && n.type === 'kofa_case')
+            .length} eldre saker filtrert
         </span>
       </div>
     {/if}

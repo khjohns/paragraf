@@ -198,7 +198,7 @@
               {/if}
             </span>
             <span class="item-sak">{node.label}</span>
-            <span class="item-cat">{node.category}</span>
+            <span class="item-cat">{node.category ?? '—'}</span>
             {#if result}
               <span class="item-result">
                 {result.star ? 'Gullkandidat' : (result.relevance ?? '')}

@@ -1,4 +1,5 @@
-import type { GraphNode, GraphEdge, GapPair } from '$lib/types/graph';
+import type { GraphNode, GraphEdge, GapPair, SignalHits } from '$lib/types/graph';
+import { hasSignal } from '$lib/types/graph';
 import type {
   Analysis,
   AnalysisStatus,
@@ -27,8 +28,8 @@ class AnalysisState {
   totalCostUsd = $state<number>(0);
   citationSummary = $state<Record<string, number> | null>(null);
 
-  /** Case nodes (nodes with a category) — shared derivation to avoid duplicating across components */
-  caseNodes = $derived(this.nodes.filter((n) => n.category));
+  /** Case nodes — all kofa_case nodes (including unscreened with category=null) */
+  caseNodes = $derived(this.nodes.filter((n) => n.type === 'kofa_case'));
 
   /** Category counts — single computation used by ContextStrip, PhasePanel, ScreeningPanel, etc. */
   catCounts = $derived.by(() => {
@@ -45,9 +46,9 @@ class AnalysisState {
   coverageStats = $derived.by(() => {
     const stats = { ref: 0, fts: 0, vec: 0 };
     for (const n of this.caseNodes) {
-      if (n.signals?.ref) stats.ref++;
-      if (n.signals?.fts) stats.fts++;
-      if (n.signals?.vec) stats.vec++;
+      if (hasSignal(n.signals?.ref)) stats.ref++;
+      if (hasSignal(n.signals?.fts)) stats.fts++;
+      if (hasSignal(n.signals?.vec)) stats.vec++;
     }
     return stats;
   });
@@ -337,7 +338,7 @@ class AnalysisState {
         isSeed: false,
         isDelimitation: c.is_delimitation,
         category: c.category ?? undefined,
-        signals: c.signals,
+        signals: c.signals as unknown as SignalHits,
       }));
       this.previousNodeIds = new Set(this.nodes.map((n) => n.id));
     }

@@ -83,14 +83,14 @@ def collect_reference_signal(
     return ref_cases
 
 
-def collect_fts_signal(fts_terms: list[str]) -> set[str]:
+def collect_fts_signal(fts_terms: list[str]) -> dict[str, set[str]]:
     """F signal: full-text search on decision text.
 
-    Returns set of sak_nr found via FTS.
+    Returns {sak_nr: set of matching FTS terms} (ADR-006: rich signals).
     Uses the search_kofa_decision_text RPC (GIN index on search_vector).
     """
     client = get_client()
-    fts_cases: set[str] = set()
+    fts_cases: dict[str, set[str]] = {}
 
     for term in fts_terms:
         result = client.rpc(
@@ -99,7 +99,7 @@ def collect_fts_signal(fts_terms: list[str]) -> set[str]:
         ).execute()
 
         for row in result.data or []:
-            fts_cases.add(row["sak_nr"])
+            fts_cases.setdefault(row["sak_nr"], set()).add(term)
 
     return fts_cases
 
@@ -375,30 +375,36 @@ def _detect_regulation_versions(law_refs_data: list[dict]) -> dict[str, str]:
     return case_reg
 
 
-def _classify_category(signal_count: int) -> str:
-    """Classify case into A/B/C based on signal count."""
-    if signal_count >= 2:
-        return "A"
-    if signal_count == 1:
-        return "B"
-    return "C"
-
-
 def _build_case_nodes(
     all_sak_nrs: set[str], case_map: dict[str, dict],
-    ref_cases: dict[str, set[str]], fts_cases: set[str], vec_cases: set[str],
+    ref_cases: dict[str, set[str]],
+    fts_cases: dict[str, set[str]],
+    vec_cases: dict[str, float],
     seed_cases: list[str], case_reg: dict[str, str],
 ) -> list[dict]:
-    """Build GraphNode dicts for all discovered KOFA cases."""
+    """Build GraphNode dicts for all discovered KOFA cases.
+
+    ADR-006: Rich signals (arrays) + frozen discovery_rank.
+    category is None — set later by screening, not by traversal.
+    """
     case_nodes = []
     for sak_nr in all_sak_nrs:
         case = case_map.get(sak_nr)
         if not case:
             continue
 
-        # Canonical format: boolean {ref, fts, vec} — must match frontend SignalHits type
-        signals = {"ref": sak_nr in ref_cases, "fts": sak_nr in fts_cases, "vec": sak_nr in vec_cases}
-        category = _classify_category(sum(signals.values()))
+        # Rich signals: arrays preserving what matched (ADR-006)
+        ref_hits = sorted(ref_cases.get(sak_nr, set()))   # List of provision IDs
+        fts_hits = sorted(fts_cases.get(sak_nr, set()))    # List of FTS terms
+        vec_score = vec_cases.get(sak_nr)                  # Similarity score or None
+
+        signals = {
+            "ref": ref_hits,                               # e.g. ["anskaffelsesforskriften:16-11"]
+            "fts": fts_hits,                               # e.g. ["konsortium", "gruppering"]
+            "vec": [vec_score] if vec_score is not None else [],  # e.g. [0.78]
+            "discovery_rank": sum(1 for s in [ref_hits, fts_hits, [vec_score] if vec_score is not None else []] if s),
+        }
+
         reg = case_reg.get(sak_nr)
 
         node: dict = {
@@ -408,7 +414,7 @@ def _build_case_nodes(
             "subtitle": case.get("saken_gjelder") or "",
             "date": str(case["avsluttet"]) if case.get("avsluttet") else None,
             "outcome": simplify_outcome(case.get("avgjoerelse")),
-            "category": category,
+            "category": None,  # ADR-006: set by screening, not traversal
             "signals": signals,
             "citations": 0,
             "iteration": 1,
@@ -446,7 +452,9 @@ def _compute_case_scores(case_nodes: list[dict]) -> None:
     """Compute and set final_score on each case node."""
     max_cite = max((n["citations"] for n in case_nodes), default=0)
     for node in case_nodes:
-        signal_count = sum(node.get("signals", {}).values())
+        # ADR-006: use discovery_rank from rich signals
+        signals = node.get("signals", {})
+        signal_count = signals.get("discovery_rank", 0)
         node["score"] = round(compute_case_score(
             signal_count=signal_count,
             citation_count=node["citations"],
@@ -487,20 +495,31 @@ def _compute_suggested_provisions(
 
 
 def _compute_stats(case_nodes: list[dict]) -> dict:
-    """Compute category statistics for case nodes."""
-    counts = {"A": 0, "B": 0, "C": 0}
+    """Compute statistics for case nodes.
+
+    ADR-006: category is None after traversal (set by screening).
+    Stats now include discovery_rank distribution instead of category counts.
+    """
+    cat_counts = {"A": 0, "B": 0, "C": 0}
+    rank_counts = {1: 0, 2: 0, 3: 0}
     delimitations = 0
     for n in case_nodes:
         cat = n.get("category")
-        if cat in counts:
-            counts[cat] += 1
+        if cat in cat_counts:
+            cat_counts[cat] += 1
+        rank = (n.get("signals") or {}).get("discovery_rank", 0)
+        if rank in rank_counts:
+            rank_counts[rank] += 1
         if n.get("isDelimitation"):
             delimitations += 1
     return {
         "total": len(case_nodes),
-        "categoryA": counts["A"],
-        "categoryB": counts["B"],
-        "categoryC": counts["C"],
+        "categoryA": cat_counts["A"],
+        "categoryB": cat_counts["B"],
+        "categoryC": cat_counts["C"],
+        "rank3": rank_counts[3],
+        "rank2": rank_counts[2],
+        "rank1": rank_counts[1],
         "delimitations": delimitations,
     }
 
@@ -515,14 +534,14 @@ def build_traversal_response(
     """Core traversal algorithm. Returns full TraversalResponse dict."""
     client = get_client()
 
-    # --- 1. Collect signals ---
-    ref_cases = collect_reference_signal(provisions)
-    fts_cases = collect_fts_signal(fts_terms)
+    # --- 1. Collect signals (ADR-006: rich signals) ---
+    ref_cases = collect_reference_signal(provisions)     # {sak_nr: set of provision IDs}
+    fts_cases = collect_fts_signal(fts_terms)            # {sak_nr: set of matching FTS terms}
     from vector_seed import search_vector_cases
-    vec_cases = search_vector_cases(vector_query)
+    vec_cases = search_vector_cases(vector_query)        # {sak_nr: similarity score}
 
     # --- 2. Merge all discovered case sak_nrs ---
-    all_sak_nrs = set(ref_cases.keys()) | fts_cases | vec_cases | set(seed_cases)
+    all_sak_nrs = set(ref_cases.keys()) | set(fts_cases.keys()) | set(vec_cases.keys()) | set(seed_cases)
 
     if not all_sak_nrs:
         return {

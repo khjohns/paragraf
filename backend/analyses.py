@@ -143,26 +143,66 @@ def upsert_seeds(analysis_id, seeds_data):
         client.table("analysis_seeds").insert(rows).execute()
 
 
-def persist_candidates(analysis_id, case_nodes, iteration):
+def persist_candidates(analysis_id, case_nodes, iteration, force_signals=False):
     """Persist traversal case nodes as analysis_candidates.
 
-    Uses upsert on (analysis_id, sak_nr) to update category/signals/iteration
+    Uses upsert on (analysis_id, sak_nr) to update iteration
     without overwriting screening results (ai_screening, screening_status, user_notes).
+
+    ADR-006 invariant: signals (incl. discovery_rank) are set by traversal and
+    never overwritten by downstream steps. If a candidate already has signals in DB,
+    they are preserved unless force_signals=True (explicit re-scope).
+    Category is NOT set by traversal (always None) — set later by screening.
     """
     client = get_client()
 
-    rows = []
+    sak_nrs_in_nodes = []
+    node_by_sak: dict[str, dict] = {}
     for node in case_nodes:
         if node.get("type") != "kofa_case":
             continue
         sak_nr = node.get("label") or node["id"].replace("kofa:", "")
-        rows.append({
+        sak_nrs_in_nodes.append(sak_nr)
+        node_by_sak[sak_nr] = node
+
+    if not sak_nrs_in_nodes:
+        return 0
+
+    # Fetch existing candidates to check which already have signals or screening
+    existing_with_signals: set[str] = set()
+    existing_screened: set[str] = set()
+    if not force_signals:
+        existing = (
+            client.table("analysis_candidates")
+            .select("sak_nr, signals, screening_status, category")
+            .eq("analysis_id", analysis_id)
+            .in_("sak_nr", sak_nrs_in_nodes)
+            .execute()
+            .data
+        ) or []
+        existing_with_signals = {
+            r["sak_nr"] for r in existing
+            if r.get("signals") and r["signals"].get("discovery_rank") is not None
+        }
+        existing_screened = {
+            r["sak_nr"] for r in existing
+            if r.get("screening_status") == "ai_screened" and r.get("category")
+        }
+
+    rows = []
+    for sak_nr, node in node_by_sak.items():
+        row: dict = {
             "analysis_id": analysis_id,
             "sak_nr": sak_nr,
-            "category": node.get("category"),
-            "signals": node.get("signals", {}),
             "iteration": iteration,
-        })
+        }
+        # ADR-006: preserve existing signals unless force_signals is set
+        if sak_nr not in existing_with_signals:
+            row["signals"] = node.get("signals", {})
+        # ADR-006: don't overwrite screening-set category with None from traversal
+        if sak_nr not in existing_screened:
+            row["category"] = node.get("category")  # None from traversal
+        rows.append(row)
 
     if rows:
         # Only update traversal-derived fields; preserve screening data

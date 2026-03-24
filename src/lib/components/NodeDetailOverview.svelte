@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { GraphNode, Valence } from '$lib/types/graph';
+  import { hasSignal } from '$lib/types/graph';
   import { uiState } from '$lib/stores/ui.svelte';
   import { analysisState } from '$lib/stores/analysis.svelte';
   import ProvisionDetail from './ProvisionDetail.svelte';
@@ -87,7 +88,7 @@
 {#if node.signals}
   <div class="detail-section">
     <div class="section-label">Treffsignaler</div>
-    {#each [{ key: 'ref' as const, label: 'Referansetabell', on: node.signals.ref }, { key: 'fts' as const, label: 'Fulltekstsøk', on: node.signals.fts }, { key: 'vec' as const, label: 'Vektorsøk', on: node.signals.vec }] as sig}
+    {#each [{ key: 'ref' as const, label: 'Referansetabell', on: hasSignal(node.signals.ref) }, { key: 'fts' as const, label: 'Fulltekstsøk', on: hasSignal(node.signals.fts) }, { key: 'vec' as const, label: 'Vektorsøk', on: hasSignal(node.signals.vec) }] as sig}
       <div class="signal-row" class:signal-on={sig.on}>
         <span class="sig-indicator" class:on={sig.on}></span>
         <span class:signal-label-on={sig.on}>{sig.label}</span>

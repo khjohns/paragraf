@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { NODE_TYPE_ACCENT, type GraphNode } from '$lib/types/graph';
+  import { NODE_TYPE_ACCENT, type GraphNode, hasSignal } from '$lib/types/graph';
   import { uiState } from '$lib/stores/ui.svelte';
   import { analysisState } from '$lib/stores/analysis.svelte';
   import { screeningState } from '$lib/stores/screening.svelte';
@@ -180,9 +180,11 @@
           {/if}
           {#if node.signals}
             <span class="signal-dots" title="R: Referanse  F: Fulltekst  V: Vektor">
-              <span class="dot" class:on={node.signals.ref} title="R: Referansetabell"></span>
-              <span class="dot" class:on={node.signals.fts} title="F: Fulltekstsøk"></span>
-              <span class="dot" class:on={node.signals.vec} title="V: Vektorsøk"></span>
+              <span class="dot" class:on={hasSignal(node.signals.ref)} title="R: Referansetabell"
+              ></span>
+              <span class="dot" class:on={hasSignal(node.signals.fts)} title="F: Fulltekstsøk"
+              ></span>
+              <span class="dot" class:on={hasSignal(node.signals.vec)} title="V: Vektorsøk"></span>
             </span>
           {/if}
           {#if isDelimitation}
