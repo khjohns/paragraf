@@ -44,6 +44,8 @@ Kjør analyse, men erstatt INSERT/UPDATE med visning av SQL + resultat-JSON. Fla
 
 ## Viktig
 
-- Supabase project_id: `iyetsvrteyzpirygxenu`
+- **Datahenting via CLI** (ikke MCP): `python scripts/pipeline-context.py <cmd> <args>` — token-effektivt, ferdigformatert output
+- **DB-skriving via MCP SQL**: `mcp__claude_ai_Supabase__execute_sql` (project_id: `iyetsvrteyzpirygxenu`) — kun for INSERT/UPDATE
 - Eksakt samme JSON-format som API-pipelinen
 - Screening: én sak om gangen (sekvensielt)
+- Backend-secrets kreves for CLI: kjør via `source scripts/dev-backend.sh` eller sett env-vars

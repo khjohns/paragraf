@@ -29,10 +29,10 @@ Din oppgave:
 2. Når KS-agenten sender innvendinger: vurder dem seriøst, revider notatet der kritikken er berettiget, forsvar der den ikke er det
 3. Send revidert notat tilbake til KS-agenten etter hver revisjon
 
-Hent data fra Supabase (project_id: iyetsvrteyzpirygxenu):
-- Analyse-kontekst: SELECT problem_statement, seeds FROM analyses WHERE id = '{analysis_id}'
-- Screening: SELECT sak_nr, category, ai_screening FROM analysis_candidates WHERE analysis_id = '{analysis_id}' AND ai_screening IS NOT NULL
-- Avsnitt ved behov: SELECT paragraph_number, text FROM kofa_decision_text WHERE sak_nr = ? AND paragraph_number = ?
+Hent data via CLI (token-effektivt):
+- Kontekst: python scripts/pipeline-context.py context {analysis_id}
+- Screening: python scripts/pipeline-context.py screening-results {analysis_id}
+- Avsnitt: python scripts/pipeline-context.py paragraphs <sak_nr> 35,36,37
 
 Bruk eksakt syntese-prompt fra backend/synthesis.py (SYNTHESIS_SYSTEM_PROMPT, linje 99-158).
 
@@ -55,9 +55,10 @@ Din oppgave:
 4. Send konkrete, prioriterte innvendinger til syntese-agenten (maks 5 per runde)
 5. Vurder synth-agentens revisjoner — er innvendingene adressert?
 
-Hent data fra Supabase (project_id: iyetsvrteyzpirygxenu):
-- Screening: SELECT sak_nr, category, ai_screening->>'proposition' as prop, ai_screening->>'star' as star FROM analysis_candidates WHERE analysis_id = '{analysis_id}' AND ai_screening IS NOT NULL
-- Avsnitt: SELECT paragraph_number, text FROM kofa_decision_text WHERE sak_nr = ? AND paragraph_number = ?
+Hent data via CLI (token-effektivt):
+- Kandidater: python scripts/pipeline-context.py candidates {analysis_id}
+- Avsnitt: python scripts/pipeline-context.py paragraphs <sak_nr> 35,36,37
+- Notat (for revisjon): python scripts/pipeline-context.py note {analysis_id}
 
 Bruk KS-prompt fra backend/qa.py (COMBINED_QA_SYSTEM_PROMPT, linje ~620-670).
 

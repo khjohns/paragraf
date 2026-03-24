@@ -11,26 +11,24 @@ user-invocable: false
 
 ## Steg
 
-1. Opprett analyse (hvis ny): `INSERT INTO analyses` med problem_statement, status='scoping'
-2. Analyser problemstillingen med scoping-prompten under
-3. Verifiser bestemmelser mot `lovdata_sections` (sjekk at section_id finnes)
-4. Lagre scoping-resultat: `UPDATE analyses SET seeds = ?, scoping_result = ?, status = 'searching'`
-5. Kjør tre søketyper:
-   - **Referansetabell:** `kofa_law_references WHERE law_section = ?` per bestemmelse
-   - **Fulltekstsøk:** `search_kofa_decision_text(term, 30)` per FTS-term
-   - **Vektorsøk:** `search_kofa_decision_text(vector_query, 30)`
-6. Slå sammen, hent metadata fra `kofa_cases`, lagre: `INSERT INTO analysis_candidates`
-7. Oppdater: `UPDATE analyses SET status = 'candidates_ready'`
+1. Opprett/oppdater analyse via MCP SQL
+2. Analyser problemstillingen med scoping-prompten (les `backend/scoping.py` linje 73-138)
+3. Verifiser bestemmelser: `python scripts/pipeline-context.py case-text` (sjekk at section_id finnes i lovdata_sections via MCP SQL)
+4. Lagre scoping-resultat via MCP SQL: `UPDATE analyses SET seeds = ?, scoping_result = ?`
+5. Kjør søk — tre typer via MCP SQL:
+   - Ref: `SELECT DISTINCT sak_nr FROM kofa_law_references WHERE law_section = ?`
+   - FTS: `SELECT * FROM search_kofa_decision_text(?, 30)`
+   - Vektor: `SELECT * FROM search_kofa_decision_text(?, 30)`
+6. Hent metadata: `SELECT sak_nr, avgjoerelse, saken_gjelder, avsluttet FROM kofa_cases WHERE sak_nr IN (?)`
+7. Lagre kandidater via MCP SQL: `INSERT INTO analysis_candidates`
+8. Oppdater: `UPDATE analyses SET status = 'candidates_ready'`
+
+Merk: Søk krever MCP SQL (RPC-funksjoner). CLI brukes for verifisering og kontekst etterpå.
 
 ## Prompt
 
 Bruk eksakt system-prompt fra `backend/scoping.py` (SCOPING_SYSTEM_PROMPT, linje 73-138). Les filen.
-
 User-melding: `{problem_statement}`
 
-## Output
-Scoping: `{refined_problem, sub_problems, context, provisions, search_strategy, reasoning}`
-Søk: kandidater lagret i DB med signals per sak.
-
 ## Dry-run
-Vis scoping-resultat og søketreff uten å opprette analyse eller lagre kandidater.
+Vis scoping-resultat og søketreff uten å opprette analyse.

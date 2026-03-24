@@ -9,22 +9,34 @@ user-invocable: false
 ## Input
 `analysis_id`
 
+## Datahenting (bruk CLI, ikke MCP)
+
+```bash
+# Analyse-kontekst:
+python scripts/pipeline-context.py context <analysis_id>
+
+# Alle screening-resultater (capsule-format):
+python scripts/pipeline-context.py screening-results <analysis_id>
+
+# Rettssetninger (hvis finnes):
+python scripts/pipeline-context.py propositions <analysis_id>
+
+# Hent avsnitt ved behov under skriving:
+python scripts/pipeline-context.py paragraphs <sak_nr> 35,36,37
+```
+
 ## Steg
 
-1. Hent kontekst fra `analyses` (problem_statement, seeds, scoping_result.sub_problems)
-2. Hent screenede saker: `analysis_candidates WHERE ai_screening IS NOT NULL` — bygg komprimert capsule per sak
-3. Hent rettssetninger (hvis finnes): `analysis_propositions WHERE source = 'ai_cross'`
-4. Hent juristens notater: `analysis_candidates` der `ai_screening->>'user_notes'` finnes
-5. Generer notat med prompten under
-6. Ved behov — hent avsnitt: `kofa_decision_text WHERE sak_nr = ? AND paragraph_number IN (?)` (maks 5 oppslag)
-7. Lagre: `INSERT INTO analysis_documents (doc_type='note', content=markdown)`
-8. Oppdater: `UPDATE analyses SET status = 'synthesis'`
+1. Hent kontekst + screening-resultater + rettssetninger via CLI
+2. Generer notat med prompten under (maks 5 avsnitt-oppslag via CLI)
+3. Lagre via MCP SQL: `INSERT INTO analysis_documents (doc_type='note', content=markdown)`
+4. Oppdater status: `UPDATE analyses SET status = 'synthesis'`
 
 ## Prompt
 
 Bruk eksakt system-prompt fra `backend/synthesis.py` (SYNTHESIS_SYSTEM_PROMPT, linje 99-158). Les filen.
 
-User-melding: screening capsule + rettssetningsregister + juristens notater + analysis_context. Se `backend/synthesis.py` linje 674-700 for eksakt format.
+CLI-output er allerede formatert som XML — bruk direkte som user-melding. Se `backend/synthesis.py` linje 674-700 for meldingsstruktur.
 
 ## Output
 Markdown-notat med seksjoner, `[JURISTENS VURDERING]`-markører, spenninger, dekningsvurdering.
