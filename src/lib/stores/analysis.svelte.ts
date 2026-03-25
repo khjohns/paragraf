@@ -406,12 +406,12 @@ class AnalysisState {
       if (!raw) return;
       const data = JSON.parse(raw);
       if (data.analysis) this.analysis = data.analysis;
-      if (data.nodes) {
+      if (Array.isArray(data.nodes)) {
         this.nodes = data.nodes;
         this.previousNodeIds = new Set(data.nodes.map((n: GraphNode) => n.id));
       }
-      if (data.edges) this.edges = data.edges;
-      if (data.gaps) this.gaps = data.gaps;
+      if (Array.isArray(data.edges)) this.edges = data.edges;
+      if (Array.isArray(data.gaps)) this.gaps = data.gaps;
     } catch {
       // Corrupt data — start fresh
     }
