@@ -582,6 +582,8 @@ def generate_synthesis(analysis_id: str, model: str | None = None) -> dict:
                 effort="high",
                 model=synthesis_model,
                 log_label=f"Synthesis fallback for {analysis_id}",
+                analysis_id=analysis_id,
+                call_type="synthesis",
             )
         except Exception as e2:
             logger.error("Synthesis fallback also failed for %s: %s", analysis_id, e2)

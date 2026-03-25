@@ -211,6 +211,8 @@ over tid, og identifiser spenninger mellom rettssetninger."""
             max_tokens=8000,
             effort="high",
             log_label=f"Cross-propositions for {analysis_id}",
+            analysis_id=analysis_id,
+            call_type="cross_propositions",
         )
     except Exception as e:
         logger.error("Cross-propositions LLM-kall feilet for analyse %s: %s", analysis_id, e)

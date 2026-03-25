@@ -16,6 +16,7 @@ from llm_utils import (
     load_analysis_context,
     format_sub_problems,
     log_usage,
+    persist_llm_call,
 )
 
 logger = logging.getLogger(__name__)
@@ -245,7 +246,17 @@ def chat_stream(analysis_id: str, messages: list[dict]):
                 yield "chunk", {"text": text}
 
             response = stream.get_final_message()
-            log_usage(response.usage, CLAUDE_MODEL, "Chat")
+            cost = log_usage(response.usage, CLAUDE_MODEL, "Chat")
+
+            # Persist to llm_call_log
+            persist_llm_call(
+                analysis_id=analysis_id,
+                call_type="chat",
+                model=CLAUDE_MODEL,
+                usage=response.usage,
+                cost_usd=cost,
+                stop_reason=response.stop_reason,
+            )
 
         # Persist assistant response after successful stream
         _persist_message(analysis_id, "assistant", "".join(full_response))

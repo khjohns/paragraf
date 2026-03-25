@@ -210,7 +210,8 @@ Merk: C-kandidater trenger ikke nødvendigvis behandling.
 
 
 def _verify_citations_batch(
-    quotes: list[dict], source_texts: dict[str, str]
+    quotes: list[dict], source_texts: dict[str, str],
+    analysis_id: str | None = None,
 ) -> list[dict]:
     """Verify a batch of quotes against source texts using Citations API.
 
@@ -259,7 +260,18 @@ For hvert sitat: sjekk om det finnes ordrett i kildeteksten, om det er trunkert 
         messages=[{"role": "user", "content": content_blocks}],
     )
     elapsed_ms = int((time.monotonic() - t0) * 1000)
-    log_usage(response.usage, HAIKU_MODEL, "Citation QA", elapsed_ms=elapsed_ms)
+    cost = log_usage(response.usage, HAIKU_MODEL, "Citation QA", elapsed_ms=elapsed_ms)
+
+    # Persist to llm_call_log
+    persist_llm_call(
+        analysis_id=analysis_id,
+        call_type="qa_citation",
+        model=HAIKU_MODEL,
+        usage=response.usage,
+        cost_usd=cost,
+        elapsed_ms=elapsed_ms,
+        stop_reason=response.stop_reason,
+    )
 
     text_parts = [block.text for block in response.content if block.type == "text"]
     full_text = "\n".join(text_parts)
@@ -277,7 +289,7 @@ For hvert sitat: sjekk om det finnes ordrett i kildeteksten, om det er trunkert 
 _CITATION_BATCH_SIZE = 10
 
 
-def _verify_citations_with_api(candidates: list[dict], note_markdown: str) -> dict:
+def _verify_citations_with_api(candidates: list[dict], note_markdown: str, analysis_id: str | None = None) -> dict:
     """Verify quotes using Citations API for machine verification.
 
     Takes pre-loaded candidates to avoid redundant DB queries.
@@ -304,7 +316,7 @@ def _verify_citations_with_api(candidates: list[dict], note_markdown: str) -> di
         batch_quotes = [q for q in quotes_to_verify if q["sak_nr"] in batch_cases]
 
         if batch_quotes and batch_sources:
-            batch_results = _verify_citations_batch(batch_quotes, batch_sources)
+            batch_results = _verify_citations_batch(batch_quotes, batch_sources, analysis_id=analysis_id)
             all_verified.extend(batch_results)
 
     result: dict = {"verified_quotes": all_verified}
@@ -317,7 +329,7 @@ def _verify_citations_with_api(candidates: list[dict], note_markdown: str) -> di
     return result
 
 
-def _check_logical_consistency(note_markdown: str, screening_summary: str) -> dict:
+def _check_logical_consistency(note_markdown: str, screening_summary: str, analysis_id: str | None = None) -> dict:
     """Check logical consistency of the note against screening results."""
     user_message = f"""<notat>
 {note_markdown}
@@ -336,10 +348,12 @@ Sjekk notatets logiske konsistens mot screeningresultatene. Flagg problemer."""
         max_tokens=16000,
         model=CLAUDE_MODEL,
         log_label="Logic QA",
+        analysis_id=analysis_id,
+        call_type="qa_logic",
     )
 
 
-def _check_coverage(note_markdown: str, candidates_summary: str) -> dict:
+def _check_coverage(note_markdown: str, candidates_summary: str, analysis_id: str | None = None) -> dict:
     """Check if all important cases are covered in the note."""
     user_message = f"""<notat>
 {note_markdown}
@@ -358,6 +372,8 @@ Sjekk om alle viktige saker (spesielt A-kandidater) er behandlet i notatet."""
         max_tokens=16000,
         model=CLAUDE_MODEL,
         log_label="Coverage QA",
+        analysis_id=analysis_id,
+        call_type="qa_coverage",
     )
 
 
@@ -473,7 +489,7 @@ def verify_screening_citations(analysis_id: str) -> dict:
     )
 
     # Reuse existing verification — pass empty note_markdown (not needed pre-synthesis)
-    result = _verify_citations_with_api(ab_candidates, "")
+    result = _verify_citations_with_api(ab_candidates, "", analysis_id=analysis_id)
 
     # Link verification status directly on quote objects
     verified_quotes = result.get("verified_quotes", [])
@@ -1005,9 +1021,9 @@ def _run_qa_legacy(
 ) -> dict:
     """Legacy parallel QA — fallback if agentic QA fails."""
     with ThreadPoolExecutor(max_workers=3) as executor:
-        citation_future = executor.submit(_verify_citations_with_api, candidates, note_markdown)
-        logic_future = executor.submit(_check_logical_consistency, note_markdown, candidates_summary)
-        coverage_future = executor.submit(_check_coverage, note_markdown, candidates_summary)
+        citation_future = executor.submit(_verify_citations_with_api, candidates, note_markdown, analysis_id)
+        logic_future = executor.submit(_check_logical_consistency, note_markdown, candidates_summary, analysis_id)
+        coverage_future = executor.submit(_check_coverage, note_markdown, candidates_summary, analysis_id)
 
         citation_result = citation_future.result()
         logic_result = logic_future.result()

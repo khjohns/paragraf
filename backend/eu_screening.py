@@ -274,6 +274,7 @@ def screen_single_eu_case(
     problem: str,
     sub_problems: list[str],
     provisions: list[str],
+    analysis_id: str | None = None,
 ) -> dict:
     """Screen a single EU case with Claude."""
     user_message = _build_eu_user_message(eu_case, problem, sub_problems, provisions)
@@ -285,6 +286,8 @@ def screen_single_eu_case(
             schema=EU_SCREENING_SCHEMA,
             max_tokens=4000,
             log_label=f"EU screening {eu_case['eu_case_id']}",
+            analysis_id=analysis_id,
+            call_type="eu_screening",
         )
     except Exception as e:
         logger.error("EU screening LLM-kall feilet for %s: %s", eu_case["eu_case_id"], e)
@@ -323,7 +326,8 @@ def screen_eu_cases(
     with ThreadPoolExecutor(max_workers=max_parallel) as executor:
         futures = {
             executor.submit(
-                screen_single_eu_case, ec, problem, sub_problems, provisions
+                screen_single_eu_case, ec, problem, sub_problems, provisions,
+                analysis_id=analysis_id,
             ): ec["eu_case_id"]
             for ec in all_eu_cases
         }

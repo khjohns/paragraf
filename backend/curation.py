@@ -122,6 +122,7 @@ def _call_claude(user_prompt: str) -> dict | None:
             effort="medium",
             model=HAIKU_MODEL,
             log_label="Curation",
+            call_type="curation",
         )
     except (LLMConfigError, anthropic.APIError) as e:
         logger.error("Curation Claude call failed: %s", e)

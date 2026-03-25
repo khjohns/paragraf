@@ -193,6 +193,8 @@ Analyser dekningen og foreslå supplerende søk for å dekke hull i analysen."""
             schema=POST_SEARCH_SCHEMA,
             effort="medium",
             log_label=f"Post-search for {analysis_id}",
+            analysis_id=analysis_id,
+            call_type="post_search",
         )
         set_cached(analysis_id, "post_search", content_hash, result)
         return result

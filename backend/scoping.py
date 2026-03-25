@@ -198,6 +198,7 @@ def generate_scope(problem: str) -> dict:
         max_tokens=16000,
         effort="medium",
         log_label="Scoping",
+        call_type="scoping",
     )
 
     # Verify provisions against DB

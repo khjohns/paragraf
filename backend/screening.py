@@ -203,6 +203,7 @@ def screen_single_case(
     provisions: list[str],
     sections: list[str] | None = None,
     case_text: str | None = None,
+    analysis_id: str | None = None,
 ) -> dict:
     """Screen a single case with Claude. Returns screening result dict.
 
@@ -211,6 +212,7 @@ def screen_single_case(
 
     Args:
         case_text: Pre-fetched case text. If None, fetches from DB.
+        analysis_id: If provided, persists to llm_call_log.
     """
     # Fetch case text if not pre-supplied
     if case_text is None:
@@ -227,6 +229,8 @@ def screen_single_case(
         max_tokens=4000,
         effort="high",
         log_label=f"Screening {sak_nr}",
+        analysis_id=analysis_id,
+        call_type="screening",
     )
 
     result["sak_nr"] = sak_nr
@@ -293,6 +297,7 @@ def screen_cases(
                 contextvars.copy_context().run,
                 screen_single_case, sak_nr, problem, sub_problems, provisions,
                 case_text=case_texts.get(sak_nr),
+                analysis_id=analysis_id,
             ): sak_nr
             for sak_nr in to_screen
         }
@@ -319,6 +324,7 @@ def rescreen_case(
     result = screen_single_case(
         sak_nr, problem, sub_problems, provisions,
         sections=sections or ["vurdering", "bakgrunn"],
+        analysis_id=analysis_id,
     )
 
     _persist_screening_result(analysis_id, sak_nr, result)

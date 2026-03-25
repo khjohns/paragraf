@@ -28,14 +28,14 @@ MODEL_PRICING = {
         "batch_input": 1.50, "batch_output": 7.50,
     },
     "claude-haiku-4-5-20251001": {
-        "input": 1.00, "output": 5.00,
-        "cache_write": 1.25, "cache_read": 0.10,
-        "batch_input": 0.50, "batch_output": 2.50,
+        "input": 0.25, "output": 1.25,
+        "cache_write": 0.30, "cache_read": 0.025,
+        "batch_input": 0.125, "batch_output": 0.625,
     },
     "claude-opus-4-6": {
-        "input": 5.00, "output": 25.00,
-        "cache_write": 6.25, "cache_read": 0.50,
-        "batch_input": 2.50, "batch_output": 12.50,
+        "input": 15.00, "output": 75.00,
+        "cache_write": 18.75, "cache_read": 1.50,
+        "batch_input": 7.50, "batch_output": 37.50,
     },
 }
 
@@ -256,12 +256,16 @@ def call_claude_structured(
     effort: str = "high",
     model: str = CLAUDE_MODEL,
     log_label: str = "Claude call",
+    analysis_id: str | None = None,
+    call_type: str | None = None,
 ) -> dict:
     """Call Claude with structured outputs, prompt caching, and token logging.
 
     Args:
         model: Model to use. Defaults to CLAUDE_MODEL (Sonnet).
             Effort is automatically omitted for models that don't support it.
+        analysis_id: If provided (with call_type), persists to llm_call_log.
+        call_type: Step label for llm_call_log (e.g. "screening", "scoping").
 
     Returns the parsed JSON response. Includes _llm_meta key with usage/thinking data.
     """
@@ -322,6 +326,18 @@ def call_claude_structured(
     }
     if thinking_text:
         result["_llm_meta"]["thinking_summary"] = thinking_text
+
+    # Persist to llm_call_log when analysis_id and call_type are provided
+    if call_type:
+        persist_llm_call(
+            analysis_id=analysis_id,
+            call_type=call_type,
+            model=model,
+            usage=usage,
+            cost_usd=cost,
+            elapsed_ms=elapsed_ms,
+            stop_reason=response.stop_reason,
+        )
 
     return result
 
