@@ -83,6 +83,43 @@ Metodikken sier eksplisitt: *«innholdsbasert kategorisering kan avvike vesentli
 
 **Kritisk funn:** I analyse `0dccaab9` (kunngjøringskrav — konseptuelt tema) var 11 av 12 kjernesaker vec-only med star=true. Vec-only er ikke støy — det er den primære discovery-kanalen for konseptuelle problemstillinger der terminologien varierer.
 
+**Validering 3: Analyse `a93ce729` — Skjult handlekurv i prisskjema (2026-03-25)**
+
+Konseptuelt tema, 241 kandidater (209 + 32 ettersøk), 139 screenet, 102 triaged-out.
+
+| | Kjernesak (A) | Støttesak (B) | Kontekstsak (C) | Triaged | **Sum** |
+|---|---|---|---|---|---|
+| **rank 3** | 0 | 1 | 0 | 0 | **1** |
+| **rank 2** | 0 | 15 | 9 | 0 | **24** |
+| **rank 1** | 4 | 54 | 54 | 102 | **214** |
+
+Signal-kanal-presisjon (A+B):
+
+| Kanal | Total | Kjerne | Støtte | Presisjon (A+B) |
+|---|---|---|---|---|
+| ref+fts+vec | 1 | 0 | 1 | 100% |
+| ref+fts | 3 | 0 | 3 | 100% |
+| fts+vec | 19 | 0 | 12 | 63% |
+| vec-only | 44 | 3 | 17 | **65%** |
+| fts-only | 92 | 1 | 34 | 52% |
+| ref-only | 79 | 0 | 3 | **4%** |
+
+**Nøkkelfunn:**
+- **Discovery_rank er type-avhengig.** Alle 4 kjernesaker er rank-1. Rank ≥ 2 ga 0 kjernesaker. Multi-kanal-overlap korrelerer ikke med relevans for konseptuelle temaer — det bekrefter at discovery_rank er nyttig for kalibrering, men ikke som universell prioriteringsmetrikk.
+- **Vec-only bekreftet som primærkanal:** 3 av 4 kjernesaker (75%) er vec-only. Konsistent med analyse `0dccaab9` (11/12 = 92%). Vec-only presisjon (65%) er høyere enn fts-only (52%) for konseptuelle temaer.
+- **Ref-only er støy for konseptuelle temaer:** §18-1 og §14-1 er for generelle — 79 saker, 0 kjernesaker, 4% presisjon. Triage filtrerte korrekt 65 av 79.
+- **Screening-prioritering bør være type-avhengig:** For konseptuelle temaer (`problem_type = konseptuell`): vec-only først, fts-only deretter, ref-only sist. For paragraf-temaer: rank-basert prioritering (som før).
+
+**Akkumulert presisjonstabell (3 analyser, 375 kandidater):**
+
+| Metrikk | Paragraf-temaer | Konseptuelle temaer |
+|---|---|---|
+| Rank ≥ 2 → kjernesak | 33% (4/12) | 0% (0/25) |
+| Rank 1 → kjernesak | 11% (13/122) | 2% (4/214) |
+| Vec-only → kjernesak | 71% (12/17) | 75% (3/4) |
+| Vec-only presisjon (A+B) | — | 65% |
+| Ref-only presisjon (A+B) | — | 4% |
+
 Denne tabellen er en sentral metodisk ressurs som bare kan akkumuleres hvis discovery-mønster og innholdskategori begge er bevart.
 
 ---
@@ -176,21 +213,32 @@ A/B/C beholdes som interne verdier (DB, API, screening-schema, presisjonstabelle
 
 ### Prioriteringsrekkefølge for screening
 
-Rikere signals muliggjør en mer nyansert prioriteringsrekkefølge enn enkel signal-counting. Default-prioritering for screening-kø:
+Prioriteringen er **type-avhengig** — validert av analyse `a93ce729` der alle 4 kjernesaker var rank-1 og 0 var rank ≥ 2.
 
+**For paragraf-temaer** (`problem_type = paragraf`): Discovery_rank korrelerer med relevans.
 ```
-ref+fts+vec  (discovery_rank=3)  → screenes først
-ref+fts      (discovery_rank=2)  → screenes
-ref+vec      (discovery_rank=2)  → screenes
-fts+vec      (discovery_rank=2)  → screenes
-ref-only     (discovery_rank=1)  → screenes
-fts-only     (discovery_rank=1)  → screenes
-vec-only     (discovery_rank=1)  → triage-kandidat, deretter screenes
+ref+fts+vec  (rank=3)  → screenes først
+ref+fts      (rank=2)  → screenes
+ref+vec      (rank=2)  → screenes
+fts+vec      (rank=2)  → screenes
+ref-only     (rank=1)  → screenes
+fts-only     (rank=1)  → screenes
+vec-only     (rank=1)  → triage-kandidat, deretter screenes
 ```
 
-**Innenfor** samme `discovery_rank`: `ref > fts > vec` som default, men triage (Haiku) opererer på `signals` + metadata (`saken_gjelder`, `avgjoerelse`), ikke bare denne rangeringen. En ref-only sak med `saken_gjelder: "Frister, Habilitet"` kan triages bort, mens en fts-only sak med matching tema screenes direkte.
+**For konseptuelle temaer** (`problem_type = konseptuell`): Signaltype trumfer rank.
+```
+vec-only     → screenes FØRST (75% av kjernesaker, 65% presisjon)
+fts+vec      → screenes (63% presisjon)
+fts-only     → screenes (52% presisjon)
+ref+fts+vec  → screenes
+ref+fts      → screenes
+ref-only     → triage-kandidat (4% presisjon — nesten ren støy)
+```
 
-**Vec som ortogonal dimensjon:** Vektorsøk passer ikke inn i metodikkens opprinnelige hierarki (ref ∩ fts). Vec er en selvstendig dimensjon som fanger konseptuelle treff FTS og ref ikke finner. Validering viser 100% recall for konseptuelle spørsmål, men ~25% presisjon for vec-only. Vec-only saker bør derfor ikke triages automatisk bort — de bør screenes med lavere prioritet.
+**Klassifisering:** `pipeline-analyst` klassifiserer problemstillingstype basert på signaldistribusjon. > 50% av kjernesaker i vec-only → konseptuell. > 50% i ref → paragraf. Ellers tverrgående.
+
+**Vec som ortogonal dimensjon:** Vektorsøk fanger konseptuelle treff der terminologien varierer. For paragraf-temaer supplerer vec; for konseptuelle temaer dominerer den. Validering over 3 analyser: vec-only ga 71-75% av kjernesakene for konseptuelle temaer, 65% presisjon (A+B). Vec-only saker skal aldri automatisk filtreres bort.
 
 ### Triage-regler med rikere signals
 
