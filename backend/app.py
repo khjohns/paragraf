@@ -12,6 +12,7 @@ from provisions import get_provision_detail
 from curation import generate_curation
 from eu_cases import get_eu_case_detail
 from forarbeider import get_forarbeid_detail, get_forarbeid_section
+from db import get_client
 from analyses import list_analyses, get_analysis, get_analysis_with_seeds, create_analysis, update_analysis, upsert_seeds, update_candidate, persist_candidates, parse_seed_rows, get_analysis_documents
 from scoping import generate_scope, ScopeError
 from screening import screen_cases, rescreen_case, screen_cases_batch, process_screening_batch_results, ScreeningError
