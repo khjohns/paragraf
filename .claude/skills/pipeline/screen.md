@@ -24,59 +24,64 @@ bash scripts/pipeline-cli.sh paragraphs <sak_nr> 35,36,37
 
 ## Steg
 
-### Steg 0: Haiku-triage (discovery_rank=1 saker)
+### Steg 0: Ensemble-triage (discovery_rank=1 saker)
 
-ADR-006: Triage opererer på signals + metadata, ikke på A/B/C-kategori (som nå er null inntil screening).
+ADR-006: Triage opererer på signals + metadata, ikke på A/B/C-kategori (som er null inntil screening).
 Saker med discovery_rank ≥ 2 hopper over triage og går rett til full screening.
-Saker med discovery_rank = 1 triages basert på signaltype + metadata.
+Saker med discovery_rank = 1 triages med **ensemble** av tre parallelle varianter.
 
-Dispatch Haiku-subagenter (model: haiku) i batches à 20-25 saker med denne prompten:
+Ensemble-triage ga 100% recall (0 false neg A, 0 false neg B) i E2E-validering (a93ce729, 215 rank-1 saker).
+
+#### Variant A: Deterministisk (FTS/vec)
+Ingen LLM-kall. Ren signallogikk:
+- **FTS-any → JA** (enhver FTS-term)
+- **Vec ≥ 0.70 → JA**
+- **Ref-only → skip** (vurderes av variant B og C)
+- **Avvist + ref-only → NEI**
+
+#### Variant B: Haiku + summary (ref-only saker)
+Kun for saker der variant A ga «skip» (ref-only). Haiku ser KOFAs oppsummering:
 
 ```
-Du er en STRENG juridisk triage-assistent. Vurder om hver sak er relevant for denne problemstillingen:
+Du er en juridisk triage-assistent. Vurder om hver sak KAN være relevant for denne problemstillingen:
 
 **Problemstilling:** {refined_problem}
 
-For HVER sak, svar BARE med: sak_nr | JA eller NEI | 1 setning
+Disse sakene har BARE ref-signal uten FTS eller vec. Vurder basert på KOFAs oppsummering (summary).
 
-## Regler
-
-Vurder KUN basert på signaltype + signalverdi + avgjørelse (utfall).
-**IKKE bruk `saken_gjelder`** — den beskriver prosessuelt tema, ikke substansielt innhold,
-og introduserer falske negativer (validert i E2E a93ce729: 1A + 4B tapt pga saken_gjelder-filtrering).
-
-En sak er JA hvis:
-- FTS-termen er spesifikk for problemstillingen (f.eks. "prisskjema", "taktisk prising", "handlekurv")
-- FTS-termen er evalueringsrelatert (f.eks. "evalueringsmodell", "enhetspris") OG problemstillingen gjelder evaluering/pris
-- Vec sim ≥ 0.70 — vektorsøk fanger konseptuelle temaer der terminologien varierer
-- Ref til bestemmelse som er primærbestemmelse for problemstillingen
-
-En sak er NEI hvis:
-- Ref-only til en generell bestemmelse (f.eks. §18-1, §14-1) som brukes i mange kontekster — UTEN FTS- eller vec-bekreftelse
-- Saken er avvist/ubegrunnet (avgjoerelse inneholder "avvist")
-- Vec sim < 0.70 uten FTS/ref-støtte
-
-**Vec-only er IKKE støy.** Vec-only er primær discovery-kanal for konseptuelle temaer.
-I E2E-validering hadde 75% av kjernesakene kun vec-signal.
+**JA** kun hvis summary beskriver prisskjema, evalueringsmodell, prisberegning, taktisk prising,
+mengdeestimater, handlekurv, vekting av tildelingskriterier, eller priskriterier.
+**NEI** hvis summary handler om ulovlig direkte anskaffelse, prosedyrevalg, avvisning, habilitet,
+frister, innsyn, egenregi, o.l.
 ```
 
-Input per sak: `sak_nr | signal: {type}[{value}] sim:{score} | {avgjoerelse}`
+Input per sak: `sak_nr | signal | avgjoerelse | summary`
 
-Hent metadata via CLI:
+#### Variant C: Haiku + avgjørelseskontekst (ref-only saker)
+Parallelt med variant B, for samme ref-only saker. Haiku ser avgjørelsesbeskrivelse:
+
+```
+Du er en juridisk triage-assistent. Vurder om ref-only saker KAN være relevant.
+
+**Problemstilling:** {refined_problem}
+
+**JA** kun hvis avgjoerelse handler om tildelingsevaluering, evalueringsmodell,
+priskriterier, vekting, eller uklart konkurransegrunnlag relatert til pris.
+**NEI** hvis ulovlig direkte anskaffelse, overtredelsesgebyr, egenregi, avvisning
+uten evaluerings-kontekst, prosedyrevalg, habilitet, frister, innsyn.
+```
+
+Input per sak: `sak_nr | signal | avgjoerelse | kort beskrivelse`
+
+#### Sammenstilling
+**Union** av alle JA fra variant A, B og C → full screening.
+Saker der B og C er uenige logges som «omstridte» i triage_history.
+
 ```bash
-bash scripts/pipeline-cli.sh triage <analysis_id>
-# Returnerer alle pending rank-1 saker med signals + saken_gjelder + avgjoerelse
+# Lagre ensemble-resultater med versjon
+echo '["sak1","sak2"]' | bash scripts/pipeline-cli.sh save-triage-reject <id> ensemble-v1
 ```
 
-NEI-saker: lagre med prompt-versjon for historikk:
-```bash
-echo '["2023/123","2023/456"]' | bash scripts/pipeline-cli.sh save-triage-reject <id> v2
-```
-
-NEI-saker: lagre via CLI:
-```bash
-echo '["2023/123","2023/456"]' | bash scripts/pipeline-cli.sh save-triage-reject <id>
-```
 JA-saker: fortsett til full screening (steg 1-4).
 
 Saker med discovery_rank ≥ 2 hopper over triage og går rett til full screening.

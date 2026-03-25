@@ -136,7 +136,27 @@ Denne tabellen er en sentral metodisk ressurs som bare kan akkumuleres hvis disc
 
 V2-regler: `fts-any → JA`, `vec ≥ 0.70 → JA`, `ref-only → NEI`, `avvist → NEI`.
 
-**Konklusjon:** V2 er bedre for konseptuelle temaer — 0 tapte kjernesaker, bedre B-recall, marginal presisjonskostnad (47% vs 52%). `saken_gjelder` introduserer falske negativer uten å kompensere med bedre filtrering. V2 adoptert som default triage-prompt (screen.md). Gjenstår: validering på paragraf-tema.
+**Ensemble-triage (6 varianter testet, a93ce729, 215 rank-1 saker):**
+
+| Variant | Passert | FN-A | FN-B | Recall B | Metode |
+|---|---|---|---|---|---|
+| V1 (Haiku + saken_gjelder) | 113 | 1 | 4 | 93% | LLM |
+| V2 deterministisk | 129 | 0 | 3 | 95% | Regler |
+| V2 Haiku | 92 | 0 | 21 | 65% | LLM (for streng) |
+| V2b Haiku (ignorer avgjoerelse) | 136 | 0 | 5 | 91% | LLM |
+| V3 Haiku + summary (ref-only) | +6 | — | fanger 1B | — | LLM |
+| V5 Haiku ref-filter (ref-only) | +15 | — | fanger 2B | — | LLM |
+| **Ensemble: V2b + V3∪V5** | **154** | **0** | **0** | **100%** | **Hybrid** |
+
+Ensemble-arkitektur:
+1. **Deterministisk**: FTS/vec → alltid JA (0 token-kostnad)
+2. **Haiku V3**: Ref-only saker med KOFAs summary → fanger B-saker med prisrelatert innhold
+3. **Haiku V5**: Ref-only saker med avgjørelseskontekst → fanger B-saker med evalueringstema
+4. **Union**: Alle JA fra alle varianter → full screening. 0 false neg.
+
+V3 og V5 er komplementære — V3 fanger saker der summary nevner pris/evaluering, V5 fanger saker der avgjørelsesbeskrivelse handler om tildelingskriterier. Sammen dekker de alle ref-only B-saker.
+
+Kostnad: 154/215 (72%) til full screening vs V1s 113/215 (53%). Merarbeidet er 41 ekstra C-saker — akseptabelt for 100% recall. Gjenstår: validering på paragraf-tema.
 
 ---
 
