@@ -158,6 +158,20 @@ V3 og V5 er komplementære — V3 fanger saker der summary nevner pris/evaluerin
 
 Kostnad: 154/215 (72%) til full screening vs V1s 113/215 (53%). Merarbeidet er 41 ekstra C-saker — akseptabelt for 100% recall. Gjenstår: validering på paragraf-tema.
 
+**Anførsler-prioritering (pre-screen, ikke filter):**
+
+Haiku leser første 2-3 avsnitt av partenes anførsler for ensemble-JA saker og klassifiserer som prioritert/lavpri. Testet som selvstendig filter og som prioritering:
+
+| Bruk | Filtrert | FN-A | FN-B | Konklusjon |
+|---|---|---|---|---|
+| **Selvstendig filter** | 59/136 (43%) | **4** | **10** | UBRUKELIG — mister kjernesaker |
+| **Summary-filter** | 10/136 (7%) | 0 | 3 | For svak — filtrerer for lite |
+| **Prioritering (boost)** | 0 | **0** | **0** | FUNGERER — prioriter anførsler-JA først |
+
+Som selvstendig filter mister anførsler pre-screen 4/5 A-saker fordi anførslene bruker sakens egne termer (f.eks. "gjennomsnittspris" i 2012/63), ikke problemstillingens ("skjult handlekurv"). Men som prioritering gir den verdifull sortering: 77/136 (57%) prioritert inneholdt alle 5 A og 48/58 B. De 59 lavpri screenes etterpå.
+
+Haiku-kostnad for anførsler-lesing (API): ~1K input-tokens × 136 saker = 136K tokens × $1/MTok = **$0.14**. Sonnet full screening: ~3K input × 136 × $3/MTok = **$1.22**. Prioritering sparer ikke penger, men sikrer at kjernesaker screenes først.
+
 ---
 
 ## Beslutning

@@ -82,9 +82,38 @@ Saker der B og C er uenige logges som «omstridte» i triage_history.
 echo '["sak1","sak2"]' | bash scripts/pipeline-cli.sh save-triage-reject <id> ensemble-v1
 ```
 
-JA-saker: fortsett til full screening (steg 1-4).
+JA-saker: fortsett til prioritering (steg 0b) og deretter full screening (steg 1-4).
 
 Saker med discovery_rank ≥ 2 hopper over triage og går rett til full screening.
+
+### Steg 0b: Anførsler-prioritering (valgfritt, Haiku)
+
+Haiku leser første 2-3 avsnitt av partenes anførsler for ensemble-JA saker og klassifiserer:
+- **Prioritert** (anførsler handler om pris/evaluering/vekting/prisskjema/mengder)
+- **Lavpri** (anførsler handler om noe annet)
+
+Dispatch Haiku-subagenter i batches à 17 saker:
+
+```
+For HVER sak:
+1. Hent anførsler: bash scripts/pipeline-cli.sh case-text <sak_nr> anfoersler
+2. Les de første 2-3 avsnittene
+3. Handler det om pris/evaluering/vekting/prisskjema/mengder?
+
+Problemstilling: {refined_problem}
+Svar: sak_nr | JA eller NEI | 5 ord
+Ved tvil → JA
+```
+
+**VIKTIG:** Dette er PRIORITERING, ikke filtrering. Anførsler-NEI saker screenes også —
+bare etter anførsler-JA sakene. Anførsler pre-screen som selvstendig filter mister
+kjernesaker (validert: 4/5 A-saker tapt i E2E a93ce729) fordi anførslene bruker sakens
+egne termer, ikke problemstillingens.
+
+Typisk resultat (konseptuelt tema): ~55-60% prioritert, ~40-45% lavpri.
+I E2E (a93ce729): 77/136 prioritert — inneholdt alle 5 A-saker og 48/58 B-saker.
+
+Screen prioriterte saker først (batches à 7-12), deretter lavpri.
 
 ### Steg 1-4: Full Sonnet-screening
 
