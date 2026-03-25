@@ -32,13 +32,15 @@ user-invocable: false
    - FTS: `bash scripts/pipeline-cli.sh fts-search "konsortium" 30`
    - Vektor: `bash scripts/pipeline-cli.sh vector-search "<query>" 30`
      Krever GOOGLE_API_KEY. Hybrid Gemini-embedding + FTS.
-6. Sammenslå unike sak_nr fra alle søk. Beregn signals og kategori:
-   - A = ref+fts+vector (3 signaltyper), B = 2 signaltyper, C = 1 signaltype
-7. Lagre kandidater via CLI:
+6. Sammenslå søkeresultater via `merge-search-results`:
    ```bash
-   echo '[{"sak_nr":"2023/123","category":"A","signals":["ref","fts"]}]' | bash scripts/pipeline-cli.sh save-candidates <id>
+   echo '{"ref":{"16-11":["2023/123"]}, "fts":{"konsortium":["2023/123","2024/456"]}, "vec":{"2023/123":0.78}}' \
+     | bash scripts/pipeline-cli.sh merge-search-results \
+     | bash scripts/pipeline-cli.sh save-candidates <id>
    ```
-8. Oppdater status via CLI:
+   Bygger ADR-006-korrekte signals med discovery_rank automatisk.
+   Input-format: `ref` = {section_id: [sak_nr]}, `fts` = {term: [sak_nr]}, `vec` = {sak_nr: sim_score}.
+7. Oppdater status via CLI:
    ```bash
    bash scripts/pipeline-cli.sh update-status <id> candidates_ready
    ```

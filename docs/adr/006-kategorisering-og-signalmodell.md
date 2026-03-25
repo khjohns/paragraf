@@ -154,12 +154,15 @@ Denne tabellen er en sentral metodisk ressurs som bare kan akkumuleres hvis disc
 
 #### 2. discovery_rank: Fryst øyeblikksbilde i signals-objektet
 
-`discovery_rank` (int, 1-3) lagres som en del av `signals`-objektet ved første insert. Den representerer pipelinens mekaniske vurdering på oppdagelsestidspunktet — antall signaltyper som traff.
+`discovery_rank` (int, 1-3) lagres som en del av `signals`-objektet ved første insert. Den representerer pipelinens mekaniske vurdering på oppdagelsestidspunktet — antall signalkanaler som traff.
 
-**Beregning:**
+**Beregning (kanal-telling, IKKE styrke-rangering):**
 ```python
 discovery_rank = sum(1 for s in [signals["ref"], signals["fts"], signals["vec"]] if s)
+# 1 = én kanal (svakest overlapp), 2 = to kanaler, 3 = alle tre
 ```
+
+**Viktig semantikk:** discovery_rank er en **segmenteringsmetrikk**, ikke en universell prioriteringsmetrikk. Rank 3 betyr multi-kanal-overlapp, ikke nødvendigvis høyere relevans. For konseptuelle temaer kan rank-1 (vec-only) inneholde flertallet av kjernesakene (validert i E2E, se nedenfor).
 
 **Begrunnelse for å fryse (ikke beregne on-demand):**
 - Hvis beregningslogikken endres (f.eks. ny signaltype, endret terskel), vil on-demand-beregning gi retroaktivt andre verdier for historiske kandidater
@@ -246,7 +249,7 @@ Triage opererer på `signals` + metadata, ikke på `category` eller `discovery_r
 
 | Regel | Triage-anbefaling | Begrunnelse |
 |---|---|---|
-| `discovery_rank >= 2` | Alltid screen | Minst to uavhengige signaler |
+| `discovery_rank >= 2` | Screen (type-avhengig) | Multi-kanal overlapp. **OBS:** For konseptuelle temaer ga rank ≥ 2 null kjernesaker i E2E (a93ce729) — bruk kanal-baserte regler i stedet. |
 | `ref-only` + tema-match i `saken_gjelder` | Screen | Strukturelt signal + tematisk kobling |
 | `ref-only` + ingen tema-match | Triage-kandidat | Referanse kan være tangentiell |
 | `fts-only` + generisk term | Triage-kandidat | Bredt FTS-treff uten strukturell kobling |
@@ -257,7 +260,12 @@ Triage opererer på `signals` + metadata, ikke på `category` eller `discovery_r
 
 Haiku-triage-prompten (ADR-005) ser allerede signals + `saken_gjelder` + `avgjoerelse`. Med rikere signals kan prompten ta bedre beslutninger — f.eks. se at vec-score er 0.91 (sterk) vs. 0.68 (svak).
 
-**Advarsel basert på validering:** Vec-only saker er den *primære* discovery-kanalen for konseptuelle problemstillinger. I analyse `0dccaab9` var 11 av 12 kjernesaker vec-only. Triage-regler som filtrerer aggressivt på vec-only vil tape flertallet av relevante saker for slike temaer. Terskelen 0.70 er foreløpig — bør kalibreres med flere analyser.
+**Advarsel basert på validering (to analyser):**
+- Analyse `0dccaab9` (konseptuell): 11/12 kjernesaker vec-only.
+- Analyse `a93ce729` (konseptuell, E2E 2026-03-25): Alle 4 A-saker var rank-1 (3 vec-only, 1 fts-only). Rank ≥ 2 ga 0 kjernesaker. Vec-only presisjon 65% (20/44 A+B). Ref-only presisjon 4% (3/79 A+B) — §18-1/§14-1 for generelle. Triage pass rate 53% (113/215), akseptabelt for konseptuelt tema.
+- **Konklusjon:** discovery_rank er type-avhengig. For `paragraf`-temaer er multi-kanal en god prediktor. For `konseptuell`-temaer dominerer vec-only — triage må vurdere signaltype, ikke bare antall kanaler. Terskelen 0.70 er foreløpig — bør kalibreres med flere analyser.
+
+**Triage-kommando (pipeline-cli.sh):** Filtrerer på `discovery_rank`, ikke `category` (som er null pre-screening). Kommando: `triage <id> [max_rank]` (default: rank=1).
 
 ---
 

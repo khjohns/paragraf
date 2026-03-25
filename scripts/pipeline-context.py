@@ -10,7 +10,7 @@ Usage:
 Commands:
     context <id>                    Analysis context (problem, seeds, status)
     candidates <id>                 All candidates with screening status
-    triage <id> [category]          Pending candidates with metadata for Haiku triage (default: C)
+    triage <id> [max_rank]          Pending candidates for Haiku triage (default: rank=1)
     screening <id> <sak_nr>         Full screening input for one case
     screening-results <id>          All screening results (capsule format)
     propositions <id>               Cross-propositions (if they exist)
@@ -23,6 +23,7 @@ Commands:
     ref-search <section_id> [max]   Search kofa_law_references (e.g. 16-11)
     fts-search <term> [max]         Full-text search in KOFA decisions
     vector-search <query> [max]     Hybrid vector+FTS search (Gemini embeddings)
+    merge-search-results            Merge ref/fts/vec results → candidates JSON (stdin)
 
 Write commands (read JSON/content from stdin):
     create-analysis <title>         Create new analysis (problem via stdin, prints ID)
@@ -107,22 +108,31 @@ def cmd_candidates(analysis_id: str):
     print("</candidates>")
 
 
-def cmd_triage(analysis_id: str, category: str = "C"):
-    """Triage input: pending candidates with metadata for Haiku pre-filter."""
+def cmd_triage(analysis_id: str, max_rank: str = "1"):
+    """Triage input: pending candidates with discovery_rank <= max_rank for Haiku pre-filter.
+
+    ADR-006: category is null until screening. Triage filters on discovery_rank, not category.
+    discovery_rank=1 means 1 signal channel (weakest), 3 means all channels (strongest).
+    Default: rank=1 (single-channel candidates that need triage).
+    """
     client = get_client()
+    max_rank_int = int(max_rank)
     rows = (
         client.table("analysis_candidates")
         .select("sak_nr, category, signals")
         .eq("analysis_id", analysis_id)
-        .eq("category", category.upper())
         .eq("screening_status", "pending")
+        .is_("category", "null")
         .order("sak_nr")
         .execute()
         .data
     ) or []
 
+    # Filter by discovery_rank in Python (jsonb integer filter not straightforward in postgrest)
+    rows = [r for r in rows if (r.get("signals") or {}).get("discovery_rank", 0) <= max_rank_int]
+
     if not rows:
-        print(f"<triage category=\"{category}\">Ingen pending kandidater</triage>")
+        print(f"<triage max_rank=\"{max_rank_int}\">Ingen pending kandidater</triage>")
         return
 
     # Batch-fetch case metadata
@@ -136,7 +146,7 @@ def cmd_triage(analysis_id: str, category: str = "C"):
     ) or []
     case_map = {c["sak_nr"]: c for c in cases}
 
-    print(f"<triage category=\"{category}\" count=\"{len(rows)}\">")
+    print(f"<triage max_rank=\"{max_rank_int}\" count=\"{len(rows)}\">")
     for r in rows:
         c = case_map.get(r["sak_nr"], {})
         signals = _normalize_signals(r.get("signals") or {})
@@ -757,6 +767,69 @@ def cmd_save_scoping(analysis_id: str):
     print(f"✓ scoping lagret ({len(data.get('provisions', []))} bestemmelser, {len(seeds)} seeds)")
 
 
+def cmd_merge_search_results():
+    """Merge ref/fts/vec search results into candidates with ADR-006 signals.
+
+    Reads JSON from stdin:
+    {
+      "ref": {"18-1": ["2023/123", "2024/456"], "14-1": ["2023/123"]},
+      "fts": {"taktisk prising": ["2023/123", "2024/789"], "prisskjema": ["2024/456"]},
+      "vec": {"2023/123": 0.78, "2024/456": 0.72, "2025/100": 0.65}
+    }
+
+    Outputs JSON array of candidates with signals, sorted by discovery_rank.
+    """
+    data = json.loads(sys.stdin.read())
+    ref_data = data.get("ref", {})   # {section_id: [sak_nr, ...]}
+    fts_data = data.get("fts", {})   # {term: [sak_nr, ...]}
+    vec_data = data.get("vec", {})   # {sak_nr: best_sim_score}
+
+    # Merge into per-case signals
+    all_cases: dict[str, dict] = {}
+    for section, cases in ref_data.items():
+        for sak in cases:
+            all_cases.setdefault(sak, {"ref": set(), "fts": set(), "vec": []})
+            all_cases[sak]["ref"].add(section)
+    for term, cases in fts_data.items():
+        for sak in cases:
+            all_cases.setdefault(sak, {"ref": set(), "fts": set(), "vec": []})
+            all_cases[sak]["fts"].add(term)
+    for sak, score in vec_data.items():
+        all_cases.setdefault(sak, {"ref": set(), "fts": set(), "vec": []})
+        all_cases[sak]["vec"].append(round(float(score), 3))
+
+    # Build candidate list with ADR-006 signals
+    candidates = []
+    for sak, sig in all_cases.items():
+        ref_hits = sorted(sig["ref"])
+        fts_hits = sorted(sig["fts"])
+        vec_hits = sorted(sig["vec"], reverse=True)
+        channels = sum(1 for s in [ref_hits, fts_hits, vec_hits] if s)
+        candidates.append({
+            "sak_nr": sak,
+            "signals": {
+                "ref": ref_hits,
+                "fts": fts_hits,
+                "vec": vec_hits,
+                "discovery_rank": channels,
+            },
+        })
+
+    candidates.sort(key=lambda c: (
+        -c["signals"]["discovery_rank"],
+        -len(c["signals"]["ref"]),
+        -len(c["signals"]["fts"]),
+    ))
+
+    # Summary to stderr, JSON to stdout
+    rank_counts: dict[int, int] = {}
+    for c in candidates:
+        r = c["signals"]["discovery_rank"]
+        rank_counts[r] = rank_counts.get(r, 0) + 1
+    print(f"# {len(candidates)} kandidater: rank3={rank_counts.get(3, 0)} rank2={rank_counts.get(2, 0)} rank1={rank_counts.get(1, 0)}", file=sys.stderr)
+    print(json.dumps(candidates))
+
+
 COMMANDS = {
     "context": (cmd_context, 1),
     "candidates": (cmd_candidates, 1),
@@ -774,6 +847,7 @@ COMMANDS = {
     "ref-search": (cmd_ref_search, 1),
     "fts-search": (cmd_fts_search, 1),
     "vector-search": (cmd_vector_search, 1),
+    "merge-search-results": (cmd_merge_search_results, 0),
     # Write commands (read JSON/content from stdin)
     "create-analysis": (cmd_create_analysis, 1),
     "save-screening": (cmd_save_screening, 2),

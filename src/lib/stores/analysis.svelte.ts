@@ -311,12 +311,12 @@ class AnalysisState {
       if (raw) {
         const cached = JSON.parse(raw);
         if (cached.analysis?.id === data.id) {
-          if (cached.nodes) {
+          if (Array.isArray(cached.nodes)) {
             this.nodes = cached.nodes;
             this.previousNodeIds = new Set(cached.nodes.map((n: GraphNode) => n.id));
           }
-          if (cached.edges) this.edges = cached.edges;
-          if (cached.gaps) this.gaps = cached.gaps;
+          if (Array.isArray(cached.edges)) this.edges = cached.edges;
+          if (Array.isArray(cached.gaps)) this.gaps = cached.gaps;
         }
       }
     } catch {
@@ -325,7 +325,7 @@ class AnalysisState {
 
     // If no nodes from cache (CLI-pipeline analyses never wrote to localStorage),
     // build minimal nodes from candidates to avoid triggering a stale traversal
-    if (this.nodes.length === 0 && data.candidates.length > 0) {
+    if ((!Array.isArray(this.nodes) || this.nodes.length === 0) && data.candidates.length > 0) {
       this.nodes = data.candidates.map((c) => ({
         id: `kofa:${c.sak_nr}`,
         type: 'kofa_case' as const,
