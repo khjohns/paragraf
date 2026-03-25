@@ -122,6 +122,22 @@ Signal-kanal-presisjon (A+B):
 
 Denne tabellen er en sentral metodisk ressurs som bare kan akkumuleres hvis discovery-mønster og innholdskategori begge er bevart.
 
+**Triage v1 vs v2 — simulering på a93ce729 (215 rank-1 saker, full ground truth):**
+
+| | V1 (Haiku + saken_gjelder) | V2 (signal-only) |
+|---|---|---|
+| Passerte til screening | 113 | 129 |
+| Triaged out | 102 | 86 |
+| **False neg A** | **1** (2021/1374) | **0** |
+| **False neg B** | **4** | **3** (ref-only) |
+| Presisjon (A+B) | 52% | 47% |
+| Recall A | 80% (4/5) | **100% (5/5)** |
+| Recall B | 93% (54/58) | **95% (55/58)** |
+
+V2-regler: `fts-any → JA`, `vec ≥ 0.70 → JA`, `ref-only → NEI`, `avvist → NEI`.
+
+**Konklusjon:** V2 er bedre for konseptuelle temaer — 0 tapte kjernesaker, bedre B-recall, marginal presisjonskostnad (47% vs 52%). `saken_gjelder` introduserer falske negativer uten å kompensere med bedre filtrering. V2 adoptert som default triage-prompt (screen.md). Gjenstår: validering på paragraf-tema.
+
 ---
 
 ## Beslutning
