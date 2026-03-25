@@ -279,7 +279,7 @@ def scope_analysis_route(analysis_id):
 @app.route("/api/analyses/<analysis_id>/traverse", methods=["POST"])
 def traverse_analysis_route(analysis_id):
     """Run traversal for an analysis, persist candidates and gaps, return results."""
-    body = request.get_json() or {}
+    body = request.get_json(silent=True) or {}
     iteration = body.get("iteration", 1)
 
     # Get analysis with seeds only (no candidates — lighter query)
@@ -315,10 +315,13 @@ def traverse_analysis_route(analysis_id):
         else:
             candidate_count = persist_candidates(analysis_id, result["nodes"], iteration)
 
-        # Persist gaps on the analysis
+        # Persist gaps on the analysis — advance status to at least candidates_ready
+        current_status = analysis.get("status", "scoping")
+        ACTIVE_STATUSES = ("screening_complete", "post_search", "synthesis", "qa", "complete")
+        new_status = current_status if current_status in ACTIVE_STATUSES else "candidates_ready"
         update_analysis(analysis_id, {
             "gaps": result.get("gaps", []),
-            "status": analysis.get("status", "candidates_ready"),  # Don't regress status
+            "status": new_status,
         })
 
         result["candidateCount"] = candidate_count
@@ -382,7 +385,7 @@ def cross_propositions_route(analysis_id):
 @app.route("/api/analyses/<analysis_id>/screen/<path:sak_nr>/rescreen", methods=["POST"])
 def rescreen_case_route(analysis_id, sak_nr):
     """Re-screen a single case with additional sections."""
-    body = request.get_json() or {}
+    body = request.get_json(silent=True) or {}
     sections = body.get("sections", ["vurdering", "bakgrunn"])
 
     try:
@@ -405,7 +408,7 @@ def eu_cases_for_analysis(analysis_id):
 @app.route("/api/analyses/<analysis_id>/eu-screen", methods=["POST"])
 def eu_screen_route(analysis_id):
     """Screen EU cases with Claude AI. Streams results via SSE."""
-    body = request.get_json() or {}
+    body = request.get_json(silent=True) or {}
     eu_case_ids = body.get("eu_case_ids")
     max_parallel = body.get("max_parallel", 3)
 
@@ -418,7 +421,7 @@ def eu_screen_route(analysis_id):
 @app.route("/api/analyses/<analysis_id>/synthesize", methods=["POST"])
 def synthesize_route(analysis_id):
     """Generate a legal analysis note from screening results."""
-    body = request.get_json() or {}
+    body = request.get_json(silent=True) or {}
     model = body.get("model")  # Optional: e.g. "claude-opus-4-6"
     try:
         result = generate_synthesis(analysis_id, model=model)
@@ -461,7 +464,7 @@ def get_documents_route(analysis_id):
 @app.route("/api/analyses/<analysis_id>/qa", methods=["POST"])
 def qa_route(analysis_id):
     """Run quality assurance on the synthesis note."""
-    body = request.get_json() or {}
+    body = request.get_json(silent=True) or {}
     model = body.get("model")  # Optional: e.g. "claude-opus-4-6"
     try:
         result = run_qa(analysis_id, model=model)
@@ -515,7 +518,7 @@ def screen_batch_route(analysis_id):
 @app.route("/api/analyses/<analysis_id>/eu-screen-batch", methods=["POST"])
 def eu_screen_batch_route(analysis_id):
     """Submit EU screening as a batch job. Returns batch_id for polling."""
-    body = request.get_json() or {}
+    body = request.get_json(silent=True) or {}
     eu_case_ids = body.get("eu_case_ids")
 
     try:
@@ -563,7 +566,7 @@ def cancel_batch_route(analysis_id, batch_id):
 @app.route("/api/analyses/<analysis_id>/batch-results/<batch_id>", methods=["POST"])
 def batch_results_route(analysis_id, batch_id):
     """Retrieve and process batch results. Body must include batch_type."""
-    body = request.get_json() or {}
+    body = request.get_json(silent=True) or {}
     batch_type = body.get("batch_type")
     if not batch_type:
         return jsonify({"error": "batch_type required"}), 400

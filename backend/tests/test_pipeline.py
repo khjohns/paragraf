@@ -45,7 +45,8 @@ class TestTraversal:
         assert len(candidates) > 0, "No candidates persisted after traversal"
 
         for c in candidates:
-            assert c.get("category") in ("A", "B", "C"), f"Bad category: {c.get('category')}"
+            # ADR-006: category is null until screening — traversal sets None
+            assert c.get("category") in ("A", "B", "C", None), f"Bad category: {c.get('category')}"
             assert c.get("signals") is not None
             assert c.get("iteration") is not None
 
