@@ -575,7 +575,14 @@ def cmd_save_screening(analysis_id: str, sak_nr: str):
 
 def cmd_save_quote_verification(analysis_id: str, sak_nr: str):
     """Add quote_verification to existing ai_screening (merge, not replace). JSON array via stdin."""
-    verification = json.loads(sys.stdin.read())
+    raw = json.loads(sys.stdin.read())
+    # Unwrap if input is {"quote_verification": [...]} instead of bare [...]
+    if isinstance(raw, dict) and "quote_verification" in raw:
+        verification = raw["quote_verification"]
+    elif isinstance(raw, list):
+        verification = raw
+    else:
+        verification = raw
     client = get_client()
     # Fetch existing
     row = (

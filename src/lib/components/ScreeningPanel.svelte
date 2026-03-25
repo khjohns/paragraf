@@ -37,7 +37,7 @@
       notFound = 0,
       total = 0;
     for (const result of Object.values(screeningState.screeningResults)) {
-      if (result.quote_verification) {
+      if (Array.isArray(result.quote_verification)) {
         for (const v of result.quote_verification) {
           total++;
           if (v.status === 'verified') verified++;
