@@ -41,33 +41,36 @@ For HVER sak, svar BARE med: sak_nr | JA eller NEI | 1 setning
 
 ## Regler
 
-En sak er KUN JA hvis BEGGE er oppfylt:
-1. Signalet (fts/ref/vec) indikerer relevans for problemstillingen
-2. OG sakens `saken_gjelder`-kategorier OGSÅ indikerer at temaet er relevant
+Vurder KUN basert på signaltype + signalverdi + avgjørelse (utfall).
+**IKKE bruk `saken_gjelder`** — den beskriver prosessuelt tema, ikke substansielt innhold,
+og introduserer falske negativer (validert i E2E a93ce729: 1A + 4B tapt pga saken_gjelder-filtrering).
+
+En sak er JA hvis:
+- FTS-termen er spesifikk for problemstillingen (f.eks. "prisskjema", "taktisk prising", "handlekurv")
+- FTS-termen er evalueringsrelatert (f.eks. "evalueringsmodell", "enhetspris") OG problemstillingen gjelder evaluering/pris
+- Vec sim ≥ 0.70 — vektorsøk fanger konseptuelle temaer der terminologien varierer
+- Ref til bestemmelse som er primærbestemmelse for problemstillingen
 
 En sak er NEI hvis:
-- Signal er generisk FTS-term men saken gjelder noe ANNET enn problemstillingens kjerne
-- Signal er ref[§-nr] og saken gjelder ren kvalifikasjon/dokumentasjon/ettersending uten kobling til problemstillingen
-- Saken er avvist/ubegrunnet og sakens kategorier ikke indikerer relevans
-- Sakens kategorier (habilitet, frister, ulovlig direkte anskaffelse, verdiberegning, o.l.) tyder på et annet kjernespørsmål
+- Ref-only til en generell bestemmelse (f.eks. §18-1, §14-1) som brukes i mange kontekster — UTEN FTS- eller vec-bekreftelse
+- Saken er avvist/ubegrunnet (avgjoerelse inneholder "avvist")
+- Vec sim < 0.70 uten FTS/ref-støtte
 
-**VIKTIG om vec-only saker:**
-Vec-only (vektorsøk uten FTS/ref-bekreftelse) er IKKE automatisk NEI.
-Vec-only saker kan være den eneste veien inn for konseptuelle temaer der terminologien varierer.
-Vurder vec-only basert på similarity-score og `saken_gjelder`:
-- Vec sim ≥ 0.75 + tema-match i saken_gjelder → JA
-- Vec sim ≥ 0.70 + delvis tema-match → JA (forsiktig)
-- Vec sim < 0.70 uten tema-match → NEI
-
-**Vær STRENG på ref-only og fts-only uten tema-match, men FORSIKTIG med vec-only.**
+**Vec-only er IKKE støy.** Vec-only er primær discovery-kanal for konseptuelle temaer.
+I E2E-validering hadde 75% av kjernesakene kun vec-signal.
 ```
 
-Input per sak: `sak_nr | signal: {type}[{value}] sim:{score} | {saken_gjelder} | {avgjoerelse}`
+Input per sak: `sak_nr | signal: {type}[{value}] sim:{score} | {avgjoerelse}`
 
 Hent metadata via CLI:
 ```bash
 bash scripts/pipeline-cli.sh triage <analysis_id>
 # Returnerer alle pending rank-1 saker med signals + saken_gjelder + avgjoerelse
+```
+
+NEI-saker: lagre med prompt-versjon for historikk:
+```bash
+echo '["2023/123","2023/456"]' | bash scripts/pipeline-cli.sh save-triage-reject <id> v2
 ```
 
 NEI-saker: lagre via CLI:
