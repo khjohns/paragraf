@@ -28,14 +28,14 @@ MODEL_PRICING = {
         "batch_input": 1.50, "batch_output": 7.50,
     },
     "claude-haiku-4-5-20251001": {
-        "input": 0.25, "output": 1.25,
-        "cache_write": 0.30, "cache_read": 0.025,
-        "batch_input": 0.125, "batch_output": 0.625,
+        "input": 1.00, "output": 5.00,
+        "cache_write": 1.25, "cache_read": 0.10,
+        "batch_input": 0.50, "batch_output": 2.50,
     },
     "claude-opus-4-6": {
-        "input": 15.00, "output": 75.00,
-        "cache_write": 18.75, "cache_read": 1.50,
-        "batch_input": 7.50, "batch_output": 37.50,
+        "input": 5.00, "output": 25.00,
+        "cache_write": 6.25, "cache_read": 0.50,
+        "batch_input": 2.50, "batch_output": 12.50,
     },
 }
 
