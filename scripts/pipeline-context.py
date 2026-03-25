@@ -631,7 +631,7 @@ def cmd_save_triage_reject(analysis_id: str, prompt_version: str = "v1"):
         })
         client.table("analysis_candidates").update({
             "ai_screening": {"triage": "rejected", "model": "haiku", "prompt_version": prompt_version},
-            "screening_status": "ai_screened",
+            "screening_status": "triage_rejected",
             "triage_history": history,
         }).eq("analysis_id", analysis_id).eq("sak_nr", sak_nr).execute()
     print(f"✓ {len(sak_nrs)} saker markert som triaged out (prompt {prompt_version})")
