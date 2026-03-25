@@ -37,6 +37,7 @@ Write commands (read JSON/content from stdin):
 import json
 import os
 import sys
+from datetime import datetime
 
 # Add backend to path for db module
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "backend"))
@@ -596,15 +597,37 @@ def cmd_save_quote_verification(analysis_id: str, sak_nr: str):
     print(f"✓ {sak_nr} — {v} verified, {t} truncated, {len(verification)-v-t} andre")
 
 
-def cmd_save_triage_reject(analysis_id: str):
-    """Mark candidates as triage-rejected. Reads JSON array of sak_nrs from stdin."""
+def cmd_save_triage_reject(analysis_id: str, prompt_version: str = "v1"):
+    """Mark candidates as triage-rejected. Reads JSON array of sak_nrs from stdin.
+
+    Appends to triage_history for A/B testing across triage re-runs.
+    Optional second arg: prompt version label (default: v1).
+    """
     sak_nrs = json.loads(sys.stdin.read())
     client = get_client()
+    timestamp = datetime.utcnow().isoformat() + "Z"
     for sak_nr in sak_nrs:
-        client.table("analysis_candidates").update(
-            {"ai_screening": {"triage": "rejected", "model": "haiku"}, "screening_status": "ai_screened"}
-        ).eq("analysis_id", analysis_id).eq("sak_nr", sak_nr).execute()
-    print(f"✓ {len(sak_nrs)} saker markert som triaged out")
+        # Append to triage_history
+        existing = (
+            client.table("analysis_candidates")
+            .select("triage_history")
+            .eq("analysis_id", analysis_id)
+            .eq("sak_nr", sak_nr)
+            .execute()
+            .data
+        )
+        history = (existing[0].get("triage_history") or []) if existing else []
+        history.append({
+            "prompt_version": prompt_version,
+            "decision": "NEI",
+            "timestamp": timestamp,
+        })
+        client.table("analysis_candidates").update({
+            "ai_screening": {"triage": "rejected", "model": "haiku", "prompt_version": prompt_version},
+            "screening_status": "ai_screened",
+            "triage_history": history,
+        }).eq("analysis_id", analysis_id).eq("sak_nr", sak_nr).execute()
+    print(f"✓ {len(sak_nrs)} saker markert som triaged out (prompt {prompt_version})")
 
 
 VALID_DOC_TYPES = {"note", "qa_report", "cross_propositions", "provision_screening", "export", "deposit"}
