@@ -89,7 +89,7 @@ Hvert steg i pipelinen er en immutable rad med fryst input og output.
 CREATE TABLE pipeline_steps (
   id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   run_id        uuid NOT NULL REFERENCES pipeline_runs(id),
-  step_type     text NOT NULL,  -- scoping | traversal | triage | screening | verify | cross | synthesis | qa
+  step_type     text NOT NULL,  -- scope | provisions | triage | screen | verify | cross | synthesize | qa
   step_input    jsonb NOT NULL, -- fryst input-snapshot (se schemas nedenfor)
   step_output   jsonb NOT NULL, -- fryst resultat
   model_id      text,           -- claude-sonnet-4-6, claude-haiku-4-5-20251001, etc.
@@ -136,7 +136,7 @@ Kobler prompt-hash til lesbar versjon og git-historikk. Muliggjør SQL-basert pr
 ```sql
 CREATE TABLE prompt_registry (
   hash        text PRIMARY KEY,       -- SHA-256 av prompt-teksten
-  step_type   text NOT NULL,          -- scoping | triage | screening | etc.
+  step_type   text NOT NULL,          -- scope | provisions | triage | screen | verify | cross | synthesize | qa
   version_tag text,                   -- v1, v2, ensemble-v1, etc.
   description text,                   -- kort beskrivelse av hva som endret seg
   git_sha     text,                   -- commit som introduserte denne versjonen
@@ -162,7 +162,7 @@ ORDER BY avg_precision DESC;
 
 For konsistens og eksportbarhet defineres faste strukturer for `step_input` og `step_output`.
 
-#### traversal
+#### scope
 
 ```typescript
 // step_input
@@ -218,27 +218,93 @@ For konsistens og eksportbarhet defineres faste strukturer for `step_input` og `
   relevance: "A" | "B" | "C",
   star: boolean,
   factum: string,
+  assessment: string,            // nemndas vurdering
   proposition: string,
+  quotes: { p: number, text: string }[],  // nøkkelsitater med avsnittsnummer
+  nuances: string | null,        // motargumenter, unntak, dissens
   relevance_reasoning: string
 }
 ```
 
-#### synthesis
+#### provisions
+
+```typescript
+// step_input
+{
+  provisions: string[],          // ["anskaffelsesforskriften:18-1"]
+  provision_texts: { id: string, text: string }[]  // lovtekst per bestemmelse
+}
+
+// step_output
+{
+  screened_provisions: {
+    id: string,
+    key_qualifications: string[],  // vilkår/unntak som lett overses
+    cross_references: string[],    // kryss-referanser til andre bestemmelser
+    interactions: string[]         // der ledd i én bestemmelse kvalifiserer en annen
+  }[]
+}
+```
+
+#### verify
+
+```typescript
+// step_input
+{
+  candidates: { sak_nr: string, quotes: { p: number, text: string }[] }[]
+}
+
+// step_output
+{
+  verified_quotes: {
+    sak_nr: string,
+    quote_index: number,
+    status: "verified" | "truncated" | "inaccurate" | "not_found",
+    original: string,
+    found_text?: string
+  }[],
+  stats: { verified: number, truncated: number, inaccurate: number, not_found: number }
+}
+```
+
+#### cross
 
 ```typescript
 // step_input
 {
   screened_candidates: { sak_nr: string, category: string, proposition: string }[],
+  provisions: string[]
+}
+
+// step_output
+{
+  propositions: {
+    id: string,
+    text: string,
+    supporting_cases: string[],
+    contradicting_cases: string[],
+    evolution_type: "established" | "confirmed" | "qualified" | "consolidating"
+  }[]
+}
+```
+
+#### synthesize
+
+```typescript
+// step_input
+{
+  screened_candidates: { sak_nr: string, category: string, proposition: string, star: boolean }[],
   cross_propositions: object | null,
-  provision_screening: object | null
+  provision_screening: object | null,
+  problem_statement: string
 }
 
 // step_output
 {
   note_text: string,
   word_count: number,
-  sections: string[]           // overskrifter
-}
+  sections: string[],          // overskrifter
+  cases_cited: string[]        // sak_nr referert i notatet
 ```
 
 #### qa
@@ -298,12 +364,14 @@ For konsistens og eksportbarhet defineres faste strukturer for `step_input` og `
 
 Opprett `pipeline_runs`, `pipeline_steps`, `user_corrections`, `prompt_registry` med schemas som definert ovenfor.
 
-### Fase 2: Pipeline-integrasjon
+### Fase 2: Pipeline-skill-integrasjon
 
-Oppdater pipeline-skill og backend til å logge til nye tabeller:
+Oppdater pipeline-skill (CC-pipeline, som er den aktive pipelinen) til å logge til nye tabeller:
 - `pipeline-run` skill: opprett run ved start, logg steg underveis, lukk run ved slutt
-- Backend endpoints: logg til `pipeline_steps` for API-pipeline
+- Hver sub-skill (scope, provisions, screen, verify, cross, synthesize, qa): logg step_input/step_output
 - Frontend: logg `user_corrections` ved overstyring (category-endring, star-toggle, delimitation)
+
+**Merk:** API-pipelinen (Flask backend) er utdatert og prioriteres ikke for tracking-integrasjon. Hvis den reaktiveres, kan den bruke samme pipeline_steps-format.
 
 ### Fase 3: Analyse-integrasjon
 
@@ -360,4 +428,4 @@ Bygg eksportfunksjon som genererer strukturerte filer fra `pipeline_runs` + `pip
 - `docs/adr/006-kategorisering-og-signalmodell.md` — Signalmodell og metrikker
 - `memory/project_event_sourcing.md` — Opprinnelig vurdering av event sourcing
 - MLflow / Weights & Biases — Inspirasjon for eksperiment-tracking-mønsteret
-- `triage_history` tabell — Eksisterende primitiv event log som subsumeres av pipeline_steps
+- `llm_call_log` tabell — Eksisterende token/kostnad-logging, komplementerer pipeline_steps
