@@ -1,6 +1,6 @@
 ---
 name: pipeline:screen
-description: Screen KOFA-saker for relevans. Haiku-triage for C-saker, Sonnet full-screening.
+description: Screen KOFA-saker for relevans. Ensemble-triage (deterministisk + Haiku) for rank-1, Sonnet full-screening.
 user-invocable: false
 ---
 
@@ -40,38 +40,63 @@ Ingen LLM-kall. Ren signallogikk:
 - **Avvist + ref-only → NEI**
 
 #### Variant B: Haiku + summary (ref-only saker)
-Kun for saker der variant A ga «skip» (ref-only). Haiku ser KOFAs oppsummering:
+Kun for saker der variant A ga «skip» (ref-only). Haiku ser KOFAs oppsummering.
+
+Orchestratoren bygger prompten fra scoping-data:
 
 ```
-Du er en juridisk triage-assistent. Vurder om hver sak KAN være relevant for denne problemstillingen:
+Du er en juridisk triage-assistent. Vurder om hver sak KAN være relevant.
+Dette er en grov siling — ved tvil → JA.
 
-**Problemstilling:** {refined_problem}
+<problemstilling>{refined_problem}</problemstilling>
 
-Disse sakene har BARE ref-signal uten FTS eller vec. Vurder basert på KOFAs oppsummering (summary).
+<delspørsmål>
+{sub_problems}
+</delspørsmål>
 
-**JA** kun hvis summary beskriver prisskjema, evalueringsmodell, prisberegning, taktisk prising,
-mengdeestimater, handlekurv, vekting av tildelingskriterier, eller priskriterier.
-**NEI** hvis summary handler om ulovlig direkte anskaffelse, prosedyrevalg, avvisning, habilitet,
-frister, innsyn, egenregi, o.l.
+<relevans_indikatorer>
+{utledet fra provisions[].label + search_strategy.fts}
+</relevans_indikatorer>
+
+Disse sakene har BARE ref-signal uten FTS eller vec.
+Vurder basert på KOFAs oppsummering (summary).
+
+**JA** hvis summary kan relateres til problemstillingen eller delspørsmålene.
+**NEI** kun hvis summary klart handler om noe helt annet.
+**Ved tvil → JA**
+
+Input per sak: sak_nr | signal | avgjoerelse | summary
+Svar: sak_nr | JA eller NEI | 5 ord
 ```
-
-Input per sak: `sak_nr | signal | avgjoerelse | summary`
 
 #### Variant C: Haiku + avgjørelseskontekst (ref-only saker)
-Parallelt med variant B, for samme ref-only saker. Haiku ser avgjørelsesbeskrivelse:
+Parallelt med variant B, for samme ref-only saker. Haiku ser avgjørelsesbeskrivelse.
+
+Orchestratoren bygger prompten fra scoping-data (samme template som B, men med avgjørelseskontekst):
 
 ```
-Du er en juridisk triage-assistent. Vurder om ref-only saker KAN være relevant.
+Du er en juridisk triage-assistent. Vurder om ref-only saker KAN være relevante.
+Ved tvil → JA.
 
-**Problemstilling:** {refined_problem}
+<problemstilling>{refined_problem}</problemstilling>
 
-**JA** kun hvis avgjoerelse handler om tildelingsevaluering, evalueringsmodell,
-priskriterier, vekting, eller uklart konkurransegrunnlag relatert til pris.
-**NEI** hvis ulovlig direkte anskaffelse, overtredelsesgebyr, egenregi, avvisning
-uten evaluerings-kontekst, prosedyrevalg, habilitet, frister, innsyn.
+<delspørsmål>
+{sub_problems}
+</delspørsmål>
+
+<relevans_indikatorer>
+{utledet fra provisions[].label + search_strategy.fts}
+</relevans_indikatorer>
+
+Vurder basert på avgjørelsesbeskrivelsen.
+
+**JA** hvis avgjørelsen kan relateres til problemstillingen eller delspørsmålene.
+**NEI** kun hvis avgjørelsen klart handler om noe helt annet.
+**Ved tvil → JA**
+
+Input per sak: sak_nr | signal | avgjoerelse | kort beskrivelse
+Svar: sak_nr | JA eller NEI | 5 ord
 ```
-
-Input per sak: `sak_nr | signal | avgjoerelse | kort beskrivelse`
 
 #### Sammenstilling
 **Union** av alle JA fra variant A, B og C → full screening.
@@ -89,7 +114,7 @@ Saker med discovery_rank ≥ 2 hopper over triage og går rett til full screenin
 ### Steg 0b: Anførsler-prioritering (valgfritt, Haiku)
 
 Haiku leser første 2-3 avsnitt av partenes anførsler for ensemble-JA saker og klassifiserer:
-- **Prioritert** (anførsler handler om pris/evaluering/vekting/prisskjema/mengder)
+- **Prioritert** (anførsler handler om temaer relatert til problemstillingen)
 - **Lavpri** (anførsler handler om noe annet)
 
 Dispatch Haiku-subagenter i batches à 17 saker:
@@ -98,9 +123,14 @@ Dispatch Haiku-subagenter i batches à 17 saker:
 For HVER sak:
 1. Hent anførsler: bash scripts/pipeline-cli.sh case-text <sak_nr> anfoersler
 2. Les de første 2-3 avsnittene
-3. Handler det om pris/evaluering/vekting/prisskjema/mengder?
+3. Handler anførslene om temaer relatert til problemstillingen eller delspørsmålene?
 
-Problemstilling: {refined_problem}
+<problemstilling>{refined_problem}</problemstilling>
+
+<delspørsmål>
+{sub_problems}
+</delspørsmål>
+
 Svar: sak_nr | JA eller NEI | 5 ord
 Ved tvil → JA
 ```
