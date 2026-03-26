@@ -79,10 +79,19 @@ Samme template som B, men:
 
 ### Sammenstilling
 **Union** av alle JA fra variant A, B og C → videre til anførsler-prioritering og full screening.
-Saker der B og C er uenige logges som «omstridte».
 
+**Lagre per-kandidat triage-resultater:**
 ```bash
-echo '["sak1","sak2"]' | bash scripts/pipeline-cli.sh save-triage-reject <id> ensemble-v1
+echo '[
+  {"sak_nr":"2023/123","variant_a":"JA","variant_b":null,"variant_c":null,"ensemble":"JA"},
+  {"sak_nr":"2020/456","variant_a":"skip","variant_b":"NEI","variant_c":"JA","ensemble":"JA"},
+  {"sak_nr":"2019/789","variant_a":"skip","variant_b":"NEI","variant_c":"NEI","ensemble":"NEI"}
+]' | bash scripts/pipeline-cli.sh save-triage-results <id> <run_id>
+```
+
+**Lagre rejected-liste** (oppdaterer screening_status):
+```bash
+echo '["2019/789"]' | bash scripts/pipeline-cli.sh save-triage-reject <id> ensemble-v1
 ```
 
 ## Steg 2: Anførsler-prioritering (Haiku)
@@ -116,6 +125,14 @@ egne termer, ikke problemstillingens.
 
 Typisk resultat (konseptuelt tema): ~55-60% prioritert, ~40-45% lavpri.
 I E2E (a93ce729): 77/136 prioritert — inneholdt alle 5 A-saker og 48/58 B-saker.
+
+**Lagre anførsler-resultater** (oppdaterer eksisterende triage_results):
+```bash
+echo '[
+  {"sak_nr":"2023/123","anfoersler":"JA","anfoersler_reason":"Avklaring av tilbud"},
+  {"sak_nr":"2020/456","anfoersler":"NEI","anfoersler_reason":"Kvalifikasjonskrav kun"}
+]' | bash scripts/pipeline-cli.sh update-triage-anfoersler <id> <run_id>
+```
 
 ## Output
 

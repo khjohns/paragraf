@@ -40,6 +40,8 @@ Run tracking (ADR-007):
     end-run <run_id> [status]       Close run (default: completed)
     log-correction <id> <sak_nr>    Log user correction (JSON via stdin)
     register-prompt <hash> <type> [tag]  Register prompt version (description via stdin)
+    save-triage-results <id> <run_id>    Save per-candidate triage results (JSON array via stdin)
+    update-triage-anfoersler <id> <run_id>  Update anførsler-prioritering on triage results (JSON via stdin)
 """
 import json
 import os
@@ -941,6 +943,47 @@ def cmd_log_correction(analysis_id: str, sak_nr: str):
     print(f"✓ correction logged: {data['correction_type']} for {sak_nr}")
 
 
+def cmd_save_triage_results(analysis_id: str, run_id: str):
+    """Save per-candidate triage results. Reads JSON array from stdin:
+    [{sak_nr, variant_a, variant_b?, variant_c?, ensemble, anfoersler?, anfoersler_reason?}, ...]"""
+    data = json.loads(sys.stdin.read())
+    client = get_client()
+
+    rows = []
+    for item in data:
+        row = {
+            "run_id": run_id,
+            "analysis_id": analysis_id,
+            "sak_nr": item["sak_nr"],
+            "ensemble": item["ensemble"],
+        }
+        for opt in ("variant_a", "variant_b", "variant_c", "anfoersler", "anfoersler_reason"):
+            if opt in item and item[opt] is not None:
+                row[opt] = item[opt]
+        rows.append(row)
+
+    result = client.table("paragraf_triage_results").insert(rows).execute()
+    print(f"✓ {len(result.data)} triage-resultater lagret")
+
+
+def cmd_update_triage_anfoersler(analysis_id: str, run_id: str):
+    """Update anførsler-prioritering on existing triage results. Reads JSON array from stdin:
+    [{sak_nr, anfoersler, anfoersler_reason?}, ...]"""
+    data = json.loads(sys.stdin.read())
+    client = get_client()
+
+    updated = 0
+    for item in data:
+        update = {"anfoersler": item["anfoersler"]}
+        if item.get("anfoersler_reason"):
+            update["anfoersler_reason"] = item["anfoersler_reason"]
+        client.table("paragraf_triage_results").update(update).eq(
+            "run_id", run_id
+        ).eq("analysis_id", analysis_id).eq("sak_nr", item["sak_nr"]).execute()
+        updated += 1
+    print(f"✓ {updated} anførsler-prioriteringer oppdatert")
+
+
 def cmd_register_prompt(prompt_hash: str, step_type: str, version_tag: str = None):
     """Register a prompt version. Reads optional description from stdin."""
     import select
@@ -998,6 +1041,8 @@ COMMANDS = {
     "end-run": (cmd_end_run, 1),
     "log-correction": (cmd_log_correction, 2),
     "register-prompt": (cmd_register_prompt, 2),
+    "save-triage-results": (cmd_save_triage_results, 2),
+    "update-triage-anfoersler": (cmd_update_triage_anfoersler, 2),
 }
 
 if __name__ == "__main__":

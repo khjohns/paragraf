@@ -49,12 +49,20 @@ Grupper screenede kandidater etter signalkombinasjon (ref+fts+vec, ref+fts, ref-
 ### 4. Triage-evaluering
 
 ```sql
-SELECT sak_nr, signals, screening_status
-FROM paragraf_analysis_candidates
-WHERE analysis_id = '<ID>' AND screening_status = 'triage_rejected';
+-- Per-variant resultater fra triage
+SELECT t.variant_a, t.variant_b, t.variant_c, t.ensemble, t.anfoersler,
+       c.category, c.ai_screening->>'relevance' as screening_relevance
+FROM paragraf_triage_results t
+JOIN paragraf_analysis_candidates c ON c.analysis_id = t.analysis_id AND c.sak_nr = t.sak_nr
+WHERE t.analysis_id = '<ID>';
 ```
 
-Rapporter falske negativer hvis triagede saker senere ble screenet som A/B.
+Beregn:
+- **Per-variant presisjon:** Andel A+B blant variant-JA (separat for A, B, C)
+- **Ensemble-verdi:** Hvor mange A/B-saker reddes av union vs enkeltvariant?
+- **B vs C uenighet:** Saker der B≠C — hvilken hadde rett oftere?
+- **Anførsler prediktiv verdi:** A-rate blant anførsler-JA vs anførsler-NEI
+- **Falske negativer:** Ensemble-NEI saker som senere ble screenet som A/B
 
 ### 5. Problemstillingstype
 
