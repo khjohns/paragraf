@@ -33,6 +33,13 @@ Write commands (read JSON/content from stdin):
     save-candidates <id>            Batch-insert candidates (JSON array via stdin)
     save-scoping <id>               Save scoping result (JSON via stdin)
     update-status <id> <status>     Update analysis status
+
+Run tracking (ADR-007):
+    start-run <id> [parent_run_id]  Start pipeline run (variation JSON via stdin, prints run_id)
+    log-step <run_id> <step_type>   Log pipeline step (JSON via stdin: step_input, step_output, ...)
+    end-run <run_id> [status]       Close run (default: completed)
+    log-correction <id> <sak_nr>    Log user correction (JSON via stdin)
+    register-prompt <hash> <type> [tag]  Register prompt version (description via stdin)
 """
 import json
 import os
@@ -860,6 +867,104 @@ def cmd_merge_search_results():
     print(json.dumps(candidates))
 
 
+def cmd_start_run(analysis_id: str, parent_run_id: str = None):
+    """Create a new pipeline run. Optionally provide parent_run_id for controlled variations.
+    Reads optional variation JSON from stdin (empty stdin = no variation)."""
+    import select
+    variation = None
+    if not sys.stdin.isatty() and select.select([sys.stdin], [], [], 0.0)[0]:
+        raw = sys.stdin.read().strip()
+        if raw:
+            variation = json.loads(raw)
+
+    client = get_client()
+    row_data = {
+        "analysis_id": analysis_id,
+        "status": "running",
+    }
+    if parent_run_id:
+        row_data["parent_run_id"] = parent_run_id
+    if variation:
+        row_data["variation"] = variation
+
+    result = client.table("paragraf_pipeline_runs").insert(row_data).execute()
+    run_id = result.data[0]["id"]
+    print(run_id)
+
+
+def cmd_log_step(run_id: str, step_type: str):
+    """Log a pipeline step. Reads JSON from stdin with fields:
+    {step_input, step_output, model_id?, prompt_hash?, prompt_text?, duration_ms?, cost_usd?, metadata?}"""
+    data = json.loads(sys.stdin.read())
+    client = get_client()
+
+    row_data = {
+        "run_id": run_id,
+        "step_type": step_type,
+        "step_input": data["step_input"],
+        "step_output": data["step_output"],
+    }
+    for opt in ("model_id", "prompt_hash", "prompt_text", "duration_ms", "cost_usd", "metadata"):
+        if opt in data and data[opt] is not None:
+            row_data[opt] = data[opt]
+
+    result = client.table("paragraf_pipeline_steps").insert(row_data).execute()
+    step_id = result.data[0]["id"]
+    print(f"✓ step {step_type} → {step_id}")
+
+
+def cmd_end_run(run_id: str, status: str = "completed"):
+    """Close a pipeline run. Status: completed | failed | partial."""
+    client = get_client()
+    client.table("paragraf_pipeline_runs").update(
+        {"status": status, "completed_at": "now()"}
+    ).eq("id", run_id).execute()
+    print(f"✓ run {run_id} → {status}")
+
+
+def cmd_log_correction(analysis_id: str, sak_nr: str):
+    """Log a user correction. Reads JSON from stdin:
+    {correction_type, before_value, after_value, reason?, run_id?}"""
+    data = json.loads(sys.stdin.read())
+    client = get_client()
+
+    row_data = {
+        "analysis_id": analysis_id,
+        "sak_nr": sak_nr,
+        "correction_type": data["correction_type"],
+    }
+    for opt in ("before_value", "after_value", "reason", "run_id"):
+        if opt in data and data[opt] is not None:
+            row_data[opt] = data[opt]
+
+    client.table("paragraf_user_corrections").insert(row_data).execute()
+    print(f"✓ correction logged: {data['correction_type']} for {sak_nr}")
+
+
+def cmd_register_prompt(prompt_hash: str, step_type: str, version_tag: str = None):
+    """Register a prompt version. Reads optional description from stdin."""
+    import select
+    description = None
+    if not sys.stdin.isatty() and select.select([sys.stdin], [], [], 0.0)[0]:
+        raw = sys.stdin.read().strip()
+        if raw:
+            description = raw
+
+    client = get_client()
+    row_data = {
+        "hash": prompt_hash,
+        "step_type": step_type,
+    }
+    if version_tag:
+        row_data["version_tag"] = version_tag
+    if description:
+        row_data["description"] = description
+
+    # Upsert — prompt hash is the PK
+    client.table("paragraf_prompt_registry").upsert(row_data).execute()
+    print(f"✓ prompt registered: {step_type} {version_tag or prompt_hash[:12]}")
+
+
 COMMANDS = {
     "context": (cmd_context, 1),
     "candidates": (cmd_candidates, 1),
@@ -887,6 +992,12 @@ COMMANDS = {
     "save-candidates": (cmd_save_candidates, 1),
     "save-scoping": (cmd_save_scoping, 1),
     "update-status": (cmd_update_status, 2),
+    # ADR-007: Run tracking commands
+    "start-run": (cmd_start_run, 1),
+    "log-step": (cmd_log_step, 2),
+    "end-run": (cmd_end_run, 1),
+    "log-correction": (cmd_log_correction, 2),
+    "register-prompt": (cmd_register_prompt, 2),
 }
 
 if __name__ == "__main__":
