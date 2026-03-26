@@ -51,10 +51,10 @@ Eksisterende mutable state (analysis_candidates, analysis_documents, etc.) forbl
 En run er én gjennomkjøring av pipelinen (hel eller delvis) for en analyse.
 
 ```sql
-CREATE TABLE pipeline_runs (
+CREATE TABLE paragraf_pipeline_runs (
   id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  analysis_id   uuid NOT NULL REFERENCES analyses(id),
-  parent_run_id uuid REFERENCES pipeline_runs(id),  -- for kontrollerte variasjoner
+  analysis_id   uuid NOT NULL REFERENCES paragraf_analyses(id),
+  parent_run_id uuid REFERENCES paragraf_pipeline_runs(id),  -- for kontrollerte variasjoner
   variation     jsonb,          -- hva endret seg fra parent: {model: "opus-4-6", step: "screening"}
   status        text NOT NULL DEFAULT 'running',  -- running | completed | failed | partial
   created_at    timestamptz DEFAULT now(),
@@ -62,8 +62,8 @@ CREATE TABLE pipeline_runs (
   metadata      jsonb           -- pipeline-versjon, git SHA, env-info
 );
 
-CREATE INDEX idx_pipeline_runs_analysis ON pipeline_runs(analysis_id);
-CREATE INDEX idx_pipeline_runs_parent ON pipeline_runs(parent_run_id) WHERE parent_run_id IS NOT NULL;
+CREATE INDEX idx_paragraf_pipeline_runs_analysis ON pipeline_runs(analysis_id);
+CREATE INDEX idx_paragraf_pipeline_runs_parent ON pipeline_runs(parent_run_id) WHERE parent_run_id IS NOT NULL;
 ```
 
 **Livssyklus:**
@@ -86,9 +86,9 @@ VALUES ('a93ce729...', 'run-001', '{"step": "screening", "model": "claude-opus-4
 Hvert steg i pipelinen er en immutable rad med fryst input og output.
 
 ```sql
-CREATE TABLE pipeline_steps (
+CREATE TABLE paragraf_pipeline_steps (
   id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  run_id        uuid NOT NULL REFERENCES pipeline_runs(id),
+  run_id        uuid NOT NULL REFERENCES paragraf_pipeline_runs(id),
   step_type     text NOT NULL,  -- scope | provisions | triage | screen | verify | cross | synthesize | qa
   step_input    jsonb NOT NULL, -- fryst input-snapshot (se schemas nedenfor)
   step_output   jsonb NOT NULL, -- fryst resultat
@@ -101,8 +101,8 @@ CREATE TABLE pipeline_steps (
   metadata      jsonb           -- temperatur, max_tokens, thinking-config, batch_size
 );
 
-CREATE INDEX idx_pipeline_steps_run ON pipeline_steps(run_id);
-CREATE INDEX idx_pipeline_steps_type ON pipeline_steps(step_type);
+CREATE INDEX idx_paragraf_pipeline_steps_run ON pipeline_steps(run_id);
+CREATE INDEX idx_paragraf_pipeline_steps_type ON pipeline_steps(step_type);
 ```
 
 **Viktig:** `step_input` og `step_output` er **immutable snapshots**. De dupliserer data som også finnes i mutable tabeller — men det er hele poenget: snapshotet reflekterer tilstanden *da steget kjørte*, ikke nåværende tilstand.
@@ -112,10 +112,10 @@ CREATE INDEX idx_pipeline_steps_type ON pipeline_steps(step_type);
 Fanger når brukeren overstyrer AI-vurderinger. Verdifullt for metodeforskning — viser hvor AI feiler systematisk.
 
 ```sql
-CREATE TABLE user_corrections (
+CREATE TABLE paragraf_user_corrections (
   id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  analysis_id     uuid NOT NULL REFERENCES analyses(id),
-  run_id          uuid REFERENCES pipeline_runs(id),  -- nullable: korreksjon kan skje utenfor en run
+  analysis_id     uuid NOT NULL REFERENCES paragraf_analyses(id),
+  run_id          uuid REFERENCES paragraf_pipeline_runs(id),  -- nullable: korreksjon kan skje utenfor en run
   sak_nr          text,
   correction_type text NOT NULL,  -- category_override | star_toggle | delimitation_toggle | note
   before_value    jsonb,          -- {category: "C"}
@@ -124,7 +124,7 @@ CREATE TABLE user_corrections (
   created_at      timestamptz DEFAULT now()
 );
 
-CREATE INDEX idx_user_corrections_analysis ON user_corrections(analysis_id);
+CREATE INDEX idx_paragraf_user_corrections_analysis ON user_corrections(analysis_id);
 ```
 
 **Friksjon vs verdi:** `reason` er valgfritt (nullable). Frontend viser en kort prompt ("Kort — hvorfor?") ved overstyring. Selv 30% utfyllingsrate gir verdifulle datapunkter for forskning.
@@ -134,7 +134,7 @@ CREATE INDEX idx_user_corrections_analysis ON user_corrections(analysis_id);
 Kobler prompt-hash til lesbar versjon og git-historikk. Muliggjør SQL-basert presisjon-per-prompt-analyse.
 
 ```sql
-CREATE TABLE prompt_registry (
+CREATE TABLE paragraf_prompt_registry (
   hash        text PRIMARY KEY,       -- SHA-256 av prompt-teksten
   step_type   text NOT NULL,          -- scope | provisions | triage | screen | verify | cross | synthesize | qa
   version_tag text,                   -- v1, v2, ensemble-v1, etc.
@@ -203,7 +203,7 @@ For konsistens og eksportbarhet defineres faste strukturer for `step_input` og `
 }
 ```
 
-#### screening
+#### screen
 
 ```typescript
 // step_input
@@ -305,6 +305,7 @@ For konsistens og eksportbarhet defineres faste strukturer for `step_input` og `
   word_count: number,
   sections: string[],          // overskrifter
   cases_cited: string[]        // sak_nr referert i notatet
+}
 ```
 
 #### qa

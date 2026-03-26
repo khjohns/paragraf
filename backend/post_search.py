@@ -101,7 +101,7 @@ def _compress_screening_results(analysis_id: str) -> str:
     """Compress screening results into a concise format for the prompt."""
     client = get_client()
     candidates = (
-        client.table("analysis_candidates")
+        client.table("paragraf_analysis_candidates")
         .select("sak_nr, category, ai_screening")
         .eq("analysis_id", analysis_id)
         .not_.is_("ai_screening", "null")
@@ -139,7 +139,7 @@ def generate_post_search(analysis_id: str) -> dict:
     # Load additional seed types for current-seeds display
     client = get_client()
     all_seeds = (
-        client.table("analysis_seeds")
+        client.table("paragraf_analysis_seeds")
         .select("seed_type, value")
         .eq("analysis_id", analysis_id)
         .execute()

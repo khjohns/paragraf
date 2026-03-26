@@ -154,7 +154,7 @@ def identify_eu_cases(analysis_id: str) -> list[dict]:
 
     # Get all screened KOFA case sak_nrs for this analysis
     candidates = (
-        client.table("analysis_candidates")
+        client.table("paragraf_analysis_candidates")
         .select("sak_nr")
         .eq("analysis_id", analysis_id)
         .eq("screening_status", "ai_screened")
@@ -348,7 +348,7 @@ def _persist_eu_screening(analysis_id: str, eu_case_id: str, result: dict):
     client = get_client()
 
     if result.get("proposition"):
-        client.table("analysis_propositions").upsert(
+        client.table("paragraf_analysis_propositions").upsert(
             {
                 "analysis_id": analysis_id,
                 "proposition_text": result["proposition"],

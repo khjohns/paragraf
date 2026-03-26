@@ -507,7 +507,7 @@ def _load_propositions(analysis_id: str) -> str:
     """Load proposition registry as formatted text."""
     client = get_client()
     props = (
-        client.table("analysis_propositions")
+        client.table("paragraf_analysis_propositions")
         .select("proposition_text, theme, source_case, evolution_type, tension_with_id, confirmed")
         .eq("analysis_id", analysis_id)
         .execute()
@@ -592,10 +592,10 @@ def generate_synthesis(analysis_id: str, model: str | None = None) -> dict:
     # Convert structured response to markdown for persistence
     markdown = _to_markdown(result)
 
-    # Persist to analysis_documents (with llm_meta)
+    # Persist to paragraf_analysis_documents (with llm_meta)
     llm_meta = result.get("_llm_meta")
     client = get_client()
-    client.table("analysis_documents").upsert(
+    client.table("paragraf_analysis_documents").upsert(
         {
             "analysis_id": analysis_id,
             "doc_type": DOC_TYPE_NOTE,
@@ -650,7 +650,7 @@ def _build_user_message(analysis_id: str) -> tuple[str, str, list[dict]]:
 
     client = get_client()
     candidates = (
-        client.table("analysis_candidates")
+        client.table("paragraf_analysis_candidates")
         .select("sak_nr, category, ai_screening, user_notes")
         .eq("analysis_id", analysis_id)
         .not_.is_("ai_screening", "null")
@@ -799,7 +799,7 @@ def generate_synthesis_stream(analysis_id: str):
             markdown = _to_markdown(result)
             result["markdown"] = markdown
             db_client = get_client()
-            db_client.table("analysis_documents").upsert(
+            db_client.table("paragraf_analysis_documents").upsert(
                 {
                     "analysis_id": analysis_id,
                     "doc_type": DOC_TYPE_NOTE,
@@ -912,7 +912,7 @@ def update_synthesis(analysis_id: str, markdown: str) -> dict:
 
     # Increment version
     existing = (
-        client.table("analysis_documents")
+        client.table("paragraf_analysis_documents")
         .select("version")
         .eq("analysis_id", analysis_id)
         .eq("doc_type", DOC_TYPE_NOTE)
@@ -922,7 +922,7 @@ def update_synthesis(analysis_id: str, markdown: str) -> dict:
     )
     version = (existing[0]["version"] + 1) if existing else 1
 
-    client.table("analysis_documents").upsert(
+    client.table("paragraf_analysis_documents").upsert(
         {
             "analysis_id": analysis_id,
             "doc_type": DOC_TYPE_NOTE,

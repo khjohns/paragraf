@@ -152,7 +152,7 @@ def generate_cross_propositions(analysis_id: str) -> dict:
     # Load all screened candidates with their screening results
     client = get_client()
     candidates = (
-        client.table("analysis_candidates")
+        client.table("paragraf_analysis_candidates")
         .select("sak_nr, category, ai_screening")
         .eq("analysis_id", analysis_id)
         .not_.is_("ai_screening", "null")
@@ -248,7 +248,7 @@ def _persist_cross_propositions(analysis_id: str, result: dict):
         })
 
     if rows:
-        client.table("analysis_propositions").upsert(
+        client.table("paragraf_analysis_propositions").upsert(
             rows,
             on_conflict="analysis_id,source_case,source",
         ).execute()

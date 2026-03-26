@@ -12,7 +12,7 @@ from db import get_client
 
 logger = logging.getLogger(__name__)
 
-TABLE = "llm_output_cache"
+TABLE = "paragraf_llm_output_cache"
 
 
 def _make_hash(*parts: str) -> str:

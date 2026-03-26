@@ -18,7 +18,7 @@ def get_cached_curation(sak_nr: str, problem_hash: str) -> dict | None:
     """Check Supabase cache for existing curation."""
     client = get_client()
     result = (
-        client.table("ai_curations")
+        client.table("paragraf_ai_curations")
         .select("curation_json")
         .eq("sak_nr", sak_nr)
         .eq("problem_hash", problem_hash)
@@ -36,7 +36,7 @@ def cache_curation(
 ) -> None:
     """Store curation result in Supabase cache."""
     client = get_client()
-    client.table("ai_curations").upsert(
+    client.table("paragraf_ai_curations").upsert(
         {
             "sak_nr": sak_nr,
             "problem_hash": problem_hash,

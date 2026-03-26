@@ -48,7 +48,7 @@ def cmd_context(analysis_id: str):
     """Analysis context: problem, scoping result, status."""
     client = get_client()
     row = (
-        client.table("analyses")
+        client.table("paragraf_analyses")
         .select("problem, refined_problem, sub_problems, context, status, scoping_result, iteration")
         .eq("id", analysis_id)
         .single()
@@ -85,7 +85,7 @@ def cmd_candidates(analysis_id: str):
     """All candidates with category and screening status."""
     client = get_client()
     rows = (
-        client.table("analysis_candidates")
+        client.table("paragraf_analysis_candidates")
         .select("sak_nr, category, signals, screening_status, ai_screening")
         .eq("analysis_id", analysis_id)
         .order("category")
@@ -119,7 +119,7 @@ def cmd_triage(analysis_id: str, max_rank: str = "1"):
     client = get_client()
     max_rank_int = int(max_rank)
     rows = (
-        client.table("analysis_candidates")
+        client.table("paragraf_analysis_candidates")
         .select("sak_nr, category, signals")
         .eq("analysis_id", analysis_id)
         .eq("screening_status", "pending")
@@ -235,7 +235,7 @@ def cmd_screening_results(analysis_id: str):
     """All screening results in capsule format for synthesis."""
     client = get_client()
     rows = (
-        client.table("analysis_candidates")
+        client.table("paragraf_analysis_candidates")
         .select("sak_nr, category, ai_screening")
         .eq("analysis_id", analysis_id)
         .not_.is_("ai_screening", "null")
@@ -269,7 +269,7 @@ def cmd_propositions(analysis_id: str):
 
     # Check for document first
     doc = (
-        client.table("analysis_documents")
+        client.table("paragraf_analysis_documents")
         .select("content")
         .eq("analysis_id", analysis_id)
         .eq("doc_type", "cross_propositions")
@@ -282,7 +282,7 @@ def cmd_propositions(analysis_id: str):
 
     # Fallback: individual propositions
     rows = (
-        client.table("analysis_propositions")
+        client.table("paragraf_analysis_propositions")
         .select("proposition_text, theme, source_case, evolution_type")
         .eq("analysis_id", analysis_id)
         .order("theme")
@@ -308,7 +308,7 @@ def cmd_provision_capsule(analysis_id: str):
     """Provision screening capsule (bestemmelseskapsel)."""
     client = get_client()
     doc = (
-        client.table("analysis_documents")
+        client.table("paragraf_analysis_documents")
         .select("content")
         .eq("analysis_id", analysis_id)
         .eq("doc_type", "provision_screening")
@@ -325,7 +325,7 @@ def cmd_note(analysis_id: str):
     """Synthesis note markdown."""
     client = get_client()
     doc = (
-        client.table("analysis_documents")
+        client.table("paragraf_analysis_documents")
         .select("content")
         .eq("analysis_id", analysis_id)
         .eq("doc_type", "note")
@@ -343,7 +343,7 @@ def cmd_qa_report(analysis_id: str):
     """QA report JSON."""
     client = get_client()
     doc = (
-        client.table("analysis_documents")
+        client.table("paragraf_analysis_documents")
         .select("content")
         .eq("analysis_id", analysis_id)
         .eq("doc_type", "qa_report")
@@ -479,7 +479,7 @@ def cmd_verify_quotes(analysis_id: str, sak_nr: str):
 
     # Get screening result
     candidate = (
-        client.table("analysis_candidates")
+        client.table("paragraf_analysis_candidates")
         .select("ai_screening")
         .eq("analysis_id", analysis_id)
         .eq("sak_nr", sak_nr)
@@ -566,7 +566,7 @@ def cmd_save_screening(analysis_id: str, sak_nr: str):
     relevance = data.get("relevance")
     if relevance in ("A", "B", "C"):
         update_data["category"] = relevance
-    client.table("analysis_candidates").update(
+    client.table("paragraf_analysis_candidates").update(
         update_data
     ).eq("analysis_id", analysis_id).eq("sak_nr", sak_nr).execute()
     star = " ★" if data.get("star") else ""
@@ -586,7 +586,7 @@ def cmd_save_quote_verification(analysis_id: str, sak_nr: str):
     client = get_client()
     # Fetch existing
     row = (
-        client.table("analysis_candidates")
+        client.table("paragraf_analysis_candidates")
         .select("ai_screening")
         .eq("analysis_id", analysis_id)
         .eq("sak_nr", sak_nr)
@@ -596,7 +596,7 @@ def cmd_save_quote_verification(analysis_id: str, sak_nr: str):
     )
     existing = row.get("ai_screening") or {}
     existing["quote_verification"] = verification
-    client.table("analysis_candidates").update(
+    client.table("paragraf_analysis_candidates").update(
         {"ai_screening": existing}
     ).eq("analysis_id", analysis_id).eq("sak_nr", sak_nr).execute()
     v = sum(1 for q in verification if q.get("status") == "verified")
@@ -616,7 +616,7 @@ def cmd_save_triage_reject(analysis_id: str, prompt_version: str = "v1"):
     for sak_nr in sak_nrs:
         # Append to triage_history
         existing = (
-            client.table("analysis_candidates")
+            client.table("paragraf_analysis_candidates")
             .select("triage_history")
             .eq("analysis_id", analysis_id)
             .eq("sak_nr", sak_nr)
@@ -629,7 +629,7 @@ def cmd_save_triage_reject(analysis_id: str, prompt_version: str = "v1"):
             "decision": "NEI",
             "timestamp": timestamp,
         })
-        client.table("analysis_candidates").update({
+        client.table("paragraf_analysis_candidates").update({
             "ai_screening": {"triage": "rejected", "model": "haiku", "prompt_version": prompt_version},
             "screening_status": "triage_rejected",
             "triage_history": history,
@@ -649,7 +649,7 @@ def cmd_save_document(analysis_id: str, doc_type: str):
     client = get_client()
 
     existing = (
-        client.table("analysis_documents")
+        client.table("paragraf_analysis_documents")
         .select("id, version")
         .eq("analysis_id", analysis_id)
         .eq("doc_type", doc_type)
@@ -660,12 +660,12 @@ def cmd_save_document(analysis_id: str, doc_type: str):
     if existing:
         doc = existing[0]
         new_version = (doc.get("version") or 0) + 1
-        client.table("analysis_documents").update(
+        client.table("paragraf_analysis_documents").update(
             {"content": content, "version": new_version}
         ).eq("id", doc["id"]).execute()
         print(f"✓ {doc_type} oppdatert (v{new_version})")
     else:
-        client.table("analysis_documents").insert(
+        client.table("paragraf_analysis_documents").insert(
             {"analysis_id": analysis_id, "doc_type": doc_type, "content": content, "version": 1}
         ).execute()
         print(f"✓ {doc_type} opprettet (v1)")
@@ -732,7 +732,7 @@ def cmd_save_candidates(analysis_id: str):
         }
         for c in candidates
     ]
-    result = client.table("analysis_candidates").upsert(
+    result = client.table("paragraf_analysis_candidates").upsert(
         rows, on_conflict="analysis_id,sak_nr"
     ).execute()
     print(f"✓ {len(rows)} kandidater lagret")
@@ -741,7 +741,7 @@ def cmd_save_candidates(analysis_id: str):
 def cmd_update_status(analysis_id: str, status: str):
     """Update analysis status."""
     client = get_client()
-    client.table("analyses").update(
+    client.table("paragraf_analyses").update(
         {"status": status, "updated_at": "now()"}
     ).eq("id", analysis_id).execute()
     print(f"✓ status → {status}")
@@ -754,7 +754,7 @@ def cmd_create_analysis(title: str):
         print("ERROR: Problemstilling mangler (send via stdin)", file=sys.stderr)
         sys.exit(1)
     client = get_client()
-    result = client.table("analyses").insert(
+    result = client.table("paragraf_analyses").insert(
         {"title": title, "problem": problem, "status": "scoping"}
     ).execute()
     row = result.data[0]
@@ -777,7 +777,7 @@ def cmd_save_scoping(analysis_id: str):
     if "context" in data:
         update["context"] = data["context"]
 
-    client.table("analyses").update(update).eq("id", analysis_id).execute()
+    client.table("paragraf_analyses").update(update).eq("id", analysis_id).execute()
 
     # Also populate analysis_seeds (required by frontend for traversal/graph)
     seeds = []
@@ -792,7 +792,7 @@ def cmd_save_scoping(analysis_id: str):
         seeds.append({"analysis_id": analysis_id, "seed_type": "vector", "value": query,
                       "iteration": 1, "source": "ai_suggested", "confirmed": True})
     if seeds:
-        client.table("analysis_seeds").upsert(seeds, on_conflict="analysis_id,seed_type,value").execute()
+        client.table("paragraf_analysis_seeds").upsert(seeds, on_conflict="analysis_id,seed_type,value").execute()
 
     print(f"✓ scoping lagret ({len(data.get('provisions', []))} bestemmelser, {len(seeds)} seeds)")
 

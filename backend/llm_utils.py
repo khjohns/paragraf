@@ -200,7 +200,7 @@ def persist_llm_call(
     """Persist an LLM call to llm_call_log for analysis and optimization."""
     try:
         cache_write, cache_read = _extract_cache_tokens(usage)
-        get_client().table("llm_call_log").insert({
+        get_client().table("paragraf_llm_call_log").insert({
             "analysis_id": analysis_id,
             "call_type": call_type,
             "model": model,
@@ -357,7 +357,7 @@ def load_analysis_context(
 
     client = get_client()
     analysis = (
-        client.table("analyses")
+        client.table("paragraf_analyses")
         .select(", ".join(columns))
         .eq("id", analysis_id)
         .single()
@@ -374,7 +374,7 @@ def load_analysis_context(
 
     # Load provision seeds
     seeds = (
-        client.table("analysis_seeds")
+        client.table("paragraf_analysis_seeds")
         .select("value")
         .eq("analysis_id", analysis_id)
         .eq("seed_type", "provision")

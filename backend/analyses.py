@@ -5,10 +5,10 @@ from traversal import apply_case_meta
 
 def list_analyses(user_id=None):
     """List all analyses with provision seeds and candidate counts."""
-    q = get_client().table("analyses").select(
+    q = get_client().table("paragraf_analyses").select(
         "id, title, problem, status, iteration, created_at, updated_at, "
-        "analysis_seeds(seed_type, value), "
-        "analysis_candidates(id, category, read_at, screening_status)"
+        "paragraf_analysis_seeds(seed_type, value), "
+        "paragraf_analysis_candidates(id, category, read_at, screening_status)"
     ).order("updated_at", desc=True)
     if user_id:
         q = q.eq("user_id", user_id)
@@ -16,8 +16,8 @@ def list_analyses(user_id=None):
 
     result = []
     for row in rows:
-        seeds = row.pop("analysis_seeds", [])
-        candidates = row.pop("analysis_candidates", [])
+        seeds = row.pop("paragraf_analysis_seeds", [])
+        candidates = row.pop("paragraf_analysis_candidates", [])
         row["provisions"] = [s["value"] for s in seeds if s["seed_type"] == "provision"]
         row["candidate_count"] = len(candidates)
         row["read_count"] = sum(1 for c in candidates if c.get("read_at"))
@@ -44,8 +44,8 @@ def get_analysis(analysis_id):
     """Get a single analysis with its seeds and candidates (single query with joins)."""
     result = (
         get_client()
-        .table("analyses")
-        .select("*, analysis_seeds(*), analysis_candidates(id, sak_nr, category, signals, iteration, screening_status, ai_screening, user_notes, is_delimitation, read_at)")
+        .table("paragraf_analyses")
+        .select("*, paragraf_analysis_seeds(*), paragraf_analysis_candidates(id, sak_nr, category, signals, iteration, screening_status, ai_screening, user_notes, is_delimitation, read_at)")
         .eq("id", analysis_id)
         .single()
         .execute()
@@ -55,8 +55,8 @@ def get_analysis(analysis_id):
         return None
 
     # Rename joined keys to match API contract
-    result["seeds"] = result.pop("analysis_seeds", [])
-    result["candidates"] = result.pop("analysis_candidates", [])
+    result["seeds"] = result.pop("paragraf_analysis_seeds", [])
+    result["candidates"] = result.pop("paragraf_analysis_candidates", [])
 
     # Enrich candidates with case metadata (subtitle, date, outcome)
     sak_nrs = [c["sak_nr"] for c in result["candidates"]]
@@ -80,8 +80,8 @@ def get_analysis_with_seeds(analysis_id):
     """Get analysis with seeds only (no candidates). Used by traverse endpoint."""
     result = (
         get_client()
-        .table("analyses")
-        .select("id, status, iteration, analysis_seeds(*)")
+        .table("paragraf_analyses")
+        .select("id, status, iteration, paragraf_analysis_seeds(*)")
         .eq("id", analysis_id)
         .single()
         .execute()
@@ -89,7 +89,7 @@ def get_analysis_with_seeds(analysis_id):
     )
     if not result:
         return None
-    result["seeds"] = result.pop("analysis_seeds", [])
+    result["seeds"] = result.pop("paragraf_analysis_seeds", [])
     return result
 
 
@@ -97,7 +97,7 @@ def create_analysis(title, problem=""):
     """Create a new analysis."""
     result = (
         get_client()
-        .table("analyses")
+        .table("paragraf_analyses")
         .insert({"title": title, "problem": problem, "status": "scoping"})
         .execute()
         .data
@@ -113,7 +113,7 @@ def update_analysis(analysis_id, updates):
         return None
     result = (
         get_client()
-        .table("analyses")
+        .table("paragraf_analyses")
         .update(filtered)
         .eq("id", analysis_id)
         .execute()
@@ -127,7 +127,7 @@ def upsert_seeds(analysis_id, seeds_data):
     client = get_client()
 
     # Delete existing seeds
-    client.table("analysis_seeds").delete().eq("analysis_id", analysis_id).execute()
+    client.table("paragraf_analysis_seeds").delete().eq("analysis_id", analysis_id).execute()
 
     rows = []
     for prov in seeds_data.get("provisions", []):
@@ -140,7 +140,7 @@ def upsert_seeds(analysis_id, seeds_data):
         rows.append({"analysis_id": analysis_id, "seed_type": "case", "value": case})
 
     if rows:
-        client.table("analysis_seeds").insert(rows).execute()
+        client.table("paragraf_analysis_seeds").insert(rows).execute()
 
 
 def persist_candidates(analysis_id, case_nodes, iteration, force_signals=False):
@@ -173,7 +173,7 @@ def persist_candidates(analysis_id, case_nodes, iteration, force_signals=False):
     existing_screened: set[str] = set()
     if not force_signals:
         existing = (
-            client.table("analysis_candidates")
+            client.table("paragraf_analysis_candidates")
             .select("sak_nr, signals, screening_status, category")
             .eq("analysis_id", analysis_id)
             .in_("sak_nr", sak_nrs_in_nodes)
@@ -206,7 +206,7 @@ def persist_candidates(analysis_id, case_nodes, iteration, force_signals=False):
 
     if rows:
         # Only update traversal-derived fields; preserve screening data
-        client.table("analysis_candidates").upsert(
+        client.table("paragraf_analysis_candidates").upsert(
             rows,
             on_conflict="analysis_id,sak_nr",
             default_to_null=False,
@@ -233,7 +233,7 @@ def get_analysis_documents(analysis_id):
     """Get synthesis note, QA report and cross-propositions for an analysis from analysis_documents."""
     rows = (
         get_client()
-        .table("analysis_documents")
+        .table("paragraf_analysis_documents")
         .select("doc_type, content, version")
         .eq("analysis_id", analysis_id)
         .in_("doc_type", ["note", "qa_report", "cross_propositions"])
@@ -254,7 +254,7 @@ def update_candidate(analysis_id, sak_nr, updates):
         return None
     result = (
         get_client()
-        .table("analysis_candidates")
+        .table("paragraf_analysis_candidates")
         .update(filtered)
         .eq("analysis_id", analysis_id)
         .eq("sak_nr", sak_nr)

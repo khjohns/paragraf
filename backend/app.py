@@ -303,7 +303,7 @@ def traverse_analysis_route(analysis_id):
         # (re-traversal for edges only should not overwrite categories or add new cases)
         existing_screened = (
             get_client()
-            .table("analysis_candidates")
+            .table("paragraf_analysis_candidates")
             .select("id", count="exact")
             .eq("analysis_id", analysis_id)
             .eq("screening_status", "ai_screened")

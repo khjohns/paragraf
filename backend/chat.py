@@ -70,7 +70,7 @@ def _load_chat_context(analysis_id: str) -> str:
 
     def _fetch_candidates():
         return db_query_with_retry(lambda c: (
-            c.table("analysis_candidates")
+            c.table("paragraf_analysis_candidates")
             .select("sak_nr, category, ai_screening, user_notes, is_delimitation")
             .eq("analysis_id", analysis_id)
             .order("category")
@@ -80,7 +80,7 @@ def _load_chat_context(analysis_id: str) -> str:
 
     def _fetch_propositions():
         return db_query_with_retry(lambda c: (
-            c.table("analysis_propositions")
+            c.table("paragraf_analysis_propositions")
             .select("proposition_text, theme, source_case, evolution_type, tension_with_id")
             .eq("analysis_id", analysis_id)
             .execute()
@@ -90,7 +90,7 @@ def _load_chat_context(analysis_id: str) -> str:
     def _fetch_synthesis_note():
         def _query(c):
             doc = (
-                c.table("analysis_documents")
+                c.table("paragraf_analysis_documents")
                 .select("content")
                 .eq("analysis_id", analysis_id)
                 .eq("doc_type", "note")
@@ -175,7 +175,7 @@ Du har tilgang til brukerens pågående rettskildeanalyse:
 def _persist_message(analysis_id: str, role: str, content: str) -> None:
     """Persist a single chat message to the database."""
     try:
-        db_query_with_retry(lambda c: c.table("analysis_chat_messages").insert({
+        db_query_with_retry(lambda c: c.table("paragraf_analysis_chat_messages").insert({
             "analysis_id": analysis_id,
             "role": role,
             "content": content,
@@ -187,7 +187,7 @@ def _persist_message(analysis_id: str, role: str, content: str) -> None:
 def load_chat_history(analysis_id: str) -> list[dict]:
     """Load chat history from the database, ordered by created_at ASC."""
     rows = db_query_with_retry(lambda c: (
-        c.table("analysis_chat_messages")
+        c.table("paragraf_analysis_chat_messages")
         .select("role, content, created_at")
         .eq("analysis_id", analysis_id)
         .order("created_at")

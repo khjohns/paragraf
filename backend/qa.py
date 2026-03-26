@@ -399,7 +399,7 @@ def _load_qa_inputs(analysis_id: str) -> tuple[str, list[dict], str]:
     client = get_client()
 
     doc = (
-        client.table("analysis_documents")
+        client.table("paragraf_analysis_documents")
         .select("content")
         .eq("analysis_id", analysis_id)
         .eq("doc_type", DOC_TYPE_NOTE)
@@ -413,7 +413,7 @@ def _load_qa_inputs(analysis_id: str) -> tuple[str, list[dict], str]:
     note_markdown = doc[0]["content"]
 
     candidates = (
-        client.table("analysis_candidates")
+        client.table("paragraf_analysis_candidates")
         .select("sak_nr, category, ai_screening")
         .eq("analysis_id", analysis_id)
         .not_.is_("ai_screening", "null")
@@ -444,7 +444,7 @@ def _build_and_persist_qa_report(
     }
 
     client = get_client()
-    client.table("analysis_documents").upsert(
+    client.table("paragraf_analysis_documents").upsert(
         {
             "analysis_id": analysis_id,
             "doc_type": DOC_TYPE_QA_REPORT,
@@ -467,7 +467,7 @@ def verify_screening_citations(analysis_id: str) -> dict:
     client = get_client()
 
     candidates = (
-        client.table("analysis_candidates")
+        client.table("paragraf_analysis_candidates")
         .select("sak_nr, category, ai_screening")
         .eq("analysis_id", analysis_id)
         .not_.is_("ai_screening", "null")
@@ -526,7 +526,7 @@ def verify_screening_citations(analysis_id: str) -> dict:
                 # Remove legacy quote_verification if present, write updated quotes
                 updated_screening = {**existing_screening, "quotes": quotes}
                 updated_screening.pop("quote_verification", None)
-                client.table("analysis_candidates").update({
+                client.table("paragraf_analysis_candidates").update({
                     "ai_screening": updated_screening,
                 }).eq("analysis_id", analysis_id).eq("sak_nr", sak_nr).execute()
 
@@ -536,7 +536,7 @@ def verify_screening_citations(analysis_id: str) -> dict:
         "total": len(all_statuses),
         **{s: c for s, c in Counter(all_statuses).items()},
     }
-    client.table("analyses").update({
+    client.table("paragraf_analyses").update({
         "citation_summary": citation_summary,
     }).eq("id", analysis_id).execute()
 
@@ -1001,7 +1001,7 @@ Ikke returner tomme arrays med mindre du faktisk har sjekket og funnet null prob
 def _persist_qa_report(analysis_id: str, result: dict) -> None:
     """Persist QA report to analysis_documents."""
     client = get_client()
-    client.table("analysis_documents").upsert(
+    client.table("paragraf_analysis_documents").upsert(
         {
             "analysis_id": analysis_id,
             "doc_type": DOC_TYPE_QA_REPORT,

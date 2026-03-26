@@ -264,7 +264,7 @@ def screen_cases(
     # Filter out already-screened cases
     db_client = get_client()
     existing = (
-        db_client.table("analysis_candidates")
+        db_client.table("paragraf_analysis_candidates")
         .select("sak_nr")
         .eq("analysis_id", analysis_id)
         .not_.is_("ai_screening", "null")
@@ -344,7 +344,7 @@ def _persist_screening_result(analysis_id: str, sak_nr: str, result: dict):
     if relevance in ("A", "B", "C"):
         update_data["category"] = relevance
 
-    client.table("analysis_candidates").update(
+    client.table("paragraf_analysis_candidates").update(
         update_data
     ).eq("analysis_id", analysis_id).eq("sak_nr", sak_nr).execute()
 
@@ -359,7 +359,7 @@ def _persist_screening_result(analysis_id: str, sak_nr: str, result: dict):
     # Extract proposition to analysis_propositions (upsert by source_case+source)
     if result.get("proposition"):
         try:
-            client.table("analysis_propositions").upsert(
+            client.table("paragraf_analysis_propositions").upsert(
                 {
                     "analysis_id": analysis_id,
                     "proposition_text": result["proposition"],
