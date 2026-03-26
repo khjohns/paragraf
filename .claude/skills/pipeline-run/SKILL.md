@@ -1,6 +1,6 @@
 ---
 name: pipeline-run
-description: Kjører analyse-pipeline med Claude Code subagenter. Orkestrerer scope→provisions→screen→verify→cross→synthesize→qa med run-tracking (ADR-007).
+description: Kjører analyse-pipeline med Claude Code subagenter. Orkestrerer scope→provisions→triage→screen→verify→cross→synthesize→qa med run-tracking (ADR-007).
 argument-hint: <analyse-id | "ny"> [steg] [--dry-run] [problemstilling]
 allowed-tools: mcp__claude_ai_Supabase__execute_sql, Read, Agent, AskUserQuestion
 ---
@@ -9,9 +9,9 @@ allowed-tools: mcp__claude_ai_Supabase__execute_sql, Read, Agent, AskUserQuestio
 
 **Argumenter:** $ARGUMENTS — første=analyse-id (eller "ny"), andre=steg, `--dry-run` for tørrkjøring.
 
-**Steg:** `scope` · `provisions` · `screen` · `verify` · `cross` · `synthesize` · `qa` · `adversarial-qa` · `all` · `from:<steg>`
+**Steg:** `scope` · `provisions` · `triage` · `screen` · `verify` · `cross` · `synthesize` · `qa` · `adversarial-qa` · `all` · `from:<steg>`
 
-**Full rekkefølge:** scope → provisions → screen → verify → cross → synthesize → qa
+**Full rekkefølge:** scope → provisions → triage → screen → verify → cross → synthesize → qa
 
 ## Run-tracking (ADR-007)
 
@@ -52,7 +52,8 @@ Se `references/run-tracking.md` for detaljer om hva som logges per steg.
 |------|-----------|--------|--------------|
 | scope | `pipeline/scope-and-search.md` | Sonnet | `candidates_ready` |
 | provisions | `pipeline/screen-provisions.md` | Haiku | `candidates_ready` |
-| screen | `pipeline/screen.md` (triage + full) | Haiku+Sonnet | `screening_complete` |
+| triage | `pipeline/triage.md` (ensemble + anførsler) | Haiku | `candidates_ready` |
+| screen | `pipeline/screen.md` (full screening) | Sonnet | `screening_complete` |
 | verify | `pipeline/verify-citations.md` | Haiku | `screening_complete` |
 | cross | `pipeline/cross-propositions.md` | Sonnet | `post_search` |
 | synthesize | `pipeline/synthesize.md` | Opus | `synthesis` |
