@@ -8,7 +8,10 @@
   "permissions": {
     "allow": [
       "Bash(bash scripts/pipeline-cli.sh*)",
-      "Bash(backend/venv/bin/python3 scripts/pipeline-context.py*)"
+      "Bash(backend/venv/bin/python3 scripts/pipeline-context.py*)",
+      "Bash(echo:*)",
+      "Bash(python3:*)",
+      "Bash(cat:*)"
     ]
   }
 }
