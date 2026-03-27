@@ -42,7 +42,7 @@ CROSS_PROPOSITIONS_SCHEMA = {
                             "type": "object",
                             "properties": {
                                 "caseId": {"type": "string"},
-                                "paragraph": {"type": "integer"},
+                                "paragraph": {"type": ["integer", "string"]},
                                 "date": {"type": "string"},
                                 "evolution": {
                                     "type": "string",
@@ -50,9 +50,17 @@ CROSS_PROPOSITIONS_SCHEMA = {
                                 },
                                 "quote": {"type": "string"},
                                 "suggested": {"type": "boolean"},
+                                "category": {
+                                    "type": "string",
+                                    "enum": ["A", "B", "C"],
+                                    "description": "Opprinnelig screening-kategori (for transparens)",
+                                },
+                                "regulation": {
+                                    "type": "string",
+                                    "description": "FOA, forsyningsforskriften, eller gammel_FOA",
+                                },
                             },
                             "required": ["caseId", "paragraph", "date", "evolution", "quote"],
-                            "additionalProperties": False,
                         },
                     },
                     "tension": {
@@ -81,8 +89,20 @@ CROSS_PROPOSITIONS_SCHEMA = {
             "description": "Liste over alle temaer i rekkefølge",
         },
     },
+        "boundary_notes": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "caseId": {"type": "string"},
+                    "note": {"type": "string"},
+                },
+                "required": ["caseId", "note"],
+            },
+            "description": "Grensetilfeller som ikke passer i registeret men er verdifulle for avgrensning",
+        },
+    },
     "required": ["propositions", "themes"],
-    "additionalProperties": False,
 }
 
 

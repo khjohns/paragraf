@@ -96,16 +96,18 @@ echo '["2019/789"]' | bash scripts/pipeline-cli.sh save-triage-reject <id> ensem
 
 ## Steg 2: Anførsler-prioritering (Haiku)
 
-Haiku leser første 2-3 avsnitt av partenes anførsler for triage-JA saker og klassifiserer:
+Sonnet (ikke Haiku — Haiku er upålitelig med bash-verktøy) leser partenes anførsler
+for triage-JA saker og klassifiserer:
 - **Prioritert** (anførsler handler om temaer relatert til problemstillingen)
 - **Lavpri** (anførsler handler om noe annet)
 
-Dispatch Haiku-subagenter i batches à 17 saker:
+Dispatch Sonnet-subagenter i batches à 17 saker:
 
 ```
 For HVER sak:
 1. Hent anførsler: bash scripts/pipeline-cli.sh case-text <sak_nr> anfoersler
-2. Les de første 2-3 avsnittene
+2. Les HELE anførselsteksten (ikke bare 2-3 avsnitt — avklaringsspørsmål er
+   ofte subsidiære anførsler som kommer etter hovedanførslene)
 3. Handler anførslene om temaer relatert til problemstillingen eller delspørsmålene?
 
 <problemstilling>{refined_problem}</problemstilling>

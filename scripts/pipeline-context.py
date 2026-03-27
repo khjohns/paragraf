@@ -505,8 +505,19 @@ def cmd_verify_quotes(analysis_id: str, sak_nr: str):
         print(f"<verify_quotes sak_nr=\"{sak_nr}\">Ingen sitater</verify_quotes>")
         return
 
+    # Normalize paragraph numbers: strip parentheses, cast to int
+    def _normalize_p(val):
+        if val is None:
+            return None
+        s = str(val).strip().strip("()")
+        try:
+            return int(s)
+        except (ValueError, TypeError):
+            return None  # non-numeric like "sekr"
+
     # Fetch all referenced paragraphs in one query
-    p_nrs = [q.get("p") for q in quotes if q.get("p")]
+    p_nrs_raw = [q.get("p") for q in quotes if q.get("p")]
+    p_nrs = [n for n in (_normalize_p(p) for p in p_nrs_raw) if n is not None]
     paragraphs = (
         client.table("kofa_decision_text")
         .select("paragraph_number, text")
@@ -515,12 +526,12 @@ def cmd_verify_quotes(analysis_id: str, sak_nr: str):
         .order("paragraph_number")
         .execute()
         .data
-    ) or []
+    ) or [] if p_nrs else []
     p_map = {p["paragraph_number"]: p["text"] for p in paragraphs}
 
     print(f"<verify_quotes sak_nr=\"{sak_nr}\" count=\"{len(quotes)}\">")
     for i, q in enumerate(quotes, 1):
-        p_nr = q.get("p", "?")
+        p_nr = _normalize_p(q.get("p", "?"))
         quoted = q.get("text", "")
         original = p_map.get(p_nr)
         if original is None:
@@ -569,6 +580,14 @@ def cmd_vector_search(query: str, max_results: str = "30"):
 def cmd_save_screening(analysis_id: str, sak_nr: str):
     """Save screening result for one case. Reads JSON from stdin."""
     data = json.loads(sys.stdin.read())
+    # Normalize paragraph numbers in quotes: strip parentheses, cast to int
+    for q in data.get("quotes", []):
+        if "p" in q:
+            s = str(q["p"]).strip().strip("()")
+            try:
+                q["p"] = int(s)
+            except (ValueError, TypeError):
+                pass  # keep as-is if non-numeric
     client = get_client()
     # ADR-006: category is set by screening (relevance), not by traversal
     update_data = {"ai_screening": data, "screening_status": "ai_screened"}
@@ -1008,6 +1027,31 @@ def cmd_register_prompt(prompt_hash: str, step_type: str, version_tag: str = Non
     print(f"✓ prompt registered: {step_type} {version_tag or prompt_hash[:12]}")
 
 
+def cmd_upgrade_category(analysis_id: str, sak_nr: str):
+    """Upgrade a candidate's category (e.g. B→A). New category via stdin as plain text."""
+    new_cat = sys.stdin.read().strip().upper()
+    if new_cat not in ("A", "B", "C"):
+        print(f"✗ Ugyldig kategori: {new_cat} (må være A, B eller C)")
+        return
+    client = get_client()
+    row = (
+        client.table("paragraf_analysis_candidates")
+        .select("category, ai_screening")
+        .eq("analysis_id", analysis_id)
+        .eq("sak_nr", sak_nr)
+        .single()
+        .execute()
+        .data
+    )
+    old_cat = row.get("category", "?")
+    ai = row.get("ai_screening") or {}
+    ai["relevance"] = new_cat
+    client.table("paragraf_analysis_candidates").update(
+        {"category": new_cat, "ai_screening": ai}
+    ).eq("analysis_id", analysis_id).eq("sak_nr", sak_nr).execute()
+    print(f"✓ {sak_nr} — {old_cat} → {new_cat}")
+
+
 COMMANDS = {
     "context": (cmd_context, 1),
     "candidates": (cmd_candidates, 1),
@@ -1043,6 +1087,7 @@ COMMANDS = {
     "register-prompt": (cmd_register_prompt, 2),
     "save-triage-results": (cmd_save_triage_results, 2),
     "update-triage-anfoersler": (cmd_update_triage_anfoersler, 2),
+    "upgrade-category": (cmd_upgrade_category, 2),
 }
 
 if __name__ == "__main__":
