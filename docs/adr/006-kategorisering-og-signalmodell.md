@@ -108,17 +108,65 @@ Signal-kanal-presisjon (A+B):
 - **Discovery_rank er type-avhengig.** Alle 4 kjernesaker er rank-1. Rank ≥ 2 ga 0 kjernesaker. Multi-kanal-overlap korrelerer ikke med relevans for konseptuelle temaer — det bekrefter at discovery_rank er nyttig for kalibrering, men ikke som universell prioriteringsmetrikk.
 - **Vec-only bekreftet som primærkanal:** 3 av 4 kjernesaker (75%) er vec-only. Konsistent med analyse `0dccaab9` (11/12 = 92%). Vec-only presisjon (65%) er høyere enn fts-only (52%) for konseptuelle temaer.
 - **Ref-only er støy for konseptuelle temaer:** §18-1 og §14-1 er for generelle — 79 saker, 0 kjernesaker, 4% presisjon. Triage filtrerte korrekt 65 av 79.
-- **Screening-prioritering bør være type-avhengig:** For konseptuelle temaer (`problem_type = konseptuell`): vec-only først, fts-only deretter, ref-only sist. For paragraf-temaer: rank-basert prioritering (som før).
+- **Screening-prioritering bør være type-avhengig:** For konseptuelle temaer (`problem_type = konseptuell`): vec-only først, fts-only deretter, ref-only sist. For paragraf-temaer: rank-basert prioritering (som før). For tverrgående temaer: rank-basert (rank 2+ har 92% presisjon), deretter alle kanaler uten sterk prioritering.
 
-**Akkumulert presisjonstabell (3 analyser, 375 kandidater):**
+**Validering 4: Analyse `930098ce` — Avklaring vs forhandling (2026-03-27)**
 
-| Metrikk | Paragraf-temaer | Konseptuelle temaer |
-|---|---|---|
-| Rank ≥ 2 → kjernesak | 33% (4/12) | 0% (0/25) |
-| Rank 1 → kjernesak | 11% (13/122) | 2% (4/214) |
-| Vec-only → kjernesak | 71% (12/17) | 75% (3/4) |
-| Vec-only presisjon (A+B) | — | 65% |
-| Ref-only presisjon (A+B) | — | 4% |
+Tverrgående tema (grunnleggende prosedyreregel), 263 kandidater, 258 screenet, 5 triage-rejected.
+
+| | Kjernesak (A) | Støttesak (B) | Kontekstsak (C) | **Sum** |
+|---|---|---|---|---|
+| **rank 3** | 3 (1★) | 0 | 0 | **3** |
+| **rank 2** | 23 (18★) | 10 | 3 | **36** |
+| **rank 1** | 64 (49★) | 62 | 93 | **219** |
+
+Signal-kanal-presisjon:
+
+| Kanal | Total | Kjerne | Støtte | Presisjon (A+B) |
+|---|---|---|---|---|
+| ref+fts | 14 | 6 | 6 | **86%** |
+| vec-only | 37 | 18 | 11 | **78%** |
+| fts-only | 120 | 46 | 33 | **66%** |
+| ref-only | 86 | 19 | 22 | **48%** |
+
+**Nøkkelfunn:**
+- **Ny problemtype: «tverrgående».** Ingen signalkanal dominerer (FTS 58%, vec 20%, ref 21% av A). Avklaring/forhandling er en grunnleggende prosedyreregel som berøres på tvers av sakstyper — ulikt paragraf-temaer (ref-drevet) og konseptuelle temaer (vec-drevet).
+- **Ref-only presisjon er temavhengig.** 48% for tverrgående vs 4% for konseptuelle. Fordi bestemmelsene (§23-5, §23-3) er direkte relevante for mange saker. Triage-aggressivitet for ref-only MÅ tilpasses per tematype.
+- **Rank 2+ presisjon svært høy:** 92% (33/36 er A+B). Discovery_rank fungerer godt som prioriteringsmetrikk for tverrgående temaer.
+- **76% star-rate blant A:** 68 av 90 A-saker er ★. Tyder på at temaet produserer klare rettssetninger med direkte parallell i faktum.
+
+**Triage-evaluering (ensemble variant A+B+C, 224 rank-1 saker):**
+
+| Variant | JA | NEI | A recall | Metode |
+|---|---|---|---|---|
+| A (deterministisk) | 133 | 5 | 100% (fts/vec) | Regler |
+| B (Haiku + summary, ref-only) | 49 | 37 | 74% (14/19 ref-A) | LLM |
+| C (Haiku + saken_gjelder, ref-only) | 86 | 0 | 100% | LLM |
+| D (Haiku + full vurdering, ref-only) | 27 | 59 | 63% (12/19 ref-A) | LLM |
+| **Ensemble A∪B∪C** | **219** | **5** | **100%** | Hybrid |
+
+Variant C ga 100% JA (ingen diskriminering) — nyttig kun som recall-sikring, ikke som filter.
+Variant D (full vurdering) testet som alternativ: bedre diskriminering (31% pass rate) men 7 A false negatives (6★). For streng som eneste filter, men potensielt verdifull i union med B.
+
+**Anførsler-prioritering (930098ce, 109 pending):**
+
+| | A-rate | A★ | Konklusjon |
+|---|---|---|---|
+| Prioritert (JA) | 34% (21/61) | 17 | Dobbel A-rate vs lavpri |
+| Lavpri (NEI) | 17% (8/48) | 8 | 8 A★ tapt — alle har avklaring som subsidiær anførsel |
+
+Anførsler-NEI tapte 8 A★ fordi avklaringsspørsmålet er subsidiært i anførslene — partene fører opp hovedanførsler (avvisning, kvalifikasjon) først, og supplering/avklaring kommer som alternativ lenger ned. **«Første 2-3 avsnitt» er utilstrekkelig — hele anførselsteksten bør leses.** Validert ved inspeksjon av 2020/657 (ordet «avklaring» forekommer aldri i anførsler) og 2023/1122 (supplering nevnes først i avsnitt 22). Anførsler-prioritering fungerer for kørekkefølge (2x A-rate) men skal ALDRI brukes som filter.
+
+**Akkumulert presisjonstabell (4 analyser, 638 kandidater):**
+
+| Metrikk | Paragraf-temaer | Konseptuelle temaer | Tverrgående temaer |
+|---|---|---|---|
+| Rank ≥ 2 → kjernesak | 33% (4/12) | 0% (0/25) | 64% (23/36) |
+| Rank 1 → kjernesak | 11% (13/122) | 2% (4/214) | 29% (64/219) |
+| Vec-only → kjernesak | 71% (12/17) | 75% (3/4) | 49% (18/37) |
+| Vec-only presisjon (A+B) | — | 65% | 78% |
+| Ref-only presisjon (A+B) | — | 4% | 48% |
+| FTS-only presisjon (A+B) | — | 52% | 66% |
 
 Denne tabellen er en sentral metodisk ressurs som bare kan akkumuleres hvis discovery-mønster og innholdskategori begge er bevart.
 
@@ -289,9 +337,20 @@ ref+fts      → screenes
 ref-only     → triage-kandidat (4% presisjon — nesten ren støy)
 ```
 
+**For tverrgående temaer** (`problem_type = tverrgående`): Rank-basert prioritering fungerer godt.
+```
+rank 2+      → screenes FØRST (92% presisjon, 64% A-rate)
+fts-only     → screenes (66% presisjon)
+vec-only     → screenes (78% presisjon)
+ref+fts      → screenes (86% presisjon)
+ref-only     → screenes MED triage (48% presisjon — vesentlig men ikke støy)
+```
+
 **Klassifisering:** `pipeline-analyst` klassifiserer problemstillingstype basert på signaldistribusjon. > 50% av kjernesaker i vec-only → konseptuell. > 50% i ref → paragraf. Ellers tverrgående.
 
-**Vec som ortogonal dimensjon:** Vektorsøk fanger konseptuelle treff der terminologien varierer. For paragraf-temaer supplerer vec; for konseptuelle temaer dominerer den. Validering over 3 analyser: vec-only ga 71-75% av kjernesakene for konseptuelle temaer, 65% presisjon (A+B). Vec-only saker skal aldri automatisk filtreres bort.
+**Vec som ortogonal dimensjon:** Vektorsøk fanger konseptuelle treff der terminologien varierer. For paragraf-temaer supplerer vec; for konseptuelle temaer dominerer den. Validering over 4 analyser: vec-only ga 49-75% av kjernesakene avhengig av tematype, 65-78% presisjon (A+B). Vec-only saker skal aldri automatisk filtreres bort.
+
+**Ref-only presisjon er sterkt temavhengig:** 4% for konseptuelle temaer (generelle bestemmelser → ren støy), 48% for tverrgående (spesifikke avklaringsbestemmelser → halvparten relevant). Triage-aggressivitet for ref-only MÅ tilpasses per analyse — en fast regel er feil.
 
 ### Triage-regler med rikere signals
 
