@@ -10,6 +10,7 @@ React-mockups (JSX) som skal konverteres til Svelte 5-komponenter for en interak
 - **Porteføljeoversikt** (`paragraf-hybrid-v3.jsx` → `/mockup`) — 15 komponenter
 - **Arbeidsflate/Saksoversikt** (`paragraf-arbeidsflate.jsx` → `/mockup/analyse`) — register, scope panel, enkel reading panel
 - **Lesevisning** (`paragraf-lesevisning.jsx` → `/mockup/analyse/les`) — fullskjerm med sidebar, 4 nye komponenter + mockdata
+- **Grafvisning** (`paragraf-graf-v4.jsx` → `/mockup/analyse` via NavRail) — d3-force nettverk, Canvas kanter, SVG noder, detaljpanel, verktøylinje, tegnforklaring, kontekstmeny, tooltip, 8 nye komponenter + mockdata
 
 ## Prosess
 
@@ -46,6 +47,7 @@ src/lib/mockup/
     portfolio.ts
     analyse.ts
     lesevisning.ts                 ← KOFA-2025/0999 seksjoner, screening, metadata
+    graf.ts                        ← 20 saksnoder, 6 bestemmelser, siteringer, referanser
   components/                      ← 15 Svelte-komponenter (gjenbrukbare)
     MockupHeader.svelte            ← Sticky header med §-logo, dark mode, avatar
     NavRail.svelte                 ← 48px venstre-rail med 5 ikoner
@@ -66,6 +68,12 @@ src/lib/mockup/
     SectionNav.svelte              ← Sticky seksjonstabs (Bakgrunn/Vurdering/Konklusjon)
     ParagraphRow.svelte            ← Avsnittsrad med anker, tekst, refs, KI-indikator
     ReadingSidebar.svelte          ← 240px sidebar: relaterte saker + bestemmelser
+    GraphCanvas.svelte             ← Hovedkomponent: d3-force sim, Canvas kanter, SVG noder, zoom
+    GraphToolbar.svelte            ← Kategorifilter, §-toggle, tellere, zoom-kontroller
+    GraphDetailPanel.svelte        ← 380px slide-in: sak/bestemmelse detaljer
+    GraphLegend.svelte             ← Kollapserbar tegnforklaring, nederst venstre
+    NodeTooltip.svelte             ← 400ms forsinket tooltip med KI-proposisjon
+    ColorPicker.svelte             ← Høyreklikk fargevelger (5 farger + fjern)
 ```
 
 ## Konverteringsregler

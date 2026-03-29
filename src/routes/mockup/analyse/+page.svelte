@@ -3,10 +3,12 @@
   import { slide } from 'svelte/transition';
   import { Sun, Moon, Sparkles, Eye, ChevronRight, Square, CheckSquare, X } from 'lucide-svelte';
   import NavRail from '$lib/mockup/components/NavRail.svelte';
+  import type { Perspective } from '$lib/mockup/components/NavRail.svelte';
   import ScopePanel from '$lib/mockup/components/ScopePanel.svelte';
   import ReadingPanel from '$lib/mockup/components/ReadingPanel.svelte';
   import SignalBadge from '$lib/mockup/components/SignalBadge.svelte';
   import MockupCategoryBadge from '$lib/mockup/components/MockupCategoryBadge.svelte';
+  import GraphCanvas from '$lib/mockup/components/GraphCanvas.svelte';
   import {
     MOCK_SCOPE,
     MOCK_CANDIDATES,
@@ -17,6 +19,7 @@
   let darkMode = $state(false);
   type TabKey = 'all' | 'null' | 'A' | 'B' | 'C';
   let activeTab = $state<TabKey>('all');
+  let activePerspective = $state<Perspective>('list');
   let isScopeOpen = $state(true);
   let expandedAiRow = $state<string | null>(null);
   let selectedCase = $state<MockCandidate | null>(null);
@@ -51,6 +54,12 @@
   function toggleScope() {
     isScopeOpen = !isScopeOpen;
     if (isScopeOpen) selectedCase = null;
+  }
+
+  function switchPerspective(p: Perspective) {
+    activePerspective = p;
+    // Close reading panel when switching
+    selectedCase = null;
   }
 
   function toggleAiExpanded(id: string, e: MouseEvent) {
@@ -117,13 +126,17 @@
 
   <div class="workspace">
     <!-- NAV RAIL -->
-    <NavRail {isScopeOpen} onToggleScope={toggleScope} />
+    <NavRail {isScopeOpen} {activePerspective} onToggleScope={toggleScope} onSwitchPerspective={switchPerspective} />
 
     <!-- SCOPE PANEL -->
     <div class="panel-slot scope-slot" class:open={isScopeOpen}>
       <ScopePanel />
     </div>
 
+    {#if activePerspective === 'graph'}
+      <!-- GRAPH VIEW -->
+      <GraphCanvas {isScopeOpen} onRequestCloseScope={() => { isScopeOpen = false; }} />
+    {:else}
     <!-- MAIN REGISTER -->
     <main class="register">
       <!-- Tab bar -->
@@ -308,6 +321,7 @@
         <ReadingPanel selectedCase={displayedCase} onClose={() => (selectedCase = null)} />
       {/if}
     </div>
+    {/if}
   </div>
 </div>
 

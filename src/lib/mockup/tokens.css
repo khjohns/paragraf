@@ -40,6 +40,18 @@
   --gold-star: #B8941E;
   --ref-link: #4A6A8B;
 
+  /* ── Semantic: Graph edges ── */
+  --edge-color: rgba(28, 27, 26, 0.10);
+  --edge-cite: rgba(28, 27, 26, 0.18);
+  --edge-highlight: rgba(28, 27, 26, 0.40);
+
+  /* ── Semantic: User marking colors ── */
+  --marking-rosa: #D4727E;
+  --marking-turkis: #5AA3A3;
+  --marking-oransje: #C4933A;
+  --marking-lavendel: #9A7EB8;
+  --marking-salvie: #7BA37B;
+
   /* ── Semantic: Signals ── */
   --signal-fts: #4A6A8B;
   --signal-fts-border: rgba(74, 106, 139, 0.25);
@@ -99,6 +111,10 @@
   --confirm-color: #8BC48B;
   --gold-star: #D4B84E;
   --ref-link: #8BAAC4;
+
+  --edge-color: rgba(232, 229, 220, 0.06);
+  --edge-cite: rgba(232, 229, 220, 0.12);
+  --edge-highlight: rgba(232, 229, 220, 0.30);
 
   --signal-fts: #8BAAC4;
   --signal-fts-border: rgba(139, 170, 196, 0.25);
