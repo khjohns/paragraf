@@ -11,7 +11,7 @@
 </script>
 
 <nav class="nav-rail">
-  <button class="nav-btn" class:active={isScopeOpen} title="Scope" onclick={onToggleScope}>
+  <button class="nav-btn" class:panel-open={isScopeOpen} title="Scope" onclick={onToggleScope}>
     <Search size={16} />
   </button>
 
@@ -53,7 +53,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 3px;
+    border-radius: 4px;
     border: 1px solid transparent;
     cursor: pointer;
     transition: all 0.15s ease;
@@ -74,6 +74,11 @@
     color: var(--ink);
     background: var(--paper-dark);
     border-color: var(--border);
+  }
+
+  .nav-btn.panel-open {
+    color: var(--ink);
+    border-color: var(--border-strong);
   }
 
   .activity-dot {

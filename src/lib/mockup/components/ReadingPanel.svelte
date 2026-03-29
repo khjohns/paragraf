@@ -148,7 +148,7 @@
     margin: 20px;
     border: 1px solid var(--ai-border);
     padding: 16px;
-    border-radius: 3px;
+    border-radius: 4px;
   }
 
   .ai-assessment-content {
@@ -184,7 +184,7 @@
     margin: 20px;
     border: 1px dashed var(--ai-border);
     padding: 24px;
-    border-radius: 3px;
+    border-radius: 4px;
     text-align: center;
   }
 

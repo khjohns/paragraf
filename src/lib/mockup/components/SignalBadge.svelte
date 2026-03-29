@@ -77,7 +77,7 @@
     font-family: var(--font-sans);
     font-size: 11px;
     padding: 8px;
-    border-radius: 3px;
+    border-radius: 4px;
     pointer-events: none;
     white-space: normal;
   }

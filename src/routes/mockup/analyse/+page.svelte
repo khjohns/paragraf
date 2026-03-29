@@ -566,6 +566,12 @@
     background: var(--hover-bg);
   }
 
+  .register-row:focus-visible {
+    outline: none;
+    box-shadow: inset 2px 0 0 var(--control-border-focus);
+    background: var(--hover-bg);
+  }
+
   .register-row.dimmed {
     opacity: 0.4;
     transition: opacity 0.15s ease;
@@ -646,7 +652,7 @@
     border: 1px solid var(--ai-border);
     background: var(--ai-bg);
     padding: 12px;
-    border-radius: 3px;
+    border-radius: 4px;
   }
 
   .ai-expanded-label {
@@ -721,6 +727,7 @@
     gap: 16px;
     z-index: 20;
     border: 1px solid var(--bulk-border);
+    animation: mockup-slide-up 0.2s ease-out;
   }
 
   .bulk-count {
@@ -749,8 +756,17 @@
     cursor: pointer;
   }
 
+  .bulk-btn:hover {
+    color: var(--bulk-fg);
+  }
+
   .bulk-btn.primary {
     color: var(--bulk-fg);
+  }
+
+  .bulk-btn.primary:hover {
+    text-decoration: underline;
+    text-underline-offset: 2px;
   }
 
   .bulk-close {
@@ -760,5 +776,10 @@
     cursor: pointer;
     color: var(--bulk-dim);
     border-radius: 2px;
+    transition: color 0.15s ease;
+  }
+
+  .bulk-close:hover {
+    color: var(--bulk-fg);
   }
 </style>

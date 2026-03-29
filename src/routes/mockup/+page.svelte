@@ -122,7 +122,7 @@
         Viser
         <span class="narrative-scope">{scopeLabel}</span>
         {#if effectivePhases.length === 0}
-          pa tvers av <span class="narrative-highlight">alle faser</span>
+          på tvers av <span class="narrative-highlight">alle faser</span>
         {:else if effectivePhases.length === 1}
           i fasen <span style:color={PHASE_COLORS[effectivePhases[0]]} style:font-weight="500"
             >{PHASE_NAMES[effectivePhases[0]]}</span
@@ -437,6 +437,11 @@
 
   .new-analysis-row:hover {
     background: var(--hover-bg);
+  }
+
+  .new-analysis-row:focus-visible {
+    outline: none;
+    border-color: var(--control-border-focus);
   }
 
   .new-analysis-label {

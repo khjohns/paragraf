@@ -114,6 +114,7 @@
     padding: 4px 0;
     min-width: 240px;
     z-index: 50;
+    animation: mockup-drop-in 0.15s ease-out;
   }
 
   .ctx-header {
