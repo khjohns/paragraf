@@ -1,0 +1,176 @@
+/**
+ * Design tokens for mockup pages.
+ * Source of truth: .mockups/paragraf-system.md
+ * These override app.css tokens within mockup scope.
+ */
+
+.mockup-root {
+  /* ── Text hierarchy ── */
+  --ink: #1C1B1A;
+  --ink-secondary: #33312E;
+  --ink-tertiary: #4A4843;
+  --ink-muted: #7A766F;
+
+  /* ── Surfaces ── */
+  --paper: #F8F6F1;
+  --paper-dark: #EDEAE3;
+
+  /* ── Borders ── */
+  --border-subtle: rgba(28, 27, 26, 0.06);
+  --border: rgba(28, 27, 26, 0.12);
+  --border-strong: rgba(28, 27, 26, 0.20);
+  --border-stronger: rgba(28, 27, 26, 0.35);
+
+  /* ── Controls ── */
+  --control-bg: #EDEAE3;
+  --control-border: rgba(28, 27, 26, 0.12);
+  --control-border-focus: rgba(28, 27, 26, 0.40);
+
+  /* ── Semantic: AI ── */
+  --ai-accent: #92600A;
+  --ai-border: rgba(146, 96, 10, 0.20);
+  --ai-bg: rgba(146, 96, 10, 0.05);
+
+  /* ── Semantic: Overlap/convergence ── */
+  --violet-accent: #6B4C9A;
+  --violet-border: rgba(107, 76, 154, 0.18);
+
+  /* ── Semantic: Signals ── */
+  --signal-fts: #4A6A8B;
+  --signal-fts-border: rgba(74, 106, 139, 0.25);
+  --signal-fts-bg: rgba(74, 106, 139, 0.06);
+
+  /* ── Interaction ── */
+  --hover-bg: rgba(28, 27, 26, 0.02);
+  --hover-bg-strong: rgba(28, 27, 26, 0.04);
+  --hover-bg-ctrl: rgba(28, 27, 26, 0.025);
+  --hover-bg-ctrl-active: rgba(28, 27, 26, 0.04);
+  --header-bg: rgba(248, 246, 241, 0.85);
+  --selection-bg: rgba(107, 76, 154, 0.12);
+  --row-active-bg: rgba(28, 27, 26, 0.04);
+
+  /* ── Buttons ── */
+  --btn-primary-bg: var(--ink);
+  --btn-primary-fg: var(--paper);
+  --btn-primary-hover: #000000;
+
+  /* ── Fonts ── */
+  --font-serif: 'Newsreader', Georgia, serif;
+  --font-sans: 'Albert Sans', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  /* ── Base ── */
+  background-color: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-serif);
+}
+
+/* ── DARK MODE ── */
+.mockup-root.dark {
+  --ink: #E2DFD6;
+  --ink-secondary: #C4C0B5;
+  --ink-tertiary: #8E8A80;
+  --ink-muted: #5C5850;
+
+  --paper: #1E1C19;
+  --paper-dark: #16140F;
+
+  --border-subtle: rgba(232, 229, 220, 0.06);
+  --border: rgba(232, 229, 220, 0.10);
+  --border-strong: rgba(232, 229, 220, 0.16);
+  --border-stronger: rgba(232, 229, 220, 0.28);
+
+  --control-bg: #262420;
+  --control-border: rgba(232, 229, 220, 0.12);
+  --control-border-focus: rgba(232, 229, 220, 0.35);
+
+  --ai-accent: #C49A4E;
+  --ai-border: rgba(196, 154, 78, 0.25);
+  --ai-bg: rgba(196, 154, 78, 0.08);
+
+  --violet-accent: #9B82C4;
+  --violet-border: rgba(155, 130, 196, 0.20);
+
+  --signal-fts: #8BAAC4;
+  --signal-fts-border: rgba(139, 170, 196, 0.25);
+  --signal-fts-bg: rgba(139, 170, 196, 0.08);
+
+  --hover-bg: rgba(232, 229, 220, 0.03);
+  --hover-bg-strong: rgba(232, 229, 220, 0.06);
+  --hover-bg-ctrl: rgba(232, 229, 220, 0.04);
+  --hover-bg-ctrl-active: rgba(232, 229, 220, 0.06);
+  --header-bg: rgba(30, 28, 25, 0.85);
+  --selection-bg: rgba(155, 130, 196, 0.20);
+  --row-active-bg: rgba(232, 229, 220, 0.05);
+
+  --btn-primary-bg: #E2DFD6;
+  --btn-primary-fg: #1E1C19;
+  --btn-primary-hover: #F8F6F1;
+
+  color-scheme: dark;
+}
+
+/* ── Shared utility classes ── */
+.mockup-root ::selection {
+  background: var(--selection-bg);
+  color: var(--violet-accent);
+}
+
+/* ── Entrance animations ── */
+@keyframes mockup-drop-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes mockup-slide-up {
+  from { opacity: 0; transform: translateX(-50%) translateY(8px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+/* ── Focus-visible ── */
+.mockup-root button:focus-visible,
+.mockup-root a:focus-visible,
+.mockup-root input:focus-visible,
+.mockup-root [role="button"]:focus-visible,
+.mockup-root [role="checkbox"]:focus-visible,
+.mockup-root [tabindex="0"]:focus-visible {
+  outline: 2px solid var(--control-border-focus);
+  outline-offset: 2px;
+}
+
+/* ── Shared action button ── */
+.mockup-root .action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 500;
+  padding: 4px 12px;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--ink-tertiary);
+}
+
+.mockup-root .action-btn:hover {
+  border-color: var(--border-strong);
+  color: var(--ink);
+}
+
+.mockup-root .action-btn.ai {
+  border-color: var(--ai-border);
+  color: var(--ai-accent);
+}
+
+.mockup-root .action-btn.ai:hover {
+  border-color: var(--ai-accent);
+  background: var(--ai-bg);
+}
+
+/* ── Active press state for all buttons ── */
+.mockup-root button:active {
+  transform: scale(0.98);
+}
