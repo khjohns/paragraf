@@ -57,7 +57,27 @@
 ```
 --control-bg:           #EDEAE3
 --control-border:       rgba(28, 27, 26, 0.12)
---control-border-focus: rgba(28, 27, 26, 0.40)
+--control-border-focus: rgba(28, 27, 26, 0.40)    Used for focus-visible outlines
+```
+
+### Interaction Tokens (light mode)
+
+```
+--hover-bg:             rgba(28, 27, 26, 0.02)    Row hover, subtle highlight
+--hover-bg-strong:      rgba(28, 27, 26, 0.04)    Context menu hover, stronger highlight
+--hover-bg-ctrl:        rgba(28, 27, 26, 0.025)   Dropdown item hover
+--hover-bg-ctrl-active: rgba(28, 27, 26, 0.04)    Dropdown item active state
+--header-bg:            rgba(248, 246, 241, 0.85)  Sticky header backdrop
+--selection-bg:         rgba(107, 76, 154, 0.12)   Text selection
+--row-active-bg:        rgba(28, 27, 26, 0.04)    Selected row in register
+```
+
+### Button Tokens
+
+```
+--btn-primary-bg:       var(--ink)
+--btn-primary-fg:       var(--paper)
+--btn-primary-hover:    #000000
 ```
 
 ### Semantic Colors
@@ -86,6 +106,8 @@
 
 --ref-link:       #4A6A8B    Cross-reference links in reading view (same as signal-fts)
 ```
+
+> **Note:** `--tension-*`, `--nuance-color`, `--confirm-color`, `--gold-star`, `--qualified-color`, `--ref-link`, and `--noise-svg` are specified for future pages (Rettssetningsregister, Evidence Panel, Reading View). Not yet in `tokens.css` — add when those pages are built.
 
 ### Phase Colors
 
@@ -140,10 +162,17 @@ All overrides in `.dark` class on wrapper element. `colorScheme: 'dark'` set for
 --qualified-color: #D4A06A
 --ref-link:       #8BAAC4
 
---header-bg:      rgba(30, 28, 25, 0.92)
---hover-bg:       rgba(232, 229, 220, 0.03)
---hover-bg-strong: rgba(232, 229, 220, 0.06)
---row-active-bg:  rgba(232, 229, 220, 0.05)
+--header-bg:        rgba(30, 28, 25, 0.85)
+--hover-bg:         rgba(232, 229, 220, 0.03)
+--hover-bg-strong:  rgba(232, 229, 220, 0.06)
+--hover-bg-ctrl:    rgba(232, 229, 220, 0.04)
+--hover-bg-ctrl-active: rgba(232, 229, 220, 0.06)
+--selection-bg:     rgba(155, 130, 196, 0.20)
+--row-active-bg:    rgba(232, 229, 220, 0.05)
+
+--btn-primary-bg:   #E2DFD6
+--btn-primary-fg:   #1E1C19
+--btn-primary-hover: #F8F6F1
 
 --noise-svg:      (same pattern, opacity 0.02 instead of 0.03)
 ```
@@ -163,6 +192,15 @@ Exceptions:
 - 2px solid `--ink` editorial rule line under section headers (typographic, not depth)
 - Quote blocks: `--paper-dark` background + `--border` border
 
+### Border Radius
+
+Two-tier system. Sharp corners reinforce the editorial/legal feel.
+
+```
+2px  — Small controls: badges, tags, action buttons, provision tags, category badges
+4px  — Containers: dropdowns, cards, tooltips, input fields, tabs, nav buttons
+```
+
 ---
 
 ## Typography
@@ -172,6 +210,8 @@ Newsreader (serif)       — Authority, reading. Titles, rettssetninger, factum,
 JetBrains Mono (mono)    — Data, precision. Provisions, case refs, counters, evolution/regulation tags.
 Albert Sans (sans-serif) — UI chrome. Labels, buttons, filters, controls, section labels.
 ```
+
+**Mono data: `font-variant-numeric: tabular-nums`** on all numeric mono elements (counts, column headers, badges) for columnar alignment.
 
 ### Key Sizes
 
@@ -262,8 +302,11 @@ JetBrains Mono, `--paper-dark` bg, `--border` border, 2px 8px. Secondary: dashed
 ### Quote Block
 `--paper-dark` bg, `--border` border. Copy button on hover. Avsnitt ref in mono 10px.
 
+### Action Button (shared)
+Defined globally in `tokens.css`. 11px Albert Sans 500, 4px 12px padding, 2px radius, `--border` border, `--ink-tertiary` text. `.ai` variant: `--ai-border` / `--ai-accent`. Used in register rows, reading panel, scope panel.
+
 ### Bulk Action Bar
-Hardcoded `#1C1B1A` bg, floats bottom-center.
+Inverted surface — hardcoded `#1C1B1A` bg with `#F8F6F1` text. Works in both color modes. Floats bottom-center with `mockup-slide-up` entrance animation (200ms).
 
 ### Narrative Filter Sentence
 30px Newsreader. Tertiary connective, ink variable. Phase colors when filtered.
@@ -272,7 +315,7 @@ Hardcoded `#1C1B1A` bg, floats bottom-center.
 
 ## Interaction States
 
-All elements: default, hover, active (scale 0.97–0.98), focus-visible (ring `--border-stronger`).
+All elements: default, hover, active (scale 0.97–0.98), focus-visible (`outline: 2px solid --control-border-focus`, `outline-offset: 2px`). Row focus uses `box-shadow: inset 2px 0 0` instead of outline.
 
 | Element | Hover |
 |---|---|
@@ -317,4 +360,3 @@ All elements: default, hover, active (scale 0.97–0.98), focus-visible (ring `-
 - **"Marker som Rettssetning" flow** — should offer "Opprett ny" or "Knytt til eksisterende"
 - **AI-assisted grouping** — tags are user-set, KI suggestion open
 - **Responsive below 1200px** — scope collapses, details undefined
-- **Reading panel (420px) in arbeidsflaten** — compact version of fullscreen reading, not yet built
