@@ -1,6 +1,6 @@
 <script lang="ts">
   import '$lib/mockup/tokens.css';
-  import { fly, slide } from 'svelte/transition';
+  import { slide } from 'svelte/transition';
   import { Sun, Moon, Sparkles, Eye, ChevronRight, Square, CheckSquare, X } from 'lucide-svelte';
   import NavRail from '$lib/mockup/components/NavRail.svelte';
   import ScopePanel from '$lib/mockup/components/ScopePanel.svelte';
@@ -20,7 +20,13 @@
   let isScopeOpen = $state(true);
   let expandedAiRow = $state<string | null>(null);
   let selectedCase = $state<MockCandidate | null>(null);
+  let displayedCase = $state<MockCandidate | null>(null);
   let selectedRows = $state<string[]>([]);
+
+  // Keep last case visible during close animation
+  $effect(() => {
+    if (selectedCase) displayedCase = selectedCase;
+  });
 
   let visibleCases = $derived(
     activeTab === 'all'
@@ -107,11 +113,9 @@
     <NavRail {isScopeOpen} onToggleScope={toggleScope} />
 
     <!-- SCOPE PANEL -->
-    {#if isScopeOpen}
-      <div transition:fly={{ x: -360, duration: 200 }}>
-        <ScopePanel />
-      </div>
-    {/if}
+    <div class="panel-slot scope-slot" class:open={isScopeOpen}>
+      <ScopePanel />
+    </div>
 
     <!-- MAIN REGISTER -->
     <main class="register">
@@ -291,11 +295,11 @@
     </main>
 
     <!-- READING PANEL -->
-    {#if selectedCase}
-      <div transition:fly={{ x: 420, duration: 200 }}>
-        <ReadingPanel {selectedCase} onClose={() => (selectedCase = null)} />
-      </div>
-    {/if}
+    <div class="panel-slot reading-slot" class:open={selectedCase !== null}>
+      {#if displayedCase}
+        <ReadingPanel selectedCase={displayedCase} onClose={() => (selectedCase = null)} />
+      {/if}
+    </div>
   </div>
 </div>
 
@@ -428,6 +432,27 @@
     display: flex;
     overflow: hidden;
     position: relative;
+  }
+
+  /* Panel slots — CSS width transition for smooth layout */
+  .panel-slot {
+    width: 0;
+    min-width: 0;
+    overflow: hidden;
+    flex-shrink: 0;
+    transition:
+      width 200ms ease-out,
+      min-width 200ms ease-out;
+  }
+
+  .scope-slot.open {
+    width: 360px;
+    min-width: 360px;
+  }
+
+  .reading-slot.open {
+    width: 420px;
+    min-width: 420px;
   }
 
   /* Register main area */
