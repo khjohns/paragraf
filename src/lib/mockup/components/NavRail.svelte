@@ -1,12 +1,18 @@
 <script lang="ts">
   import { Search, List, Network, BookOpen, PenTool } from 'lucide-svelte';
 
+  export type Perspective = 'list' | 'graph';
+
   let {
     isScopeOpen = false,
+    activePerspective = 'list' as Perspective,
     onToggleScope,
+    onSwitchPerspective,
   }: {
     isScopeOpen: boolean;
+    activePerspective: Perspective;
     onToggleScope: () => void;
+    onSwitchPerspective?: (p: Perspective) => void;
   } = $props();
 </script>
 
@@ -15,12 +21,25 @@
     <Search size={16} />
   </button>
 
-  <button class="nav-btn active" title="Arbeidsregister" style="position: relative;">
+  <button
+    class="nav-btn"
+    class:active={activePerspective === 'list'}
+    title="Arbeidsregister"
+    style="position: relative;"
+    onclick={() => onSwitchPerspective?.('list')}
+  >
     <List size={16} />
-    <div class="activity-dot"></div>
+    {#if activePerspective === 'list'}
+      <div class="activity-dot"></div>
+    {/if}
   </button>
 
-  <button class="nav-btn" title="Grafvisning">
+  <button
+    class="nav-btn"
+    class:active={activePerspective === 'graph'}
+    title="Grafvisning"
+    onclick={() => onSwitchPerspective?.('graph')}
+  >
     <Network size={16} />
   </button>
 

@@ -107,7 +107,27 @@
 --ref-link:       #4A6A8B    Cross-reference links in reading view (same as signal-fts)
 ```
 
-> **Note:** `--confirm-color`, `--gold-star`, and `--ref-link` are now in `tokens.css` (added for Reading View). `--tension-*`, `--nuance-color`, `--qualified-color`, and `--noise-svg` are specified for future pages (Rettssetningsregister, Evidence Panel). Not yet in `tokens.css` — add when those pages are built.
+### Graph Edge Colors
+
+```
+--edge-color:     rgba(28, 27, 26, 0.10)   Bestemmelsesreferanser (stiplet)
+--edge-cite:      rgba(28, 27, 26, 0.18)   Siteringskanter (solid)
+--edge-highlight: rgba(28, 27, 26, 0.40)   Fremhevet kant ved hover
+```
+
+### User Marking Colors
+
+Five semantically neutral colors for user-assigned node marks (right-click context menu). Shown as 2.5px ring around node dot. Avoids the semantic palette (oker/fiolett/blå/grønn/rød).
+
+```
+--marking-rosa:     #D4727E
+--marking-turkis:   #5AA3A3
+--marking-oransje:  #C4933A
+--marking-lavendel: #9A7EB8
+--marking-salvie:   #7BA37B
+```
+
+> **Note:** `--confirm-color`, `--gold-star`, `--ref-link`, `--edge-*`, and `--marking-*` are now in `tokens.css`. `--tension-*`, `--nuance-color`, `--qualified-color`, and `--noise-svg` are specified for future pages (Rettssetningsregister, Evidence Panel). Not yet in `tokens.css` — add when those pages are built.
 
 ### Phase Colors
 
@@ -161,6 +181,10 @@ All overrides in `.dark` class on wrapper element. `colorScheme: 'dark'` set for
 --gold-star:      #D4B84E
 --qualified-color: #D4A06A
 --ref-link:       #8BAAC4
+
+--edge-color:     rgba(232, 229, 220, 0.06)
+--edge-cite:      rgba(232, 229, 220, 0.12)
+--edge-highlight: rgba(232, 229, 220, 0.30)
 
 --header-bg:        rgba(30, 28, 25, 0.85)
 --hover-bg:         rgba(232, 229, 220, 0.03)
