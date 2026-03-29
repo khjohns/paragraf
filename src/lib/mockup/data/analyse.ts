@@ -63,15 +63,15 @@ export const MOCK_COUNTS = { null: 53, A: 5, B: 8, C: 35, total: 101 };
 
 export const MOCK_SCOPE: MockScopeData = {
   originalProblem:
-    'Vi skal anskaffe FDVU-system og lurer pa hva vi ma tenke pa mht leverandorgrupperinger og konsortier i konkurransegrunnlaget',
+    'Vi skal anskaffe FDVU-system og lurer på hva vi må tenke på mht leverandørgrupperinger og konsortier i konkurransegrunnlaget',
   refinedProblem:
-    'Hvilke krav bor konkurransegrunnlaget stille til leverandorgrupperinger og konsortier, jf. FOA \u00a7 16-11, og finnes det leverandorkonstellasjoner som krever saerskilt regulering?',
+    'Hvilke krav bør konkurransegrunnlaget stille til leverandørgrupperinger og konsortier, jf. FOA § 16-11, og finnes det leverandørkonstellasjoner som krever særskilt regulering?',
   subProblems: [
-    { id: 1, text: 'Krav om solidaransvar og nar dette inntrer', active: true },
+    { id: 1, text: 'Krav om solidaransvar og når dette inntrer', active: true },
     { id: 2, text: 'Tidspunkt for krav om formalisert samarbeidsavtale', active: true },
     {
       id: 3,
-      text: 'Grensen mellom stotte pa kapasitet (\u00a716-10) og konsortiedeltakelse (\u00a716-11)',
+      text: 'Grensen mellom støtte på kapasitet (§16-10) og konsortiedeltakelse (§16-11)',
       active: true,
     },
   ],
@@ -79,62 +79,58 @@ export const MOCK_SCOPE: MockScopeData = {
     procedure: 'Konkurransepreget dialog',
     service_area: 'FDVU-system / IKT',
     market: null,
-    threshold: 'EOS',
+    threshold: 'EØS',
   },
   provisions: [
     {
-      ref: 'FOA \u00a716-11',
-      label: 'Leverandorgrupperinger',
+      ref: 'FOA §16-11',
+      label: 'Leverandørgrupperinger',
       primary: true,
-      reason: 'Direkte regulerer krav til konsortier og fellesskap av leverandorer.',
+      reason: 'Direkte regulerer krav til konsortier og fellesskap av leverandører.',
     },
     {
-      ref: 'FOA \u00a716-10',
-      label: 'Stotte pa kapasitet',
+      ref: 'FOA §16-10',
+      label: 'Støtte på kapasitet',
       primary: true,
       reason: 'Alternativ til konsortiedannelse — grensedragningen er sentral.',
     },
     {
-      ref: 'FOA \u00a719-2',
-      label: 'Underleverandorer',
+      ref: 'FOA §19-2',
+      label: 'Underleverandører',
       primary: true,
       reason:
-        'Regulerer underleverandorer i gjennomforingsfasen, relevant for konstellasjonsmodellene.',
+        'Regulerer underleverandører i gjennomføringsfasen, relevant for konstellasjonsmodellene.',
     },
     {
-      ref: 'FOA \u00a724-2',
+      ref: 'FOA §24-2',
       label: 'Avvisning kvalifikasjon',
       primary: false,
       reason: 'Konsekvens ved manglende oppfyllelse av krav til grupperingen.',
     },
     {
-      ref: 'FOA \u00a75-1',
+      ref: 'FOA §5-1',
       label: 'Grunnleggende prinsipper',
       primary: false,
       reason: 'Rammeverk for forholdsmessighetsvurderingen.',
     },
     {
-      ref: 'LOA \u00a74',
+      ref: 'LOA §4',
       label: 'Likebehandling',
       primary: false,
       reason: 'Overordnet prinsipp som begrenser handlingsrommet.',
     },
   ],
   searchStrategy: {
-    refTable: ['FOA \u00a716-11', 'FOA \u00a716-10', 'FOA \u00a719-2'],
-    fts: [
-      '\u00abkonsortium\u00bb',
-      '\u00absolidaransvar\u00bb',
-      '\u00ableverandorgruppering\u00bb',
-    ],
+    refTable: ['FOA §16-11', 'FOA §16-10', 'FOA §19-2'],
+    fts: ['«konsortium»', '«solidaransvar»', '«leverandørgruppering»'],
     vector: [
-      'krav til leverandorgrupperinger og solidaransvar ved felles tilbud',
-      'samarbeidsavtale mellom leverandorer i offentlig anskaffelse',
+      'krav til leverandørgrupperinger og solidaransvar ved felles tilbud',
+      'samarbeidsavtale mellom leverandører i offentlig anskaffelse',
     ],
-    prepWork: ['Prop. 51 L (2015\u20132016)'],
+    prepWork: ['Prop. 51 L (2015–2016)'],
   },
   reasoning:
-    'Problemstillingen dreier seg primaert om FOA \u00a7 16-11 som direkte regulerer leverandorgrupperinger/fellesskap. \u00a7 16-10 er sentral fordi stotte pa andre virksomheters kapasitet er et alternativ til konsortiedannelse — grensedragningen mellom disse to mekanismene er ofte avgjorende. \u00a7 19-2 regulerer underleverandorer i gjennomforingsfasen, noe som er relevant for de ulike konstellasjonsmodellene som er beskrevet. Sokestrategien kombinerer presise bestemmelsesreferanser med fulltekstsok pa sentrale begreper og semantiske sok for a fange opp saker som bruker annen terminologi.',
+    'Problemstillingen dreier seg primært om FOA § 16-11 som direkte regulerer leverandørgrupperinger/fellesskap. § 16-10 er sentral fordi støtte på andre virksomheters kapasitet er et alternativ til konsortiedannelse — grensedragningen mellom disse to mekanismene er ofte avgjørende. § 19-2 regulerer underleverandører i gjennomføringsfasen, noe som er relevant for de ulike konstellasjonsmodellene som er beskrevet. Søkestrategien kombinerer presise bestemmelsesreferanser med fulltekstsøk på sentrale begreper og semantiske søk for å fange opp saker som bruker annen terminologi.',
 };
 
 export const MOCK_CANDIDATES: MockCandidate[] = [
@@ -146,33 +142,33 @@ export const MOCK_CANDIDATES: MockCandidate[] = [
     category: 'A',
     read_at: '2026-03-27T10:14:00Z',
     signals: [
-      { type: 'R', detail: 'FOA \u00a716-11' },
-      { type: 'F', detail: '\u00absolidaransvar\u00bb' },
+      { type: 'R', detail: 'FOA §16-11' },
+      { type: 'F', detail: '«solidaransvar»' },
       {
         type: 'V',
-        detail: 'Naert treff',
-        explanation: 'Konseptuelt treff pa: "felles hefte for forpliktelser"',
+        detail: 'Nært treff',
+        explanation: 'Konseptuelt treff på: "felles hefte for forpliktelser"',
       },
     ],
     ai_screening: {
       category: 'A',
-      proposition: 'Fastslar at solidaransvar forutsettes ved deltakelse som leverandorgruppering.',
+      proposition: 'Fastslår at solidaransvar forutsettes ved deltakelse som leverandørgruppering.',
     },
     excerpt: [
-      { text: 'Nemnda bemerker at formalet med ', mark: null },
-      { text: 'FOA \u00a7 16-11', mark: 'R' },
+      { text: 'Nemnda bemerker at formålet med ', mark: null },
+      { text: 'FOA § 16-11', mark: 'R' },
       {
-        text: ' er a sikre at oppdragsgiver har en reell juridisk motpart som hefter for oppfyllelsen av kontrakten. Selv om leverandorene ikke hadde stiftet et eget selskap (',
+        text: ' er å sikre at oppdragsgiver har en reell juridisk motpart som hefter for oppfyllelsen av kontrakten. Selv om leverandørene ikke hadde stiftet et eget selskap (',
         mark: null,
       },
       { text: 'konsortium', mark: 'F' },
       {
-        text: '), innebar deres felles innlevering av tilbud at de matte anses som en leverandorgruppering. Det pahvilte dermed gruppen et ',
+        text: '), innebar deres felles innlevering av tilbud at de måtte anses som en leverandørgruppering. Det påhvilte dermed gruppen et ',
         mark: null,
       },
       { text: 'solidaransvar', mark: 'F' },
       {
-        text: '. Oppdragsgiver hadde folgelig rett til a kreve en formalisert samarbeidsavtale fremlagt for kontraktsignering, for a sikre at ',
+        text: '. Oppdragsgiver hadde følgelig rett til å kreve en formalisert samarbeidsavtale fremlagt før kontraktsignering, for å sikre at ',
         mark: null,
       },
       { text: 'felles hefte for forpliktelser', mark: 'V' },
@@ -182,31 +178,31 @@ export const MOCK_CANDIDATES: MockCandidate[] = [
   {
     id: 'k2',
     ref: 'HR-2019-1801-A',
-    source: 'Hoyesterett',
+    source: 'Høyesterett',
     date: '04. feb 2019',
     category: null,
     read_at: null,
     signals: [
-      { type: 'F', detail: '\u00abkonsortium\u00bb' },
+      { type: 'F', detail: '«konsortium»' },
       {
         type: 'V',
         detail: 'Beslektet',
-        explanation: 'Konseptuelt treff pa: "selskapsrettslig status ved felles tilbud"',
+        explanation: 'Konseptuelt treff på: "selskapsrettslig status ved felles tilbud"',
       },
     ],
     ai_screening: {
       category: 'A',
       proposition:
-        'Hoyesterett vurderer selskapsrettslig status for konsortier opprettet kun for en anbudskonkurranse.',
+        'Høyesterett vurderer selskapsrettslig status for konsortier opprettet kun for én anbudskonkurranse.',
     },
     excerpt: [
       {
-        text: 'Hoyesterett la til grunn at selskapsrettslig status for midlertidige ',
+        text: 'Høyesterett la til grunn at selskapsrettslig status for midlertidige ',
         mark: null,
       },
       { text: 'konsortier', mark: 'F' },
       {
-        text: ' ma vurderes konkret. Et samarbeid for en enkeltstaaende anbudskonkurranse utgjor ikke nodvendigvis et selskap i ',
+        text: ' må vurderes konkret. Et samarbeid for én enkeltstående anbudskonkurranse utgjør ikke nødvendigvis et selskap i ',
         mark: null,
       },
       { text: 'selskapslovens forstand', mark: 'V' },
@@ -223,27 +219,26 @@ export const MOCK_CANDIDATES: MockCandidate[] = [
     date: '15. mar 2020',
     category: 'B',
     read_at: '2026-03-27T12:05:00Z',
-    signals: [{ type: 'R', detail: 'FOA \u00a716-10' }],
+    signals: [{ type: 'R', detail: 'FOA §16-10' }],
     ai_screening: {
       category: 'B',
-      proposition:
-        'Trekker opp grensen mellom stotte pa kapasitet (\u00a716-10) og underleverandorer.',
+      proposition: 'Trekker opp grensen mellom støtte på kapasitet (§16-10) og underleverandører.',
     },
     excerpt: [
       {
-        text: 'Saken gjaldt sporsmalet om valgte leverandor lovlig kunne stotte seg pa et morselskap for a oppfylle kravene til okonomisk kapasitet, jf. ',
+        text: 'Saken gjaldt spørsmålet om valgte leverandør lovlig kunne støtte seg på et morselskap for å oppfylle kravene til økonomisk kapasitet, jf. ',
         mark: null,
       },
-      { text: 'FOA \u00a7 16-10', mark: 'R' },
+      { text: 'FOA § 16-10', mark: 'R' },
       {
-        text: '. Nemnda kom til at forpliktelseserklaeringen var tilstrekkelig.',
+        text: '. Nemnda kom til at forpliktelseserklæringen var tilstrekkelig.',
         mark: null,
       },
     ],
   },
   {
     id: 'k4',
-    ref: 'C-396/14 (MT Hojgaard)',
+    ref: 'C-396/14 (MT Højgaard)',
     source: 'EU-domstolen',
     date: '24. mai 2016',
     category: 'A',
@@ -251,15 +246,15 @@ export const MOCK_CANDIDATES: MockCandidate[] = [
     signals: [
       {
         type: 'V',
-        detail: 'Naert treff',
+        detail: 'Nært treff',
         explanation:
-          'Konseptuelt treff pa: "sammenslutningers rett til a stotte seg pa medlemmers kapasitet"',
+          'Konseptuelt treff på: "sammenslutningers rett til å støtte seg på medlemmers kapasitet"',
       },
     ],
     ai_screening: {
       category: 'A',
       proposition:
-        'EU-domstolen bekrefter at en sammenslutning av foretak kan stotte seg pa kapasiteten til de enkelte medlemmene.',
+        'EU-domstolen bekrefter at en sammenslutning av foretak kan støtte seg på kapasiteten til de enkelte medlemmene.',
     },
     excerpt: [
       {
@@ -268,7 +263,7 @@ export const MOCK_CANDIDATES: MockCandidate[] = [
       },
       { text: 'sammenslutning av foretak', mark: 'V' },
       {
-        text: ' fra a delta, kun med den begrunnelse at sammenslutningen som sadan ikke har de nodvendige kvalifikasjonene, nar sammenslutningen godtgjor at den faktisk rader over ',
+        text: ' fra å delta, kun med den begrunnelse at sammenslutningen som sådan ikke har de nødvendige kvalifikasjonene, når sammenslutningen godtgjør at den faktisk råder over ',
         mark: null,
       },
       { text: 'medlemmenes ressurser', mark: 'V' },
@@ -283,7 +278,7 @@ export const MOCK_CANDIDATES: MockCandidate[] = [
     category: 'C',
     read_at: '2026-03-26T14:20:00Z',
     signals: [
-      { type: 'F', detail: '\u00absamarbeidsavtale\u00bb' },
+      { type: 'F', detail: '«samarbeidsavtale»' },
       {
         type: 'V',
         detail: 'Perifert',
@@ -297,12 +292,12 @@ export const MOCK_CANDIDATES: MockCandidate[] = [
     },
     excerpt: [
       {
-        text: 'Saken avvist, da klagen i realiteten gjaldt en tvist om forstaelsen av en privatrettslig ',
+        text: 'Saken avvist, da klagen i realiteten gjaldt en tvist om forståelsen av en privatrettslig ',
         mark: null,
       },
       { text: 'samarbeidsavtale', mark: 'F' },
       {
-        text: ' mellom to leverandorer, som faller utenfor nemndas kompetanse.',
+        text: ' mellom to leverandører, som faller utenfor nemndas kompetanse.',
         mark: null,
       },
     ],
@@ -315,21 +310,21 @@ export const MOCK_CANDIDATES: MockCandidate[] = [
     category: null,
     read_at: null,
     signals: [
-      { type: 'R', detail: 'FOA \u00a716-11' },
+      { type: 'R', detail: 'FOA §16-11' },
       {
         type: 'V',
         detail: 'Beslektet',
-        explanation: 'Konseptuelt treff pa: "krav til underleverandorer ved felles tilbud"',
+        explanation: 'Konseptuelt treff på: "krav til underleverandører ved felles tilbud"',
       },
     ],
     ai_screening: null,
     excerpt: [
       {
-        text: 'Klagenemnda matte i denne saken ta stilling til om det var adgang til a kreve at samtlige medlemmer av en leverandorgruppering, jf. ',
+        text: 'Klagenemnda måtte i denne saken ta stilling til om det var adgang til å kreve at samtlige medlemmer av en leverandørgruppering, jf. ',
         mark: null,
       },
-      { text: 'FOA \u00a7 16-11', mark: 'R' },
-      { text: ', skulle signere en likelydende egenerklearing.', mark: null },
+      { text: 'FOA § 16-11', mark: 'R' },
+      { text: ', skulle signere en likelydende egenerklæring.', mark: null },
     ],
   },
 ];

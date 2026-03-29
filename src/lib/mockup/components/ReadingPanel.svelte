@@ -49,9 +49,9 @@
     {#if !selectedCase.ai_screening}
       <div class="no-ai-prompt">
         <Sparkles size={20} color="var(--ai-accent)" />
-        <div class="no-ai-title">Ingen KI-vurdering enda</div>
+        <div class="no-ai-title">Ingen KI-vurdering ennå</div>
         <p class="no-ai-text">
-          Vil du at maskinen skal skumlese saken og foresla kategori og rettssetning?
+          Vil du at maskinen skal skumlese saken og foreslå kategori og rettssetning?
         </p>
         <button class="action-btn ai"><Sparkles size={12} /> Analyser saken</button>
       </div>
@@ -59,7 +59,7 @@
 
     <!-- Excerpt -->
     <div class="excerpt-section">
-      <h3 class="excerpt-heading">Utdrag fra avgjorelsen</h3>
+      <h3 class="excerpt-heading">Utdrag fra avgjørelsen</h3>
       <ExcerptWithMarkers parts={selectedCase.excerpt} />
 
       <div class="excerpt-action">

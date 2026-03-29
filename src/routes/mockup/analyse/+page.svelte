@@ -72,7 +72,7 @@
     { key: 'all', label: 'Alle', cat: null, count: MOCK_COUNTS.total },
     { key: 'null', label: 'Uvurdert', cat: '\u2013', count: MOCK_COUNTS.null },
     { key: 'A', label: 'Kjernesak', cat: 'A', count: MOCK_COUNTS.A },
-    { key: 'B', label: 'Stottesak', cat: 'B', count: MOCK_COUNTS.B },
+    { key: 'B', label: 'Støttesak', cat: 'B', count: MOCK_COUNTS.B },
     { key: 'C', label: 'Kontekstsak', cat: 'C', count: MOCK_COUNTS.C },
   ] as const;
 </script>
@@ -81,7 +81,7 @@
   <!-- HEADER -->
   <header class="ws-header">
     <div class="header-left">
-      <a href="/mockup" class="logo" title="Tilbake til portefoljen">
+      <a href="/mockup" class="logo" title="Tilbake til porteføljen">
         <span class="logo-symbol">&sect;</span>
       </a>
       <div class="header-sep"></div>
@@ -256,7 +256,7 @@
               <div class="ai-expanded" onclick={(e) => e.stopPropagation()}>
                 <div class="ai-expanded-card">
                   <div class="ai-expanded-label">
-                    KI foreslar: Kategori {c.ai_screening.category}
+                    KI foreslår: Kategori {c.ai_screening.category}
                   </div>
                   <div class="ai-expanded-text">{c.ai_screening.proposition}</div>
                 </div>
@@ -490,10 +490,9 @@
   /* Dense row grid */
   .dense-row {
     display: grid;
-    grid-template-columns: 24px 28px minmax(140px, 1.6fr) 88px minmax(70px, 1fr) minmax(
-        70px,
-        1fr
-      ) minmax(70px, 1fr) 40px;
+    grid-template-columns:
+      24px 28px minmax(140px, 1.6fr) 88px minmax(70px, 1fr) minmax(70px, 1fr)
+      minmax(70px, 1fr) 40px;
     gap: 12px;
     align-items: start;
   }

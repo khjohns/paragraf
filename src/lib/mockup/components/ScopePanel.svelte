@@ -41,7 +41,7 @@
   </ScopeSection>
 
   <!-- 2. DELSPORSMAAL -->
-  <ScopeSection label="Delsporsmaal" open={openSections.sub} onToggle={() => toggleSection('sub')}>
+  <ScopeSection label="Delspørsmål" open={openSections.sub} onToggle={() => toggleSection('sub')}>
     <div class="sub-problems">
       {#each MOCK_SCOPE.subProblems as sp, i}
         <div class="sub-problem-row">
@@ -50,7 +50,7 @@
         </div>
       {/each}
       <button class="add-btn">
-        <Plus size={11} /> Legg til delsporsmaal
+        <Plus size={11} /> Legg til delspørsmål
       </button>
     </div>
   </ScopeSection>
@@ -62,7 +62,7 @@
     onToggle={() => toggleSection('context')}
   >
     <div class="context-grid">
-      {#each [['Prosedyre', MOCK_SCOPE.context.procedure], ['Terskelverdi', MOCK_SCOPE.context.threshold], ['Tjenesteomraade', MOCK_SCOPE.context.service_area], ['Marked', MOCK_SCOPE.context.market]] as [label, value]}
+      {#each [['Prosedyre', MOCK_SCOPE.context.procedure], ['Terskelverdi', MOCK_SCOPE.context.threshold], ['Tjenesteområde', MOCK_SCOPE.context.service_area], ['Marked', MOCK_SCOPE.context.market]] as [label, value]}
         <div class="context-chip">
           <span class="chip-label">{label}</span>
           {#if value}
@@ -82,7 +82,7 @@
     onToggle={() => toggleSection('provisions')}
   >
     <div class="provisions-group">
-      <div class="provision-section-label">Primaere</div>
+      <div class="provision-section-label">Primære</div>
       <div class="provision-list">
         {#each primaryProvisions as p}
           <div class="prov-row">
@@ -94,7 +94,7 @@
       </div>
     </div>
     <div class="provisions-group secondary">
-      <div class="provision-section-label muted">Sekundaere</div>
+      <div class="provision-section-label muted">Sekundære</div>
       <div class="provision-list">
         {#each secondaryProvisions as p}
           <div class="prov-row">
@@ -112,7 +112,7 @@
 
   <!-- 5. SOKESTRATEGI -->
   <ScopeSection
-    label="Sokestrategi"
+    label="Søkestrategi"
     open={openSections.strategy}
     onToggle={() => toggleSection('strategy')}
   >
@@ -120,7 +120,7 @@
     <div class="strategy-group">
       <div class="strategy-label">
         <span class="strategy-dot" style:background="var(--ink-muted)"></span>
-        Referansesok [R]
+        Referansesøk [R]
       </div>
       <div class="strategy-tags">
         {#each MOCK_SCOPE.searchStrategy.refTable as r}
@@ -133,7 +133,7 @@
     <div class="strategy-group">
       <div class="strategy-label">
         <span class="strategy-dot" style:background="var(--signal-fts)"></span>
-        Fulltekstsok [F]
+        Fulltekstsøk [F]
       </div>
       <div class="strategy-tags">
         {#each MOCK_SCOPE.searchStrategy.fts as t}
@@ -146,7 +146,7 @@
     <div class="strategy-group">
       <div class="strategy-label">
         <span class="strategy-dot" style:background="var(--ai-accent)"></span>
-        Vektorsok [V]
+        Vektorsøk [V]
       </div>
       <div class="vector-queries">
         {#each MOCK_SCOPE.searchStrategy.vector as v}

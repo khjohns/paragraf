@@ -31,9 +31,9 @@ export const PHASE_COLORS: Record<Phase, string> = {
 
 export const PHASE_NAMES: Record<Phase, string> = {
   oppsett: 'Oppsett',
-  primaersok: 'Primaersok',
+  primaersok: 'Primærsøk',
   screening: 'Screening',
-  ettersok: 'Ettersok',
+  ettersok: 'Ettersøk',
   sammenstilling: 'Sammenstilling',
 };
 
@@ -48,13 +48,13 @@ export const AVAILABLE_TAGS = [
 export const MOCK_ANALYSES: MockAnalysis[] = [
   {
     id: 'a1',
-    title: 'Avvisning pa grunn av manglende skatteattest',
+    title: 'Avvisning på grunn av manglende skatteattest',
     problem:
-      'Hvor absolutt er kravet til innlevering av skatteattest i apen anbudskonkurranse, og i hvilken grad tillater rettspraksis ettersending av dokumentasjon som forela for tilbudsfristen?',
+      'Hvor absolutt er kravet til innlevering av skatteattest i åpen anbudskonkurranse, og i hvilken grad tillater rettspraksis ettersending av dokumentasjon som forelå før tilbudsfristen?',
     phase: 'screening',
     owner: 'Meg',
-    provisions: ['FOA \u00a716-10', 'FOA \u00a724-2'],
-    overlapWith: 'FOA \u00a716-10',
+    provisions: ['FOA §16-10', 'FOA §24-2'],
+    overlapWith: 'FOA §16-10',
     lastActive: true,
     lastAction: 'Leste KOFA-2023-145',
     perspective: 'Saksoversikten',
@@ -65,11 +65,11 @@ export const MOCK_ANALYSES: MockAnalysis[] = [
     id: 'a4',
     title: 'Dokumentasjonsplikt vs. ettersending',
     problem:
-      'Oppdragsgivers plikt og rett til a be om ettersending av manglende dokumentasjon for kvalifikasjonskrav.',
+      'Oppdragsgivers plikt og rett til å be om ettersending av manglende dokumentasjon for kvalifikasjonskrav.',
     phase: 'ettersok',
     owner: 'Erik',
-    provisions: ['FOA \u00a716-10', 'FOA \u00a724-8(2)'],
-    overlapWith: 'FOA \u00a716-10',
+    provisions: ['FOA §16-10', 'FOA §24-8(2)'],
+    overlapWith: 'FOA §16-10',
     lastActive: false,
     teamOnly: true,
     perspective: 'Rettssetningsregisteret',
@@ -78,12 +78,12 @@ export const MOCK_ANALYSES: MockAnalysis[] = [
   },
   {
     id: 'a2',
-    title: 'Bruk av forhandlinger i apen anbudskonkurranse',
+    title: 'Bruk av forhandlinger i åpen anbudskonkurranse',
     problem:
-      'Nar gar en avklaring over til a bli en ulovlig forhandling? Grensedragningen mellom tillatt presisering og ulovlig endring av tilbud.',
+      'Når går en avklaring over til å bli en ulovlig forhandling? Grensedragningen mellom tillatt presisering og ulovlig endring av tilbud.',
     phase: 'primaersok',
     owner: 'Meg',
-    provisions: ['FOA \u00a723-1'],
+    provisions: ['FOA §23-1'],
     overlapWith: null,
     lastActive: false,
     perspective: 'Saksoversikten',
@@ -94,11 +94,11 @@ export const MOCK_ANALYSES: MockAnalysis[] = [
     id: 'a3',
     title: 'Vesentlige avvik i tilbud',
     problem:
-      'Identifisering og handtering av forbehold som utgjor et vesentlig avvik fra kravspesifikasjonen.',
+      'Identifisering og håndtering av forbehold som utgjør et vesentlig avvik fra kravspesifikasjonen.',
     phase: 'sammenstilling',
     owner: 'Meg',
-    provisions: ['FOA \u00a724-8(1)', 'FOA \u00a716-10'],
-    overlapWith: 'FOA \u00a716-10',
+    provisions: ['FOA §24-8(1)', 'FOA §16-10'],
+    overlapWith: 'FOA §16-10',
     lastActive: false,
     perspective: 'Notatet',
     newEvents: 1,
@@ -106,12 +106,12 @@ export const MOCK_ANALYSES: MockAnalysis[] = [
   },
   {
     id: 'a5',
-    title: 'Gjenapning av vilkar i minikonkurranse',
+    title: 'Gjenåpning av vilkår i minikonkurranse',
     problem:
-      'I hvilken grad kan oppdragsgiver gjenapne konkurransen om vilkar som allerede er fastsatt i rammeavtalen?',
+      'I hvilken grad kan oppdragsgiver gjenåpne konkurransen om vilkår som allerede er fastsatt i rammeavtalen?',
     phase: 'oppsett',
     owner: 'Meg',
-    provisions: ['FOA \u00a726-4'],
+    provisions: ['FOA §26-4'],
     overlapWith: null,
     lastActive: false,
     perspective: 'Problemstillingen',

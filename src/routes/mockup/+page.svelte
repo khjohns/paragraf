@@ -82,10 +82,10 @@
 
   let kryssBeskrivelse = $derived(
     viewScope === 'mine'
-      ? 'Du har to analyser som krysser hverandre her. Den ene ser pa ettersending av skatteattest, den andre pa vesentlige avvik. Koblingen ligger i dokumentasjonskravets absolutte natur.'
+      ? 'Du har to analyser som krysser hverandre her. Den ene ser på ettersending av skatteattest, den andre på vesentlige avvik. Koblingen ligger i dokumentasjonskravets absolutte natur.'
       : viewScope === 'team'
-        ? 'Du og Erik ser pa samme bestemmelse fra ulik vinkel. Erik fokuserer pa oppdragsgivers plikt til a be om ettersending, mens du ser pa konsekvensen av manglende attest.'
-        : 'Tre analyser pa tvers av teamet konvergerer rundt denne bestemmelsen. Koblingen ligger i dokumentasjonskravets absolutte natur.'
+        ? 'Du og Erik ser på samme bestemmelse fra ulik vinkel. Erik fokuserer på oppdragsgivers plikt til å be om ettersending, mens du ser på konsekvensen av manglende attest.'
+        : 'Tre analyser på tvers av teamet konvergerer rundt denne bestemmelsen. Koblingen ligger i dokumentasjonskravets absolutte natur.'
   );
 </script>
 
@@ -110,7 +110,7 @@
       <div class="toolbar-right">
         <div class="search-container">
           <Search size={12} class="search-icon" />
-          <input class="search-input" type="text" placeholder="Sok i arkivet..." />
+          <input class="search-input" type="text" placeholder="Søk i arkivet…" />
         </div>
         <PhaseDropdown {activePhases} onToggle={togglePhase} onClear={() => (activePhases = [])} />
       </div>
@@ -195,7 +195,7 @@
           <p class="cross-card-text">{kryssBeskrivelse}</p>
           <div class="cross-data">
             <span class="cross-data-label">Datagrunnlag:</span>
-            <ProvisionTag text="4 felles KOFA-avgjoerelser" small />
+            <ProvisionTag text="4 felles KOFA-avgjørelser" small />
             <ProvisionTag text="2 relevante EU-dommer" small />
           </div>
         </div>
