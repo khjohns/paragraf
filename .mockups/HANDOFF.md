@@ -145,10 +145,13 @@ Hver konvertering skal gjennom følgende steg. Ikke skip noen.
 ### 1. Implementer
 Konverter mockup, kjør `npm run check` — null feil.
 
-### 2. Selvkritikk (`/critique`)
+### 2. Simplify (`/simplify`)
+Kjør `/simplify` for å sjekke kodekvalitet, gjenbruk og effektivitet. Fiks funn.
+
+### 3. Selvkritikk (`/critique`)
 Kjør `/critique` og vurder komposisjon, craft, innhold og struktur. Fiks alt som identifiseres.
 
-### 3. QA-sammenligning
+### 4. QA-sammenligning
 Systematisk sammenligning mellom mockup og implementasjon:
 
 - **Designtroskap:** Matcher layout, typografi, spacing, farger?
@@ -159,8 +162,8 @@ Systematisk sammenligning mellom mockup og implementasjon:
 - **Norsk tekst:** Korrekt bokmål, alle diakritiske tegn (æ, ø, å)?
 - **Bugs:** Logikkfeil, layout-bugs, tilstander som ikke håndteres?
 
-### 4. Fiks alle funn
+### 5. Fiks alle funn
 Alt med reell verdi fikses. Ikke la "minor" funn ligge — de akkumulerer.
 
-### 5. Oppdater system.md
+### 6. Oppdater system.md
 Synkroniser `system.md` med nye tokens, mønstre eller konvensjoner fra implementasjonen.

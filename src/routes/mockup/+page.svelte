@@ -1,5 +1,6 @@
 <script lang="ts">
   import '$lib/mockup/tokens.css';
+  import { goto } from '$app/navigation';
   import { fade } from 'svelte/transition';
   import { Plus, Search } from 'lucide-svelte';
   import MockupHeader from '$lib/mockup/components/MockupHeader.svelte';
@@ -176,7 +177,7 @@
               {viewScope}
               allTags={allKnownTags}
               onSetTag={handleSetTag}
-              onclick={() => (window.location.href = '/mockup/analyse')}
+              onclick={() => goto('/mockup/analyse')}
             />
           {/each}
         </div>
