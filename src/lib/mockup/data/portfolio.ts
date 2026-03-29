@@ -1,102 +1,121 @@
 /**
- * Mockdata for porteføljeoversikten.
+ * Mockdata for porteføljeoversikten (hybrid-v3).
  * Realistisk norsk anskaffelsesrett — hardkodet, ingen backend.
  */
 
-export interface MockAnalysisSummary {
+export type Phase = 'oppsett' | 'primaersok' | 'screening' | 'ettersok' | 'sammenstilling';
+
+export interface MockAnalysis {
   id: string;
   title: string;
   problem: string;
-  status: MockStatus;
-  iteration: number;
+  phase: Phase;
+  owner: string;
   provisions: string[];
-  candidate_count: number;
-  read_count: number;
-  screened_count: number;
-  updated_at: string;
-  tensions: number;
-  gaps: number;
-  propositions: number;
+  overlapWith: string | null;
+  lastActive: boolean;
+  lastAction?: string;
+  perspective?: string;
+  newEvents: number;
+  tag: string;
+  teamOnly?: boolean;
 }
 
-export type MockStatus =
-  | 'scoping'
-  | 'candidates_ready'
-  | 'screening'
-  | 'post_search'
-  | 'synthesis'
-  | 'complete';
-
-export const STATUS_META: Record<MockStatus, { label: string; color: string }> = {
-  scoping: { label: 'Oppsett', color: '#B0A99E' },
-  candidates_ready: { label: 'Primærsøk', color: '#4A6670' },
-  screening: { label: 'Screening', color: '#8B6914' },
-  post_search: { label: 'Ettersøk', color: '#A67B2E' },
-  synthesis: { label: 'Sammenstilling', color: '#3D7A4A' },
-  complete: { label: 'Ferdig', color: '#3D7A4A' },
+export const PHASE_COLORS: Record<Phase, string> = {
+  oppsett: '#A8A29E',
+  primaersok: '#64748B',
+  screening: '#B45309',
+  ettersok: '#CA8A04',
+  sammenstilling: '#059669',
 };
 
-export const MOCK_ANALYSES: MockAnalysisSummary[] = [
+export const PHASE_NAMES: Record<Phase, string> = {
+  oppsett: 'Oppsett',
+  primaersok: 'Primaersok',
+  screening: 'Screening',
+  ettersok: 'Ettersok',
+  sammenstilling: 'Sammenstilling',
+};
+
+export const TOTAL_PHASES = Object.keys(PHASE_NAMES).length;
+
+export const AVAILABLE_TAGS = [
+  'Kvalifikasjonskrav & Avvisning',
+  'Tilbudsevaluering & Avvik',
+  'Rammeavtaler & Minikonkurranser',
+];
+
+export const MOCK_ANALYSES: MockAnalysis[] = [
   {
     id: 'a1',
-    title: 'FOA §16-11 — Leverandørgrupperinger og konsortier',
+    title: 'Avvisning pa grunn av manglende skatteattest',
     problem:
-      'Hvilke krav bør konkurransegrunnlaget stille til leverandørgrupperinger og konsortier, jf. FOA § 16-11?',
-    status: 'screening',
-    iteration: 2,
-    provisions: ['FOA §16-11', 'FOA §16-10', 'FOA §19-2'],
-    candidate_count: 48,
-    read_count: 12,
-    screened_count: 25,
-    updated_at: '2026-03-29T11:42:00Z',
-    tensions: 1,
-    gaps: 3,
-    propositions: 4,
-  },
-  {
-    id: 'a2',
-    title: 'FOA §8-4 — Avvisningsplikt ved vesentlige avvik',
-    problem:
-      'Hvor går grensen mellom avvik som skal føre til avvisning og avvik som kan aksepteres?',
-    status: 'candidates_ready',
-    iteration: 1,
-    provisions: ['FOA §8-4', 'FOA §24-8', 'LOA §5'],
-    candidate_count: 23,
-    read_count: 4,
-    screened_count: 6,
-    updated_at: '2026-03-28T16:30:00Z',
-    tensions: 0,
-    gaps: 2,
-    propositions: 1,
-  },
-  {
-    id: 'a3',
-    title: 'FOA §7-9 — Tildelingskriterier og evalueringsmodeller',
-    problem: 'Hvilke rammer gjelder for oppdragsgivers valg av evalueringsmodell?',
-    status: 'scoping',
-    iteration: 0,
-    provisions: ['FOA §7-9', 'FOA §18-1', 'LOA §5'],
-    candidate_count: 0,
-    read_count: 0,
-    screened_count: 0,
-    updated_at: '2026-03-26T09:15:00Z',
-    tensions: 0,
-    gaps: 0,
-    propositions: 0,
+      'Hvor absolutt er kravet til innlevering av skatteattest i apen anbudskonkurranse, og i hvilken grad tillater rettspraksis ettersending av dokumentasjon som forela for tilbudsfristen?',
+    phase: 'screening',
+    owner: 'Meg',
+    provisions: ['FOA \u00a716-10', 'FOA \u00a724-2'],
+    overlapWith: 'FOA \u00a716-10',
+    lastActive: true,
+    lastAction: 'Leste KOFA-2023-145',
+    perspective: 'Saksoversikten',
+    newEvents: 2,
+    tag: 'Kvalifikasjonskrav & Avvisning',
   },
   {
     id: 'a4',
-    title: 'FOA §24-2 — Avlysning av konkurranse',
-    problem: 'Vilkår for lovlig avlysning og erstatningsrettslige konsekvenser.',
-    status: 'synthesis',
-    iteration: 3,
-    provisions: ['FOA §24-2', 'FOA §10-1', 'LOA §5'],
-    candidate_count: 15,
-    read_count: 15,
-    screened_count: 15,
-    updated_at: '2026-03-29T09:00:00Z',
-    tensions: 2,
-    gaps: 0,
-    propositions: 7,
+    title: 'Dokumentasjonsplikt vs. ettersending',
+    problem:
+      'Oppdragsgivers plikt og rett til a be om ettersending av manglende dokumentasjon for kvalifikasjonskrav.',
+    phase: 'ettersok',
+    owner: 'Erik',
+    provisions: ['FOA \u00a716-10', 'FOA \u00a724-8(2)'],
+    overlapWith: 'FOA \u00a716-10',
+    lastActive: false,
+    teamOnly: true,
+    perspective: 'Rettssetningsregisteret',
+    newEvents: 0,
+    tag: 'Kvalifikasjonskrav & Avvisning',
+  },
+  {
+    id: 'a2',
+    title: 'Bruk av forhandlinger i apen anbudskonkurranse',
+    problem:
+      'Nar gar en avklaring over til a bli en ulovlig forhandling? Grensedragningen mellom tillatt presisering og ulovlig endring av tilbud.',
+    phase: 'primaersok',
+    owner: 'Meg',
+    provisions: ['FOA \u00a723-1'],
+    overlapWith: null,
+    lastActive: false,
+    perspective: 'Saksoversikten',
+    newEvents: 0,
+    tag: 'Tilbudsevaluering & Avvik',
+  },
+  {
+    id: 'a3',
+    title: 'Vesentlige avvik i tilbud',
+    problem:
+      'Identifisering og handtering av forbehold som utgjor et vesentlig avvik fra kravspesifikasjonen.',
+    phase: 'sammenstilling',
+    owner: 'Meg',
+    provisions: ['FOA \u00a724-8(1)', 'FOA \u00a716-10'],
+    overlapWith: 'FOA \u00a716-10',
+    lastActive: false,
+    perspective: 'Notatet',
+    newEvents: 1,
+    tag: 'Tilbudsevaluering & Avvik',
+  },
+  {
+    id: 'a5',
+    title: 'Gjenapning av vilkar i minikonkurranse',
+    problem:
+      'I hvilken grad kan oppdragsgiver gjenapne konkurransen om vilkar som allerede er fastsatt i rammeavtalen?',
+    phase: 'oppsett',
+    owner: 'Meg',
+    provisions: ['FOA \u00a726-4'],
+    overlapWith: null,
+    lastActive: false,
+    perspective: 'Problemstillingen',
+    newEvents: 0,
+    tag: 'Rammeavtaler & Minikonkurranser',
   },
 ];
