@@ -11,6 +11,7 @@ React-mockups (JSX) som skal konverteres til Svelte 5-komponenter for en interak
 - **Arbeidsflate/Saksoversikt** (`paragraf-arbeidsflate.jsx` → `/mockup/analyse`) — register, scope panel, enkel reading panel
 - **Lesevisning** (`paragraf-lesevisning.jsx` → `/mockup/analyse/les`) — fullskjerm med sidebar, 4 nye komponenter + mockdata
 - **Grafvisning** (`paragraf-graf-v4.jsx` → `/mockup/analyse` via NavRail) — d3-force nettverk, Canvas kanter, SVG noder, detaljpanel, verktøylinje, tegnforklaring, kontekstmeny, tooltip, 8 nye komponenter + mockdata
+- **Rettssetningsregister** (`paragraf-rettssetninger-v3.jsx` → `/mockup/analyse` via NavRail) — tematisk gruppering, 4-kolonne register, bevisgrunnlagspanel med tidslinje, evolusjonsbadges, spenninger, lineage, avgrensninger, 3 nye komponenter + mockdata
 
 ## Prosess
 
@@ -48,6 +49,7 @@ src/lib/mockup/
     analyse.ts
     lesevisning.ts                 ← KOFA-2025/0999 seksjoner, screening, metadata
     graf.ts                        ← 20 saksnoder, 6 bestemmelser, siteringer, referanser
+    rettssetninger.ts              ← 3 rettssetninger, 3 temaer, 6 forekomster, spenninger
   components/                      ← 15 Svelte-komponenter (gjenbrukbare)
     MockupHeader.svelte            ← Sticky header med §-logo, dark mode, avatar
     NavRail.svelte                 ← 48px venstre-rail med 5 ikoner
@@ -74,6 +76,9 @@ src/lib/mockup/
     GraphLegend.svelte             ← Kollapserbar tegnforklaring, nederst venstre
     NodeTooltip.svelte             ← 400ms forsinket tooltip med KI-proposisjon
     ColorPicker.svelte             ← Høyreklikk fargevelger (5 farger + fjern)
+    RegistryView.svelte            ← Rettssetningsregister: tematisk register + bevisgrunnlagspanel
+    EvidencePanel.svelte           ← 460px tidslinje med saker, sitater, lineage, avgrensninger
+    EvolutionTag.svelte            ← Evolusjonsbadge (Etablert/Bekreftet/Kvalifisert/Konsoliderende)
 ```
 
 ## Konverteringsregler

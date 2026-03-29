@@ -35,6 +35,15 @@
   --violet-accent: #6B4C9A;
   --violet-border: rgba(107, 76, 154, 0.18);
 
+  /* ── Semantic: Tension ── */
+  --tension-color: #6B4C9A;
+  --tension-border: rgba(107, 76, 154, 0.20);
+  --tension-bg: rgba(107, 76, 154, 0.04);
+
+  /* ── Semantic: Nuance / Qualified ── */
+  --nuance-color: #8B3A3A;
+  --qualified-color: #9E6A3A;
+
   /* ── Semantic: Confirmation / Star / Links ── */
   --confirm-color: #375E37;
   --gold-star: #B8941E;
@@ -107,6 +116,13 @@
 
   --violet-accent: #9B82C4;
   --violet-border: rgba(155, 130, 196, 0.20);
+
+  --tension-color: #9B82C4;
+  --tension-border: rgba(155, 130, 196, 0.25);
+  --tension-bg: rgba(155, 130, 196, 0.06);
+
+  --nuance-color: #D47A7A;
+  --qualified-color: #D4A06A;
 
   --confirm-color: #8BC48B;
   --gold-star: #D4B84E;
@@ -193,6 +209,27 @@
 .mockup-root .action-btn.ai:hover {
   border-color: var(--ai-accent);
   background: var(--ai-bg);
+}
+
+/* ── Shared primary button ── */
+.mockup-root .btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  padding: 8px 16px;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  background: var(--btn-primary-bg);
+  color: var(--btn-primary-fg);
+  border: 1.5px solid transparent;
+}
+
+.mockup-root .btn-primary:hover {
+  background: var(--btn-primary-hover);
 }
 
 /* ── Active press state for all buttons ── */

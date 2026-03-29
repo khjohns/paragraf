@@ -127,7 +127,7 @@ Five semantically neutral colors for user-assigned node marks (right-click conte
 --marking-salvie:   #7BA37B
 ```
 
-> **Note:** `--confirm-color`, `--gold-star`, `--ref-link`, `--edge-*`, and `--marking-*` are now in `tokens.css`. `--tension-*`, `--nuance-color`, `--qualified-color`, and `--noise-svg` are specified for future pages (Rettssetningsregister, Evidence Panel). Not yet in `tokens.css` — add when those pages are built.
+> **Note:** `--confirm-color`, `--gold-star`, `--ref-link`, `--edge-*`, `--marking-*`, `--tension-*`, `--nuance-color`, and `--qualified-color` are now in `tokens.css`. `--noise-svg` is specified but not yet in `tokens.css`.
 
 ### Phase Colors
 
@@ -308,11 +308,11 @@ Six collapsible `ScopeSection` components. Open default: Problemstilling, Delsp�
 ### Register Row (Arbeidsflaten)
 8-column grid. Reference = focal point (16px serif + 11px sans). Signal columns R/F/V equally weighted. Category badge 24px. KI-innsikt expandable. Dimmed at opacity 0.4 for C-category.
 
-### Rettssetningsregister
-Grouped by themes (core → peripheral, visual weight decreasing). 4-column grid. Tension: Scale icon + violet link. Evolution: 4 tags (established/confirmed/qualified/consolidating). Suggested: Sparkles at instance. Lineage: collapsible per-case. Boundary notes: collapsible section. Regulation tags at each case.
+### Rettssetningsregister (implemented)
+Accessed via BookOpen nav-btn in NavRail. Perspective `'registry'` hides scope panel (registry has its own panel model with evidence panel). Register header: 24px Newsreader 500, 2px solid `--ink` editorial rule line. Grouped by themes (core → peripheral: core 18px `--ink-secondary`, peripheral 16px `--ink-tertiary`, both italic). 4-column grid (`minmax(200px,1fr) 112px 112px 36px`, gap 20px, padding 16px 24px). Row states: active `inset 3px 0 0 --ink`, AI-generated `inset 3px 0 0 --ai-border`. Proposition: 17px Newsreader (AI: italic `--ai-accent`). Topic label: 10px JetBrains Mono uppercase. Status badges: KI-utkast (`--ai-border`/`--ai-accent`) or Verifisert (`--border`/`--ink-tertiary`). Tension: Scale icon + `--tension-color` link. Evolution: 4 tags (EvolutionTag component). Suggested: Sparkles at instance. Lineage: collapsible per-case. Boundary notes: collapsible section. Regulation tags at each case. "Eksporter til Notat" btn-primary in header.
 
-### Evidence Panel (440–460px)
-Timeline with evolution-differentiated dots. Quote blocks in `--paper-dark`. Tension block at top when present. "Gå til" cross-link.
+### Evidence Panel (460px, implemented)
+Slide-in from right via evidence-slot with `--border` left border. Header: mono 10px label "Bevisgrunnlag" + 16px serif proposition. Timeline: `--border` left line, 28px paddingLeft, 40px spacing between cases. Evolution-differentiated dots (established: 2.5px solid `--ink`, confirmed: 2px solid `--confirm-color`, qualified: 2px dashed `--qualified-color`, consolidating: 2px solid `--ink-muted`). Case header: 12px mono 700 ref + EvolutionTag + regulation tag (9px mono, `--border` border) + year + star. Factum: 16px serif `--ink-tertiary`. Assessment: 16px serif 600 `--ink`. Quotes: `--paper-dark` bg, `--border` border, copy-on-hover. Nuances: AlertTriangle + `--nuance-color` label. Lineage: 10px toggle, 2px `--ai-border` left border, italic serif. Boundary notes: collapsible section toggle (11px sans 600 uppercase). Tension block at top: `--tension-border`/`--tension-bg`, "Gå til" cross-link with underline hover. State resets when switching rules.
 
 ### Reading View (Fullscreen)
 720px max-width + 240px sidebar. KI-screening as collapsible structured layer (factum → assessment → proposition → quotes). Sticky section tabs. Paragraph anchors (48px column, click to copy ref). KI-quoted paragraphs: 2px `border-left` ai-accent + Sparkles. Cross-refs as `.ref-link` (dotted underline, `--ref-link` color). Sidebar: related cases + provisions.
@@ -327,7 +327,10 @@ JetBrains Mono, `--paper-dark` bg, `--border` border, 2px 8px. Secondary: dashed
 `--paper-dark` bg, `--border` border. Copy button on hover. Avsnitt ref in mono 10px.
 
 ### Action Button (shared)
-Defined globally in `tokens.css`. 11px Albert Sans 500, 4px 12px padding, 2px radius, `--border` border, `--ink-tertiary` text. `.ai` variant: `--ai-border` / `--ai-accent`. Used in register rows, reading panel, scope panel.
+Defined globally in `tokens.css`. 11px Albert Sans 500, 4px 12px padding, 2px radius, `--border` border, `--ink-tertiary` text. `.ai` variant: `--ai-border` / `--ai-accent`. Used in register rows, reading panel, scope panel, rettssetningsregister.
+
+### Primary Button (shared)
+Defined globally in `tokens.css` as `.btn-primary`. 12px Albert Sans 500, 8px 16px padding, 2px radius, `--btn-primary-bg`/`--btn-primary-fg`. Hover: `--btn-primary-hover`. Used for "Eksporter til Notat", "Lagre" edit actions.
 
 ### Bulk Action Bar
 Inverted surface — hardcoded `#1C1B1A` bg with `#F8F6F1` text. Works in both color modes. Floats bottom-center with `mockup-slide-up` entrance animation (200ms).
@@ -379,7 +382,7 @@ All elements: default, hover, active (scale 0.97–0.98), focus-visible (`outlin
 
 - **Phase colors on structural elements** — monochrome now, may aid scanning at scale
 - **Search behavior in portfolio** — undefined
-- **Grafvisningen** — undesigned, direction: controlled constellation
+- **Grafvisningen** — implemented as mockup prototype
 - **Notat-perspektivet** — undesigned, should feel like text editor
 - **"Marker som Rettssetning" flow** — should offer "Opprett ny" or "Knytt til eksisterende"
 - **AI-assisted grouping** — tags are user-set, KI suggestion open
