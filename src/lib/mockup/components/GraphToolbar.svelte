@@ -42,6 +42,9 @@
 
 <div class="graph-toolbar">
   <div class="toolbar-left">
+    <!-- FUTURE: Delspørsmålsfilter dropdown her, venstre for tab-toggle.
+         Krever: caseNodes[].subProblems: string[] koblet mot scopeData.subProblems[].id
+         Se paragraf-graf-v4.jsx kommentar "DELSPØRSMÅLSFILTER" for spec. -->
     <div class="tab-toggle">
       {#each TABS as tab, i}
         {#if i > 0}
@@ -75,6 +78,9 @@
     <span class="counter">
       {caseCount} saker &middot; {provCount} best.{#if isolatedCount > 0} &middot; {isolatedCount} isolert{/if}
     </span>
+    <!-- FUTURE: Kronologisk akse-toggle her. "Tid"-knapp som legger til forceX
+         basert på år, med subtile årstallslabels langs bunnen.
+         Se paragraf-graf-v4.jsx kommentar "KRONOLOGISK AKSE" for spec. -->
     <button class="toolbar-btn" onclick={onZoomOut} title="Zoom ut">
       <ZoomOut size={14} />
     </button>

@@ -190,6 +190,9 @@
         <button class="action-btn full">
           <ExternalLink size={12} /> Åpne i lesevisning
         </button>
+        <!-- FUTURE: Kryssnavigasjon — "Vis i Saksoversikten" og "Vis i Rettssetninger".
+             Krever: delt selectedCaseId-state mellom perspektiver via parent.
+             Se paragraf-graf-v4.jsx kommentar "KRYSSNAVIGASJON" for spec. -->
       </div>
     {/if}
 

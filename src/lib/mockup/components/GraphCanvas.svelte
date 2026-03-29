@@ -121,6 +121,8 @@
       .force('center', forceCenter(cx, cy).strength(0.04))
       .force('collide', forceCollide().radius((d: any) => d.type === 'provision' ? 50 : 45).strength(0.6))
       .force('radial', forceRadial((d: any) => getCatRadius(d), cx, cy).strength((d: any) => d.type === 'provision' ? 0.02 : 0.05))
+      // FUTURE: Kronologisk akse — legg til .force('timeX', forceX(...)) her
+      // når "Tid"-toggle er aktiv. Se paragraf-graf-v4.jsx for parametre.
       .alpha(1)
       .alphaDecay(0.025);
 
