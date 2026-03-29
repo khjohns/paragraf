@@ -137,3 +137,40 @@
   outline: 2px solid var(--control-border-focus);
   outline-offset: 2px;
 }
+
+/* ── Shared action button ── */
+.mockup-root .action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 500;
+  padding: 4px 12px;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--ink-tertiary);
+}
+
+.mockup-root .action-btn:hover {
+  border-color: var(--border-strong);
+  color: var(--ink);
+}
+
+.mockup-root .action-btn.ai {
+  border-color: var(--ai-border);
+  color: var(--ai-accent);
+}
+
+.mockup-root .action-btn.ai:hover {
+  border-color: var(--ai-accent);
+  background: var(--ai-bg);
+}
+
+/* ── Active press state for all buttons ── */
+.mockup-root button:active {
+  transform: scale(0.98);
+}

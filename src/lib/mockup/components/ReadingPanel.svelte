@@ -48,7 +48,7 @@
     <!-- No AI assessment prompt -->
     {#if !selectedCase.ai_screening}
       <div class="no-ai-prompt">
-        <Sparkles size={20} color="var(--ai-accent)" />
+        <Sparkles size={20} color="var(--ai-accent)" style="opacity: 0.7" />
         <div class="no-ai-title">Ingen KI-vurdering ennå</div>
         <p class="no-ai-text">
           Vil du at maskinen skal skumlese saken og foreslå kategori og rettssetning?
@@ -74,8 +74,8 @@
 <style>
   .reading-panel {
     width: 420px;
+    min-width: 420px;
     flex-shrink: 0;
-    border-left: 1px solid var(--border);
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -227,37 +227,6 @@
   }
 
   /* Buttons */
-  .action-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    font-family: var(--font-sans);
-    font-size: 11px;
-    font-weight: 500;
-    padding: 4px 12px;
-    border-radius: 2px;
-    cursor: pointer;
-    transition: all 0.15s ease;
-    border: 1px solid var(--border);
-    background: transparent;
-    color: var(--ink-tertiary);
-  }
-
-  .action-btn:hover {
-    border-color: var(--border-strong);
-    color: var(--ink);
-  }
-
-  .action-btn.ai {
-    border-color: var(--ai-border);
-    color: var(--ai-accent);
-  }
-
-  .action-btn.ai:hover {
-    border-color: var(--ai-accent);
-    background: var(--ai-bg);
-  }
-
   .primary-btn {
     display: inline-flex;
     align-items: center;

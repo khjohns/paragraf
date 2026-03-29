@@ -171,7 +171,13 @@
           </div>
 
           {#each visibleItems as analysis}
-            <IndexRow {analysis} {viewScope} allTags={allKnownTags} onSetTag={handleSetTag} />
+            <IndexRow
+              {analysis}
+              {viewScope}
+              allTags={allKnownTags}
+              onSetTag={handleSetTag}
+              onclick={() => (window.location.href = '/mockup/analyse')}
+            />
           {/each}
         </div>
       {/each}
@@ -363,6 +369,7 @@
     font-family: var(--font-mono);
     font-size: 11px;
     color: var(--ink-muted);
+    font-variant-numeric: tabular-nums;
   }
 
   .empty-state {
@@ -423,6 +430,7 @@
     border: 1px solid var(--border);
     padding: 2px 4px;
     border-radius: 2px;
+    font-variant-numeric: tabular-nums;
   }
 
   /* New analysis row */

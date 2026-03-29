@@ -183,7 +183,7 @@
 <style>
   .scope-panel {
     width: 360px;
-    border-right: 1px solid var(--border);
+    min-width: 360px;
     display: flex;
     flex-direction: column;
     flex-shrink: 0;

@@ -10,15 +10,23 @@
     viewScope,
     allTags,
     onSetTag,
+    onclick,
   }: {
     analysis: MockAnalysis;
     viewScope: string;
     allTags: string[];
     onSetTag: (id: string, tag: string) => void;
+    onclick?: () => void;
   } = $props();
 </script>
 
-<div class="index-row" tabindex="0" role="button">
+<div
+  class="index-row"
+  tabindex="0"
+  role="button"
+  {onclick}
+  onkeydown={(e) => e.key === 'Enter' && onclick?.()}
+>
   <div class="row-dot"></div>
 
   <div class="row-content">

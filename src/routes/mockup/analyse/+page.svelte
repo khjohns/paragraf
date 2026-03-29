@@ -23,9 +23,16 @@
   let displayedCase = $state<MockCandidate | null>(null);
   let selectedRows = $state<string[]>([]);
 
-  // Keep last case visible during close animation
+  // Keep last case visible during close animation, clear after transition
   $effect(() => {
-    if (selectedCase) displayedCase = selectedCase;
+    if (selectedCase) {
+      displayedCase = selectedCase;
+    } else {
+      const timer = setTimeout(() => {
+        displayedCase = null;
+      }, 250);
+      return () => clearTimeout(timer);
+    }
   });
 
   let visibleCases = $derived(
@@ -183,6 +190,7 @@
                 class="col-check"
                 onclick={(e) => toggleRowSelection(c.id, e)}
                 role="checkbox"
+                aria-checked={isChecked}
                 tabindex="0"
               >
                 {#if isChecked}
@@ -441,18 +449,22 @@
     overflow: hidden;
     flex-shrink: 0;
     transition:
-      width 200ms ease-out,
-      min-width 200ms ease-out;
+      width 250ms cubic-bezier(0.16, 1, 0.3, 1),
+      min-width 250ms cubic-bezier(0.16, 1, 0.3, 1),
+      border-color 250ms cubic-bezier(0.16, 1, 0.3, 1);
+    border-color: transparent;
   }
 
   .scope-slot.open {
     width: 360px;
     min-width: 360px;
+    border-right: 1px solid var(--border);
   }
 
   .reading-slot.open {
     width: 420px;
     min-width: 420px;
+    border-left: 1px solid var(--border);
   }
 
   /* Register main area */
@@ -540,6 +552,7 @@
     text-transform: uppercase;
     letter-spacing: 0.06em;
     color: var(--ink-muted);
+    font-variant-numeric: tabular-nums;
     flex-shrink: 0;
     align-items: center;
   }
@@ -707,40 +720,9 @@
     line-height: 1.5;
   }
 
-  /* Action buttons */
-  .action-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    font-family: var(--font-sans);
-    font-size: 11px;
-    font-weight: 500;
-    padding: 4px 12px;
-    border-radius: 2px;
-    cursor: pointer;
-    transition: all 0.15s ease;
-    border: 1px solid var(--border);
-    background: transparent;
-    color: var(--ink-tertiary);
-  }
-
-  .action-btn:hover {
-    border-color: var(--border-strong);
-    color: var(--ink);
-  }
-
-  .action-btn.ai {
-    border-color: var(--ai-border);
-    color: var(--ai-accent);
-  }
-
-  .action-btn.ai:hover {
-    border-color: var(--ai-accent);
-    background: var(--ai-bg);
-  }
-
   /* Bulk bar */
   .bulk-bar {
+    /* Inverted surface — always dark regardless of color mode */
     --bulk-bg: #1c1b1a;
     --bulk-fg: #f8f6f1;
     --bulk-muted: #9e9a93;
@@ -769,6 +751,7 @@
     font-size: 11px;
     font-weight: 600;
     color: var(--bulk-muted);
+    font-variant-numeric: tabular-nums;
   }
 
   .bulk-sep {

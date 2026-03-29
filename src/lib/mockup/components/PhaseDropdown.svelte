@@ -118,6 +118,7 @@
     font-family: var(--font-mono);
     font-size: 10px;
     font-weight: 600;
+    font-variant-numeric: tabular-nums;
     background: var(--ink);
     color: var(--paper);
     border-radius: 2px;
