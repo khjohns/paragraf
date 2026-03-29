@@ -107,7 +107,7 @@
 --ref-link:       #4A6A8B    Cross-reference links in reading view (same as signal-fts)
 ```
 
-> **Note:** `--tension-*`, `--nuance-color`, `--confirm-color`, `--gold-star`, `--qualified-color`, `--ref-link`, and `--noise-svg` are specified for future pages (Rettssetningsregister, Evidence Panel, Reading View). Not yet in `tokens.css` — add when those pages are built.
+> **Note:** `--confirm-color`, `--gold-star`, and `--ref-link` are now in `tokens.css` (added for Reading View). `--tension-*`, `--nuance-color`, `--qualified-color`, and `--noise-svg` are specified for future pages (Rettssetningsregister, Evidence Panel). Not yet in `tokens.css` — add when those pages are built.
 
 ### Phase Colors
 

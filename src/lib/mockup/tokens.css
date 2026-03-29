@@ -35,6 +35,11 @@
   --violet-accent: #6B4C9A;
   --violet-border: rgba(107, 76, 154, 0.18);
 
+  /* ── Semantic: Confirmation / Star / Links ── */
+  --confirm-color: #375E37;
+  --gold-star: #B8941E;
+  --ref-link: #4A6A8B;
+
   /* ── Semantic: Signals ── */
   --signal-fts: #4A6A8B;
   --signal-fts-border: rgba(74, 106, 139, 0.25);
@@ -90,6 +95,10 @@
 
   --violet-accent: #9B82C4;
   --violet-border: rgba(155, 130, 196, 0.20);
+
+  --confirm-color: #8BC48B;
+  --gold-star: #D4B84E;
+  --ref-link: #8BAAC4;
 
   --signal-fts: #8BAAC4;
   --signal-fts-border: rgba(139, 170, 196, 0.25);

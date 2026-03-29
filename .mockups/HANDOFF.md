@@ -9,11 +9,7 @@ React-mockups (JSX) som skal konverteres til Svelte 5-komponenter for en interak
 ### Ferdig bygget
 - **Porteføljeoversikt** (`paragraf-hybrid-v3.jsx` → `/mockup`) — 15 komponenter
 - **Arbeidsflate/Saksoversikt** (`paragraf-arbeidsflate.jsx` → `/mockup/analyse`) — register, scope panel, enkel reading panel
-
-### Neste: Lesevisning
-- **Kilde:** `paragraf-lesevisning.jsx`
-- **Rute:** `/mockup/analyse/les` (eller som fullskjerm-toggle fra arbeidsflaten)
-- **Omfang:** Se [Lesevisning-spesifikasjon](#lesevisning-spesifikasjon) nedenfor
+- **Lesevisning** (`paragraf-lesevisning.jsx` → `/mockup/analyse/les`) — fullskjerm med sidebar, 4 nye komponenter + mockdata
 
 ## Prosess
 
@@ -38,12 +34,14 @@ React-mockups (JSX) som skal konverteres til Svelte 5-komponenter for en interak
 src/routes/mockup/
   +page.svelte                     ← Porteføljeoversikt (/mockup)
   analyse/+page.svelte             ← Arbeidsflate (/mockup/analyse)
+  analyse/les/+page.svelte         ← Lesevisning fullskjerm (/mockup/analyse/les)
 
 src/lib/mockup/
   tokens.css                       ← Designtokens scoped til .mockup-root
   data/                            ← Hardkodet mockdata som typed TS
     portfolio.ts
     analyse.ts
+    lesevisning.ts                 ← KOFA-2025/0999 seksjoner, screening, metadata
   components/                      ← 15 Svelte-komponenter (gjenbrukbare)
     MockupHeader.svelte            ← Sticky header med §-logo, dark mode, avatar
     NavRail.svelte                 ← 48px venstre-rail med 5 ikoner
@@ -60,6 +58,10 @@ src/lib/mockup/
     ExcerptWithMarkers.svelte      ← Tekst med signal-fargede highlights
     ProvisionTag.svelte            ← Mono-tag for bestemmelser
     VennIcon.svelte                ← Custom SVG (to overlappende sirkler)
+    ScreeningLayer.svelte          ← KI-screening: faktum, vurdering, rettssetning, sitater
+    SectionNav.svelte              ← Sticky seksjonstabs (Bakgrunn/Vurdering/Konklusjon)
+    ParagraphRow.svelte            ← Avsnittsrad med anker, tekst, refs, KI-indikator
+    ReadingSidebar.svelte          ← 240px sidebar: relaterte saker + bestemmelser
 ```
 
 ## Konverteringsregler
