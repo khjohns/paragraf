@@ -74,7 +74,7 @@
 <style>
   .screening-layer {
     border: 1px solid var(--ai-border);
-    border-radius: 3px;
+    border-radius: 4px;
     overflow: hidden;
   }
 

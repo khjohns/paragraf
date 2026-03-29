@@ -6,10 +6,12 @@
     sections,
     activeSection,
     onSelect,
+    originalUrl,
   }: {
     sections: Section[];
     activeSection: string;
     onSelect: (id: string) => void;
+    originalUrl?: string;
   } = $props();
 </script>
 
@@ -22,16 +24,13 @@
       </button>
     {/each}
   </div>
-  <div class="section-nav-right">
-    <a
-      href="https://www.klagenemndssekretariatet.no/sak/2025-0999"
-      target="_blank"
-      rel="noopener noreferrer"
-      class="original-link"
-    >
-      Original <ExternalLink size={10} />
-    </a>
-  </div>
+  {#if originalUrl}
+    <div class="section-nav-right">
+      <a href={originalUrl} target="_blank" rel="noopener noreferrer" class="original-link">
+        Original <ExternalLink size={10} />
+      </a>
+    </div>
+  {/if}
 </nav>
 
 <style>

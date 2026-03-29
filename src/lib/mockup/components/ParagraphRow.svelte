@@ -67,10 +67,6 @@
     background: var(--hover-bg);
   }
 
-  .para-row:hover .para-num-btn {
-    opacity: 1;
-  }
-
   .para-highlighted {
     border-left: 2px solid var(--ai-accent);
     margin-left: -2px;
@@ -103,9 +99,13 @@
       color 0.15s ease;
   }
 
+  .para-row:hover .para-num-btn:not(.copied) {
+    opacity: 1;
+  }
+
   .para-num-btn:hover {
-    opacity: 1 !important;
-    color: var(--ink) !important;
+    opacity: 1;
+    color: var(--ink);
   }
 
   .para-num-btn.copied {

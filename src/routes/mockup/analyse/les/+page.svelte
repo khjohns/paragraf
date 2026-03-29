@@ -104,6 +104,7 @@
         sections={MOCK_SECTIONS}
         {activeSection}
         onSelect={(id) => (activeSection = id)}
+        originalUrl="https://www.klagenemndssekretariatet.no/sak/2025-0999"
       />
 
       <div class="rv-content">
