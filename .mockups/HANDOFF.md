@@ -9,11 +9,7 @@ React-mockups (JSX) som skal konverteres til Svelte 5-komponenter for en interak
 ### Ferdig bygget
 - **Porteføljeoversikt** (`paragraf-hybrid-v3.jsx` → `/mockup`) — 15 komponenter
 - **Arbeidsflate/Saksoversikt** (`paragraf-arbeidsflate.jsx` → `/mockup/analyse`) — register, scope panel, enkel reading panel
-
-### Neste: Lesevisning
-- **Kilde:** `paragraf-lesevisning.jsx`
-- **Rute:** `/mockup/analyse/les` (eller som fullskjerm-toggle fra arbeidsflaten)
-- **Omfang:** Se [Lesevisning-spesifikasjon](#lesevisning-spesifikasjon) nedenfor
+- **Lesevisning** (`paragraf-lesevisning.jsx` → `/mockup/analyse/les`) — fullskjerm med sidebar, 4 nye komponenter + mockdata
 
 ## Prosess
 
@@ -33,17 +29,23 @@ React-mockups (JSX) som skal konverteres til Svelte 5-komponenter for en interak
   paragraf-designspec.md           ← Full reasoning bak designvalg
   paragraf-hybrid-v3.jsx           ← Portefølje (FERDIG)
   paragraf-arbeidsflate.jsx        ← Arbeidsflate (FERDIG)
-  paragraf-lesevisning.jsx         ← Lesevisning (NESTE)
+  paragraf-lesevisning.jsx         ← Lesevisning (FERDIG)
+  paragraf-graf-v4.jsx             ← Grafvisning (NESTE)
+  paragraf-designspec-grafvisning.md        ← Designspec: visuell retning, interaksjon, data
+  paragraf-designspec-graf-implementasjon.md ← Implementasjonsarkitektur: d3-force, worker, Layer Cake
+  paragraf-designspec-grafvisning-addendum.md ← Korreksjon panelmodell + manglende tokens
 
 src/routes/mockup/
   +page.svelte                     ← Porteføljeoversikt (/mockup)
   analyse/+page.svelte             ← Arbeidsflate (/mockup/analyse)
+  analyse/les/+page.svelte         ← Lesevisning fullskjerm (/mockup/analyse/les)
 
 src/lib/mockup/
   tokens.css                       ← Designtokens scoped til .mockup-root
   data/                            ← Hardkodet mockdata som typed TS
     portfolio.ts
     analyse.ts
+    lesevisning.ts                 ← KOFA-2025/0999 seksjoner, screening, metadata
   components/                      ← 15 Svelte-komponenter (gjenbrukbare)
     MockupHeader.svelte            ← Sticky header med §-logo, dark mode, avatar
     NavRail.svelte                 ← 48px venstre-rail med 5 ikoner
@@ -60,6 +62,10 @@ src/lib/mockup/
     ExcerptWithMarkers.svelte      ← Tekst med signal-fargede highlights
     ProvisionTag.svelte            ← Mono-tag for bestemmelser
     VennIcon.svelte                ← Custom SVG (to overlappende sirkler)
+    ScreeningLayer.svelte          ← KI-screening: faktum, vurdering, rettssetning, sitater
+    SectionNav.svelte              ← Sticky seksjonstabs (Bakgrunn/Vurdering/Konklusjon)
+    ParagraphRow.svelte            ← Avsnittsrad med anker, tekst, refs, KI-indikator
+    ReadingSidebar.svelte          ← 240px sidebar: relaterte saker + bestemmelser
 ```
 
 ## Konverteringsregler
@@ -167,3 +173,119 @@ Alt med reell verdi fikses. Ikke la "minor" funn ligge — de akkumulerer.
 
 ### 6. Oppdater system.md
 Synkroniser `system.md` med nye tokens, mønstre eller konvensjoner fra implementasjonen.
+
+---
+
+## Grafvisning-spesifikasjon
+
+Kilder:
+- `paragraf-graf-v4.jsx` — React-mockup (57KB, komplett implementasjon med d3-force)
+- `paragraf-designspec-grafvisning.md` — Designspec: visuell retning, nodedesign, kanter, interaksjon, filtrering
+- `paragraf-designspec-graf-implementasjon.md` — Implementasjonsarkitektur: d3-force i Worker, Canvas+SVG hybrid, Svelte Tween
+- `paragraf-designspec-grafvisning-addendum.md` — Panelmodellkorreksjon + manglende tokens
+
+### Rute
+
+`/mockup/analyse/graf` — eller integrert som Nettverk-perspektiv i `/mockup/analyse` via NavRail (Network-ikon).
+
+### Visuell retning
+
+«Kontrollert konstellasjon» — stjernekartalmanakk, ikke hacker-nettverk. Mye luft, editorial typografi, prikker + tekst (ikke kort/bokser). Stram regi med d3-force som organisk layout.
+
+### Komponenter å bygge
+
+- **GraphCanvas** — Hovedkomponent. Layer Cake for koordinatsystem. Canvas-lag for kanter, SVG-lag for noder. Zoom/pan via d3-zoom.
+- **GraphEdgeLayer** — Canvas-rendret kantlag. Solid linjer for siteringer (`--edge-cite`), stiplet for bestemmelsesreferanser (`--edge-color`). Hover-dimming via alpha-endring.
+- **GraphNode** — SVG-node for saker. Prikk + referanse (mono) + kilde/år (sans). Kategori→prikkstil (A:fylt, B:åpen strong, C:åpen 0.4, uvurdert:dashed muted). Størrelse=siteringstakt. Signalprikker (R/F/V) under. Stjerne ved gullkandidater.
+- **GraphProvisionNode** — SVG-node for bestemmelser. Rektangulær, JetBrains Mono, `--paper-dark` bg, `--border` stroke, 5×5px firkantet markør.
+- **GraphDetailPanel** — 380px slide-in fra høyre (0.25s cubic-bezier). Innhold: kategori-badge, signalchips, siteringstakt, KI-proposisjon, siterer/sitert av-lister, bestemmelsestags, «Åpne i lesevisning»-knapp. For bestemmelser: liste over refererende saker.
+- **GraphToolbar** — Minimal bar over grafen. Venstre: kategori-tab-toggle (flervalg) + §-toggle for bestemmelsesnoder. Høyre: teller (`n saker · n best. · n isolert`) + zoom-kontroller (+/−/tilpass).
+- **GraphLegend** — Kollapserbar boks, nederst venstre. 4 kategoritilstander, 2 kanttyper, 3 signalprikker, stjerne, siteringstakt, aktive brukermarkeringer.
+- **NodeTooltip** — 400ms forsinket tooltip. Italic serif 13px, KI-proposisjon, maks 2 linjer. Vises kun når detaljpanelet er lukket.
+- **ColorPicker** — Høyreklikk-kontekstmeny. 5 farger + «fjern». Kompakt. Farge vises som 2.5px ring rundt nodeprikken.
+
+### Tokens å legge til
+
+```
+--edge-color:      svak kantfarge for bestemmelsesreferanser (lys + mørk)
+--edge-cite:       sterkere kantfarge for siteringer (lys + mørk)
+--edge-highlight:  fremhevet kant ved hover (lys + mørk)
+
+Markeringsfarger (brukervalgte, nøytrale):
+--marking-rosa:     #D4727E
+--marking-turkis:   #5AA3A3
+--marking-oransje:  #C4933A
+--marking-lavendel: #9A7EB8
+--marking-salvie:   #7BA37B
+```
+
+### Teknisk arkitektur
+
+1. **d3-force i Web Worker** (`src/lib/workers/graph-layout.worker.ts`). Kun matteberegning — ingen DOM. Sender posisjonstabell tilbake. Parametrisert: `iterations`, `charge`, `linkDistance` skaleres med nodeantall.
+2. **Canvas for kanter** — hundrevis av kanter i ett renderpass. Hover-dimming via alpha. Synkronisert med SVG via `requestAnimationFrame`.
+3. **SVG for noder** — Svelte `{#each}` + DOM-events (hover, klikk, kontekstmeny). ~200 noder × ~6 barn = ~1200 elementer.
+4. **Layer Cake** — koordinerer Canvas + SVG i samme rom, håndterer zoom-transformasjon.
+5. **Svelte `Tween`** for animerte overganger (500ms, cubicInOut). IKKE `Spring` — ingen bounce. `Map<string, { x: Tween, y: Tween }>` per node.
+6. **d3-zoom** for zoom/pan. Eier kun transformasjonen — Svelte eier DOM.
+
+### Datamodell
+
+- **Noder:** Saker (prikk + ref + kategori + signaler + siteringstakt + stjerne) og bestemmelser (rektangulær, stabil).
+- **Kanter:** Sak→sak (sitering, binær, solid) og sak→bestemmelse (referanse, binær, stiplet). Ingen kantvekt, ingen piler.
+- **Kategori→posisjon:** Radial kraft: A→sentrum, B→midtsjikt, C/uvurdert→periferi.
+- **Nodestørrelse:** `citedBy / (nåværendeÅr - avgjørelsesÅr)` — siteringstakt normalisert for alder.
+- **Isolerte noder:** Uten synlige forbindelser. Merket med «isolert» + lav opacity. Talt i toolbar.
+
+### Mockdata
+
+Ny fil: `src/lib/mockup/data/graf.ts`. Strukturelt realistisk norsk KOFA-data:
+- ~20 saksnoder med kategori, signaler, siteringstakt, proposisjon, år, kilde
+- ~6 bestemmelsesnoder (FOA §§)
+- Siteringskanter mellom saker
+- Bestemmelsesreferansekanter
+- Minst 2 isolerte noder, 1–2 gullkandidater, brukermarkeringer
+
+### Interaksjon (oppsummert)
+
+| Handling | Effekt |
+|---|---|
+| Hover node | Dimmer alt ikke-forbundet (0.04–0.08 opacity) |
+| Hover 400ms | Tooltip med KI-proposisjon |
+| Klikk saksnode | Åpner detaljpanel (380px), lukker scope |
+| Klikk bestemmelsesnode | Detaljpanel med refererende saker |
+| Klikk bakgrunn | Lukker detaljpanel, deselekterer |
+| Høyreklikk saksnode | Fargevelger (5 farger + fjern) |
+| Kategorifilter | Flervalg tabs, re-simulering, 500ms Tween-animasjon |
+| §-toggle | Skjul/vis bestemmelsesnoder + kanter |
+
+### Panelmodell
+
+Følger den globale regelen identisk. Aldri tre innholdspaneler samtidig:
+- Scope-ikon → scope (360px) åpnes, graf smalner
+- Klikk node → detaljpanel (380px) åpnes, scope lukkes
+- Scope igjen → scope åpnes, detaljpanel lukkes
+
+### Avhengigheter å installere
+
+```bash
+npm install d3-force d3-zoom layercake
+# d3-force og d3-zoom fra d3 v7, tree-shakable ESM
+```
+
+### Hva som IKKE skal konverteres fra mockupen
+
+- `requestAnimationFrame` + `setPositions()` loop — erstattes av Svelte `Tween`
+- React useRef/useState for posisjon — erstattes av `$state()` og Tween
+- Inline styles i JSX — scoped `<style>` blokker
+- Noise texture overlay — fjernes
+
+### Kvalitetskrav
+
+Skal gjennomføres med **identisk grundighet** som Lesevisning:
+1. Implementer + `npm run check` (null feil)
+2. `/simplify` — kodekvalitet, gjenbruk, effektivitet
+3. `/critique` med `principles.md` — komposisjon, craft, innhold, struktur
+4. QA-sammenligning (mockup vs implementasjon)
+5. **«$100-veddemål»** — selvkritisk gjennomgang av alt som ble bygget
+6. Fiks alle funn
+7. Oppdater `system.md` med nye tokens og mønstre
