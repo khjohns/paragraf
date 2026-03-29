@@ -7,15 +7,17 @@ React-mockups (JSX) som skal konverteres til Svelte 5-komponenter for en interak
 ## Prosess
 
 1. Les denne filen
-2. Les alle `.jsx`/`.tsx`-filer i `.mockups/`-mappen
-3. Les `src/app.css` for eksisterende CSS-variabler og tokens
-4. Planlegg komponentoppdeling (se regler nedenfor)
-5. Implementer i `src/routes/mockup/` og `src/lib/mockup/`
+2. Les `system.md` i denne mappen — den er **fasit for designtokens**, farger, typografi og spacing. Bruk disse tokens i stedet for `app.css` der de avviker.
+3. Les mockup-filene (`.jsx`/`.tsx`) som brukeren ber deg konvertere. Ikke konverter filer brukeren ikke har nevnt.
+4. Les `src/app.css` for å forstå eksisterende CSS-setup (Tailwind-konfig, fonter, resets).
+5. Planlegg komponentoppdeling (se regler nedenfor).
+6. Implementer i `src/routes/mockup/` og `src/lib/mockup/`.
 
 ## Mappestruktur
 
 ```
-.mockups/                          ← React-mockups (input, rør ikke)
+.mockups/                          ← React-mockups + designtokens (input, rør ikke)
+  system.md                        ← FASIT for designtokens og farger
   portfolio.jsx                    ← Eksempel: porteføljeoversikt
   analyse-triage.jsx               ← Eksempel: analyseside
   ...
@@ -26,8 +28,8 @@ src/routes/mockup/
 
 src/lib/mockup/
   data/                            ← Hardkodet mockdata som typed TS
-    portfolio.ts
-    analyse.ts
+    portfolio.ts                   ← Finnes allerede — oppdater ved behov
+    analyse.ts                     ← Finnes allerede — oppdater ved behov
   components/                      ← Svelte-komponenter
     AnalysisCard.svelte
     ScopePanel.svelte
@@ -48,25 +50,25 @@ src/lib/mockup/
 
 ### Styling
 - Bruk `<style>` scoped i hver komponent — IKKE inline `style={{}}`.
-- Bruk eksisterende CSS-variabler fra `app.css` der de passer (farger, spacing, radius).
-- Nye tokens som ikke finnes i `app.css`: definer som CSS custom properties i komponentens `<style>`.
+- **Designtokens:** `system.md` i `.mockups/` er fasit. Definer nye CSS custom properties i `:root` eller i komponentens `<style>` etter behov.
 - Tailwind er tilgjengelig (`@import "tailwindcss"` i app.css) — bruk det for layout (flex, grid, gap) men hold farger/spacing i CSS-variabler.
-- INGEN `dangerouslySetInnerHTML` / `{@html}` for styling. Bruk ekte CSS.
+- INGEN `{@html}` for styling. `{@html}` er kun tillatt for innholdstekst (lovtekst med markering) — aldri for layout eller styling.
 
 ### Data
-- All mockdata i `src/lib/mockup/data/` som TypeScript med interfaces.
+- Mockdata i `src/lib/mockup/data/` som TypeScript med interfaces.
+- Filer finnes allerede — oppdater eller utvid ved behov, ikke lag fra scratch.
 - Gjenbruk eksisterende typer fra `src/lib/types/` der det gir mening.
 - Mockdata skal være realistisk (norsk tekst, ekte bestemmelsesreferanser, plausible tall).
 
 ### Fonter
-- Bruk fontene som allerede er definert i `app.css`: `var(--font-ui)` (Inter) og `var(--font-data)` (JetBrains Mono).
-- Hvis mockupen bruker en serif-font (f.eks. EB Garamond), avklar med bruker om den skal beholdes eller erstattes med Inter.
+- `system.md` definerer hvilke fonter som brukes. Følg den.
+- Hvis mockupen bruker en font som ikke er i `system.md`, avklar med bruker.
 
 ### Hva som IKKE skal konverteres
-- Google Fonts `@import`-linjer — bruk eksisterende fonter eller avklar.
-- SVG noise textures — avklar med bruker.
+- Google Fonts `@import`-linjer — definer fonter i CSS, ikke som runtime imports.
+- SVG noise textures — fjern med mindre `system.md` spesifiserer det.
 - Staggered load-animasjoner — fjern med mindre bruker eksplisitt ber om dem.
-- `dangerouslySetInnerHTML` — erstatt med Svelte markup.
+- `dangerouslySetInnerHTML` — erstatt med Svelte markup (unntak: innholdstekst, se over).
 - Lucide React-ikoner — bruk `lucide-svelte` eller inline SVG.
 
 ### Kvalitet
