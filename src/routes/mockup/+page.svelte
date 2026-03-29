@@ -1,5 +1,6 @@
 <script lang="ts">
   import '$lib/mockup/tokens.css';
+  import { fade } from 'svelte/transition';
   import { Plus, Search } from 'lucide-svelte';
   import MockupHeader from '$lib/mockup/components/MockupHeader.svelte';
   import ScopeToggle from '$lib/mockup/components/ScopeToggle.svelte';
@@ -140,7 +141,9 @@
 
     <!-- FORTSETT DER DU SLAPP -->
     {#if viewScope === 'mine' && activeAnalysis && effectivePhases.length === 0}
-      <ContinueCard analysis={activeAnalysis} />
+      <div transition:fade={{ duration: 150 }}>
+        <ContinueCard analysis={activeAnalysis} />
+      </div>
     {/if}
 
     <!-- INDEKS -->

@@ -1,5 +1,6 @@
 <script lang="ts">
   import '$lib/mockup/tokens.css';
+  import { fly, slide } from 'svelte/transition';
   import { Sun, Moon, Sparkles, Eye, ChevronRight, Square, CheckSquare, X } from 'lucide-svelte';
   import NavRail from '$lib/mockup/components/NavRail.svelte';
   import ScopePanel from '$lib/mockup/components/ScopePanel.svelte';
@@ -107,7 +108,9 @@
 
     <!-- SCOPE PANEL -->
     {#if isScopeOpen}
-      <ScopePanel />
+      <div transition:fly={{ x: -360, duration: 200 }}>
+        <ScopePanel />
+      </div>
     {/if}
 
     <!-- MAIN REGISTER -->
@@ -253,7 +256,11 @@
 
             <!-- Expanded AI row -->
             {#if isExpanded && c.ai_screening}
-              <div class="ai-expanded" onclick={(e) => e.stopPropagation()}>
+              <div
+                class="ai-expanded"
+                transition:slide={{ duration: 150 }}
+                onclick={(e) => e.stopPropagation()}
+              >
                 <div class="ai-expanded-card">
                   <div class="ai-expanded-label">
                     KI foreslår: Kategori {c.ai_screening.category}
@@ -285,7 +292,9 @@
 
     <!-- READING PANEL -->
     {#if selectedCase}
-      <ReadingPanel {selectedCase} onClose={() => (selectedCase = null)} />
+      <div transition:fly={{ x: 420, duration: 200 }}>
+        <ReadingPanel {selectedCase} onClose={() => (selectedCase = null)} />
+      </div>
     {/if}
   </div>
 </div>
