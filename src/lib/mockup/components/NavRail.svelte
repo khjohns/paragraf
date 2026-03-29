@@ -1,7 +1,7 @@
 <script lang="ts">
   import { Search, List, Network, BookOpen, PenTool } from 'lucide-svelte';
 
-  export type Perspective = 'list' | 'graph';
+  export type Perspective = 'list' | 'graph' | 'registry';
 
   let {
     isScopeOpen = false,
@@ -43,7 +43,12 @@
     <Network size={16} />
   </button>
 
-  <button class="nav-btn" title="Rettssetninger">
+  <button
+    class="nav-btn"
+    class:active={activePerspective === 'registry'}
+    title="Rettssetninger"
+    onclick={() => onSwitchPerspective?.('registry')}
+  >
     <BookOpen size={16} />
   </button>
 
