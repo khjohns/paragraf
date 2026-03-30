@@ -1,12 +1,16 @@
 <script lang="ts">
   import { Sparkles, Check, Star, Scale, Edit3, Plus, X } from 'lucide-svelte';
   import EvidencePanel from './EvidencePanel.svelte';
+  import TimelineView from './TimelineView.svelte';
   import {
     MOCK_RETTSSETNINGER,
     THEMES,
     groupByTheme,
     type Rettssetning,
   } from '$lib/mockup/data/rettssetninger';
+
+  type SubView = 'list' | 'timeline';
+  let subView = $state<SubView>('list');
 
   let rules = $state<Rettssetning[]>([...MOCK_RETTSSETNINGER]);
   let selectedRuleId = $state<string | null>(MOCK_RETTSSETNINGER[0].id);
@@ -55,124 +59,150 @@
   }
 </script>
 
-<div class="registry-layout">
+<div class="registry-layout" class:timeline-active={subView === 'timeline'}>
   <!-- MAIN REGISTER -->
   <main class="register">
     <div class="register-header">
-      <h2 class="register-title">Rettssetninger</h2>
-      <p class="register-subtitle">
-        {rules.length} rettssetninger i {THEMES.length} temaer &mdash;
-        {aiCount} KI-foreslåtte &middot;
-        {tensionCount} spenning{tensionCount !== 1 ? 'er' : ''}
-      </p>
-    </div>
-
-    <div class="register-body">
-      {#each groupedByTheme as group, gi}
-        <!-- Theme header -->
-        <div class="theme-header" class:core={gi === 0}>
-          <h3 class="theme-title" class:core={gi === 0}>{group.theme}</h3>
+      <div class="header-top">
+        <div>
+          <h2 class="register-title">Rettssetninger</h2>
+          <p class="register-subtitle">
+            {rules.length} rettssetninger i {THEMES.length} temaer &mdash;
+            {aiCount} KI-foreslåtte &middot;
+            {tensionCount} spenning{tensionCount !== 1 ? 'er' : ''}
+          </p>
         </div>
-
-        {#each group.rules as r (r.id)}
-          {@const isSelected = selectedRuleId === r.id}
-          {@const isEditing = editingRuleId === r.id}
-          {@const starCount = r.cases.filter((c) => c.star).length}
-
-          <!-- svelte-ignore a11y_click_events_have_key_events -->
-          <!-- svelte-ignore a11y_no_static_element_interactions -->
-          <div
-            class="register-row"
-            class:row-active={isSelected}
-            class:ai-border={r.isAiGenerated && !isSelected}
-            onclick={() => handleRowClick(r.id)}
+        <div class="subview-switcher">
+          <button
+            class="subview-btn"
+            class:active={subView === 'list'}
+            onclick={() => (subView = 'list')}>Liste</button
           >
-            <div class="rule-row">
-              <!-- Col 1: Proposition -->
-              <div class="prop-col">
-                <div class="prop-topic">{r.topic}</div>
-
-                {#if isEditing}
-                  <!-- svelte-ignore a11y_click_events_have_key_events -->
-                  <!-- svelte-ignore a11y_no_static_element_interactions -->
-                  <div onclick={(e) => e.stopPropagation()}>
-                    <textarea class="edit-textarea" bind:value={editBuffer}></textarea>
-                    <div class="edit-actions">
-                      <button class="action-btn" onclick={cancelEdit}>Avbryt</button>
-                      <button class="btn-primary" onclick={() => saveEdit(r.id)}>
-                        <Check size={12} /> Lagre
-                      </button>
-                    </div>
-                  </div>
-                {:else}
-                  <div class="prop-text" class:ai={r.isAiGenerated}>
-                    {r.proposition}
-                  </div>
-                {/if}
-
-                <!-- Tension indicator -->
-                {#if r.tension && !isEditing}
-                  {@const tensionTopic = tensionTargetMap.get(r.id)}
-                  {#if tensionTopic}
-                    <div class="tension-indicator">
-                      <Scale size={12} />
-                      <span>Spenning med: {tensionTopic}</span>
-                    </div>
-                  {/if}
-                {/if}
-              </div>
-
-              <!-- Col 2: Status -->
-              <div class="status-col">
-                {#if r.isAiGenerated}
-                  <div class="status-badge ai">
-                    <Sparkles size={11} />
-                    <span>KI-utkast</span>
-                  </div>
-                {:else}
-                  <div class="status-badge verified">
-                    <Check size={11} />
-                    <span>Verifisert</span>
-                  </div>
-                {/if}
-                <div class="status-meta">Sist: {r.lastEditedBy}</div>
-              </div>
-
-              <!-- Col 3: Omfang -->
-              <div class="scope-col">
-                <span class="scope-count">{r.cases.length} forekomster</span>
-                <span class="scope-years">{r.yearSpan}</span>
-                {#if starCount > 0}
-                  <span class="scope-stars">
-                    <Star size={11} fill="currentColor" />
-                    {starCount}
-                  </span>
-                {/if}
-              </div>
-
-              <!-- Col 4: Edit -->
-              <div class="edit-col">
-                {#if !isEditing}
-                  <button class="edit-btn" onclick={(e) => startEditing(r, e)} title="Rediger">
-                    <Edit3 size={14} />
-                  </button>
-                {/if}
-              </div>
-            </div>
-          </div>
-        {/each}
-      {/each}
-
-      <div class="add-row">
-        <button class="action-btn add-btn">
-          <Plus size={14} /> Opprett ny rettssetning
-        </button>
+          <button
+            class="subview-btn"
+            class:active={subView === 'timeline'}
+            onclick={() => (subView = 'timeline')}>Tidslinje</button
+          >
+        </div>
       </div>
     </div>
+
+    {#if subView === 'timeline'}
+      <TimelineView
+        {rules}
+        onSelectRule={(id) => {
+          subView = 'list';
+          selectedRuleId = id;
+        }}
+      />
+    {:else}
+      <div class="register-body">
+        {#each groupedByTheme as group, gi}
+          <!-- Theme header -->
+          <div class="theme-header" class:core={gi === 0}>
+            <h3 class="theme-title" class:core={gi === 0}>{group.theme}</h3>
+          </div>
+
+          {#each group.rules as r (r.id)}
+            {@const isSelected = selectedRuleId === r.id}
+            {@const isEditing = editingRuleId === r.id}
+            {@const starCount = r.cases.filter((c) => c.star).length}
+
+            <!-- svelte-ignore a11y_click_events_have_key_events -->
+            <!-- svelte-ignore a11y_no_static_element_interactions -->
+            <div
+              class="register-row"
+              class:row-active={isSelected}
+              class:ai-border={r.isAiGenerated && !isSelected}
+              onclick={() => handleRowClick(r.id)}
+            >
+              <div class="rule-row">
+                <!-- Col 1: Proposition -->
+                <div class="prop-col">
+                  <div class="prop-topic">{r.topic}</div>
+
+                  {#if isEditing}
+                    <!-- svelte-ignore a11y_click_events_have_key_events -->
+                    <!-- svelte-ignore a11y_no_static_element_interactions -->
+                    <div onclick={(e) => e.stopPropagation()}>
+                      <textarea class="edit-textarea" bind:value={editBuffer}></textarea>
+                      <div class="edit-actions">
+                        <button class="action-btn" onclick={cancelEdit}>Avbryt</button>
+                        <button class="btn-primary" onclick={() => saveEdit(r.id)}>
+                          <Check size={12} /> Lagre
+                        </button>
+                      </div>
+                    </div>
+                  {:else}
+                    <div class="prop-text" class:ai={r.isAiGenerated}>
+                      {r.proposition}
+                    </div>
+                  {/if}
+
+                  <!-- Tension indicator -->
+                  {#if r.tension && !isEditing}
+                    {@const tensionTopic = tensionTargetMap.get(r.id)}
+                    {#if tensionTopic}
+                      <div class="tension-indicator">
+                        <Scale size={12} />
+                        <span>Spenning med: {tensionTopic}</span>
+                      </div>
+                    {/if}
+                  {/if}
+                </div>
+
+                <!-- Col 2: Status -->
+                <div class="status-col">
+                  {#if r.isAiGenerated}
+                    <div class="status-badge ai">
+                      <Sparkles size={11} />
+                      <span>KI-utkast</span>
+                    </div>
+                  {:else}
+                    <div class="status-badge verified">
+                      <Check size={11} />
+                      <span>Verifisert</span>
+                    </div>
+                  {/if}
+                  <div class="status-meta">Sist: {r.lastEditedBy}</div>
+                </div>
+
+                <!-- Col 3: Omfang -->
+                <div class="scope-col">
+                  <span class="scope-count">{r.cases.length} forekomster</span>
+                  <span class="scope-years">{r.yearSpan}</span>
+                  {#if starCount > 0}
+                    <span class="scope-stars">
+                      <Star size={11} fill="currentColor" />
+                      {starCount}
+                    </span>
+                  {/if}
+                </div>
+
+                <!-- Col 4: Edit -->
+                <div class="edit-col">
+                  {#if !isEditing}
+                    <button class="edit-btn" onclick={(e) => startEditing(r, e)} title="Rediger">
+                      <Edit3 size={14} />
+                    </button>
+                  {/if}
+                </div>
+              </div>
+            </div>
+          {/each}
+        {/each}
+
+        <div class="add-row">
+          <button class="action-btn add-btn">
+            <Plus size={14} /> Opprett ny rettssetning
+          </button>
+        </div>
+      </div>
+    {/if}
   </main>
 
-  <!-- EVIDENCE PANEL -->
-  {#if selectedRule}
+  <!-- EVIDENCE PANEL (hidden in timeline mode) -->
+  {#if selectedRule && subView === 'list'}
     <div class="evidence-slot">
       <EvidencePanel
         rule={selectedRule}
@@ -199,10 +229,49 @@
     overflow: hidden;
   }
 
+  /* When timeline is active, hide evidence panel and let timeline fill space */
+  .registry-layout.timeline-active {
+    display: flex;
+    flex-direction: column;
+  }
+
   .register-header {
     padding: 20px 24px 12px;
     flex-shrink: 0;
     border-bottom: 2px solid var(--ink);
+  }
+
+  .header-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+  }
+
+  .subview-switcher {
+    display: flex;
+    border-radius: 2px;
+    border: 1px solid var(--border);
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+  .subview-btn {
+    all: unset;
+    cursor: pointer;
+    padding: 4px 14px;
+    font-family: var(--font-sans);
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--ink-tertiary);
+    background: transparent;
+  }
+  .subview-btn:hover:not(.active) {
+    background: var(--hover-bg);
+  }
+  .subview-btn.active {
+    background: var(--ink);
+    color: var(--paper);
+    font-weight: 600;
   }
 
   .register-title {
