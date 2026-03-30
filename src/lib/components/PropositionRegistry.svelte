@@ -3,12 +3,7 @@
   import { pipelineState } from '$lib/stores/pipeline.svelte';
   import { crossPropositions } from '$lib/api/analyses';
   import { toastState } from '$lib/stores/toast.svelte';
-  import {
-    EVOLUTION_CONFIG,
-    type Proposition,
-    type PropositionInstance,
-    type EvolutionType,
-  } from '$lib/types/analysis';
+  import { EVOLUTION_CONFIG, type Proposition, type EvolutionType } from '$lib/types/analysis';
   import TimelineView from './TimelineView.svelte';
 
   type RegistrySubView = 'list' | 'timeline';
@@ -53,16 +48,17 @@
     collapsed = next;
   }
 
-  // Group propositions by theme
-  let themes = $derived([...new Set(pipelineState.propositions.map((p) => p.theme))]);
-
+  // Group propositions by theme (single pass)
   let propositionsByTheme = $derived.by(() => {
     const map: Record<string, Proposition[]> = {};
-    for (const theme of themes) {
-      map[theme] = pipelineState.propositions.filter((p) => p.theme === theme);
+    for (const p of pipelineState.propositions) {
+      if (!map[p.theme]) map[p.theme] = [];
+      map[p.theme].push(p);
     }
     return map;
   });
+
+  let themes = $derived(Object.keys(propositionsByTheme));
 
   let hasPropositions = $derived(pipelineState.propositions.length > 0);
 

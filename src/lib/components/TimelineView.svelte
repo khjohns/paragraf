@@ -12,13 +12,15 @@
   // Selected propositions for swim lanes (max 4)
   let selectedIds = $state<Set<string>>(new Set());
 
-  // Auto-select first 3 if none selected
   let selectedPropositions = $derived.by(() => {
     if (selectedIds.size === 0) {
       return propositions.slice(0, 3);
     }
     return propositions.filter((p) => selectedIds.has(p.id));
   });
+
+  // Pre-compute selected set for O(1) chip lookups in auto-select mode
+  let selectedIdSet = $derived(new Set(selectedPropositions.map((p) => p.id)));
 
   let isAutoSelected = $derived(selectedIds.size === 0);
 
@@ -36,65 +38,77 @@
     selectedIds = new Set();
   }
 
-  // Build the time axis: collect all years across selected propositions
-  let timeAxis = $derived.by(() => {
-    const years = new Set<number>();
-    for (const p of selectedPropositions) {
-      for (const inst of p.instances) {
-        const y = parseInt(inst.date.slice(0, 4));
-        if (!isNaN(y)) years.add(y);
-      }
-    }
-    return [...years].sort((a, b) => a - b);
-  });
+  function yearOf(date: string): number {
+    return parseInt(date.slice(0, 4));
+  }
 
-  // Pre-compute event lookup: [propId][year] → instances
-  let eventMap = $derived.by(() => {
-    const map = new Map<string, Map<number, PropositionInstance[]>>();
+  // Single-pass derived: build timeAxis, eventMap (with stored indices), and propYearSets
+  interface IndexedInstance {
+    inst: PropositionInstance;
+    globalIdx: number;
+  }
+
+  let computed = $derived.by(() => {
+    const allYears = new Set<number>();
+    const events = new Map<string, Map<number, IndexedInstance[]>>();
+    const yearSets = new Map<string, Set<number>>();
+
     for (const p of selectedPropositions) {
-      const yearMap = new Map<number, PropositionInstance[]>();
-      for (const inst of p.instances) {
-        const y = parseInt(inst.date.slice(0, 4));
+      const yearMap = new Map<number, IndexedInstance[]>();
+      const pYears = new Set<number>();
+
+      for (let gi = 0; gi < p.instances.length; gi++) {
+        const y = yearOf(p.instances[gi].date);
         if (!isNaN(y)) {
-          const existing = yearMap.get(y) ?? [];
-          existing.push(inst);
-          yearMap.set(y, existing);
+          allYears.add(y);
+          pYears.add(y);
+          const bucket = yearMap.get(y) ?? [];
+          bucket.push({ inst: p.instances[gi], globalIdx: gi });
+          yearMap.set(y, bucket);
         }
       }
-      map.set(p.id, yearMap);
+      events.set(p.id, yearMap);
+      yearSets.set(p.id, pYears);
     }
-    return map;
+
+    const timeAxis = [...allYears].sort((a, b) => a - b);
+    return { timeAxis, events, yearSets };
   });
 
-  function getEventsAt(propId: string, year: number): PropositionInstance[] {
-    return eventMap.get(propId)?.get(year) ?? [];
-  }
-
-  // Pre-compute which years each proposition has events (for connector logic)
-  let propYearSets = $derived.by(() => {
-    const map = new Map<string, Set<number>>();
+  // Pre-compute connector state: for each prop, boolean arrays of hasBefore/hasAfter per timeAxis index
+  let connectors = $derived.by(() => {
+    const cache = new Map<string, { before: boolean[]; after: boolean[] }>();
     for (const p of selectedPropositions) {
-      const years = new Set<number>();
-      for (const inst of p.instances) {
-        const y = parseInt(inst.date.slice(0, 4));
-        if (!isNaN(y)) years.add(y);
+      const years = computed.yearSets.get(p.id);
+      if (!years) continue;
+      const before: boolean[] = [];
+      const after: boolean[] = [];
+      let seen = false;
+      for (let i = 0; i < computed.timeAxis.length; i++) {
+        before.push(seen);
+        if (years.has(computed.timeAxis[i])) seen = true;
       }
-      map.set(p.id, years);
+      let seenAfter = false;
+      for (let i = computed.timeAxis.length - 1; i >= 0; i--) {
+        after[i] = seenAfter;
+        if (years.has(computed.timeAxis[i])) seenAfter = true;
+      }
+      cache.set(p.id, { before, after });
     }
-    return map;
+    return cache;
   });
 
-  function hasEventInRange(propId: string, fromIdx: number, toIdx: number): boolean {
-    const years = propYearSets.get(propId);
-    if (!years) return false;
-    for (let i = fromIdx; i < toIdx; i++) {
-      if (years.has(timeAxis[i])) return true;
-    }
-    return false;
+  function getEventsAt(propId: string, year: number): IndexedInstance[] {
+    return computed.events.get(propId)?.get(year) ?? [];
   }
 
-  // CSS grid columns as custom property
+  // CSS grid columns
   let gridColumns = $derived(`48px ${selectedPropositions.map(() => '1fr').join(' ')}`);
+
+  // Pre-compute tension targets for column headers
+  let tensionTargetIds = $derived(
+    new Set(selectedPropositions.filter((p) => p.tension).map((p) => p.tension!.withId))
+  );
 
   function evoColor(type: EvolutionType): string {
     return EVOLUTION_CONFIG[type]?.color ?? 'var(--p-ink3)';
@@ -116,7 +130,6 @@
     return text.length > maxLen ? text.slice(0, maxLen) + '\u2026' : text;
   }
 
-  // Expanded event
   let expandedEvent = $state<{ propId: string; instIdx: number } | null>(null);
 
   function toggleEvent(propId: string, instIdx: number) {
@@ -141,7 +154,7 @@
       <span class="selector-label">Rettssetninger i tidslinjen</span>
       <span class="selector-hint">
         {#if isAutoSelected}
-          {selectedPropositions.length} første vist
+          {selectedPropositions.length} f\u00f8rste vist
         {:else}
           {selectedIds.size} av maks 4
         {/if}
@@ -152,9 +165,7 @@
     </div>
     <div class="selector-chips">
       {#each propositions as prop}
-        {@const isSelected = isAutoSelected
-          ? selectedPropositions.some((p) => p.id === prop.id)
-          : selectedIds.has(prop.id)}
+        {@const isSelected = selectedIdSet.has(prop.id)}
         <button
           class="chip"
           class:active={isSelected}
@@ -174,7 +185,7 @@
     <div class="empty-timeline">
       <span>Velg minst \u00e9n rettssetning for \u00e5 vise tidslinjen.</span>
     </div>
-  {:else if timeAxis.length === 0}
+  {:else if computed.timeAxis.length === 0}
     <div class="empty-timeline">
       <span>Ingen forekomster funnet for valgte rettssetninger.</span>
     </div>
@@ -183,7 +194,6 @@
       <!-- Column headers -->
       <div class="grid-header" style:grid-template-columns={gridColumns}>
         <div class="year-header">
-          <!-- Bias note in corner -->
           <button
             class="bias-toggle"
             onclick={() => (showBiasNote = !showBiasNote)}
@@ -201,8 +211,7 @@
           </button>
         </div>
         {#each selectedPropositions as prop}
-          {@const hasTension =
-            prop.tension && selectedPropositions.some((p) => p.id === prop.tension?.withId)}
+          {@const hasTension = prop.tension != null && tensionTargetIds.has(prop.id)}
           <div class="col-header" class:has-tension={hasTension}>
             <span class="col-label">{truncate(prop.proposition, 80)}</span>
             <span class="col-meta">
@@ -216,7 +225,6 @@
         {/each}
       </div>
 
-      <!-- Bias note (below header, full width) -->
       {#if showBiasNote}
         <div class="bias-bar">
           Eldre saker har flere siteringer fordi de har hatt lengre tid til \u00e5 bli sitert.
@@ -225,70 +233,65 @@
 
       <!-- Timeline rows -->
       <div class="grid-body">
-        {#each timeAxis as year, rowIdx}
+        {#each computed.timeAxis as year, rowIdx}
           <div class="grid-row" style:grid-template-columns={gridColumns}>
-            <!-- Year label -->
             <div class="year-cell">
               <span class="year-label">{year}</span>
             </div>
 
-            <!-- Swim lane cells -->
-            {#each selectedPropositions as prop, colIdx}
+            {#each selectedPropositions as prop}
               {@const events = getEventsAt(prop.id, year)}
               {@const hasEventThisYear = events.length > 0}
-              {@const hasBefore = hasEventInRange(prop.id, 0, rowIdx)}
-              {@const hasAfter = hasEventInRange(prop.id, rowIdx + 1, timeAxis.length)}
+              {@const conn = connectors.get(prop.id)}
+              {@const hasBefore = conn?.before[rowIdx] ?? false}
+              {@const hasAfter = conn?.after[rowIdx] ?? false}
               {@const showConnector = !hasEventThisYear && hasBefore && hasAfter}
 
-              <div class="lane-cell" class:has-connector={showConnector || hasEventThisYear}>
-                <!-- Vertical connector line (through dot or through empty cell) -->
+              <div class="lane-cell">
                 {#if (hasBefore && hasEventThisYear) || showConnector}
-                  <div class="lane-line" class:through-event={hasEventThisYear}></div>
+                  <div class="lane-line"></div>
                 {/if}
 
-                {#if events.length > 0}
-                  {#each events as inst, eIdx}
-                    {@const instGlobalIdx = prop.instances.indexOf(inst)}
-                    {@const isExpanded =
-                      expandedEvent?.propId === prop.id && expandedEvent?.instIdx === instGlobalIdx}
-                    <button
-                      class="event-node"
-                      class:dashed={isDashed(inst.evolution)}
-                      class:expanded={isExpanded}
-                      onclick={() => toggleEvent(prop.id, instGlobalIdx)}
+                {#each events as { inst, globalIdx }}
+                  {@const isExpanded =
+                    expandedEvent?.propId === prop.id && expandedEvent?.instIdx === globalIdx}
+                  <button
+                    class="event-node"
+                    class:dashed={isDashed(inst.evolution)}
+                    class:expanded={isExpanded}
+                    onclick={() => toggleEvent(prop.id, globalIdx)}
+                  >
+                    <div
+                      class="event-dot"
+                      style:background={evoColor(inst.evolution)}
+                      style:border-color={evoColor(inst.evolution)}
+                    ></div>
+                    <span class="event-case">{inst.caseId}</span>
+                    <span
+                      class="event-evo"
+                      style:background={evoBg(inst.evolution)}
+                      style:color={evoColor(inst.evolution)}>{evoLabel(inst.evolution)}</span
                     >
-                      <div
-                        class="event-dot"
-                        style:background={evoColor(inst.evolution)}
-                        style:border-color={evoColor(inst.evolution)}
-                      ></div>
-                      <span class="event-case">{inst.caseId}</span>
-                      <span
-                        class="event-evo"
-                        style:background={evoBg(inst.evolution)}
-                        style:color={evoColor(inst.evolution)}>{evoLabel(inst.evolution)}</span
-                      >
-                    </button>
+                  </button>
 
-                    {#if isExpanded}
-                      <div class="event-detail">
-                        <div class="detail-header">
-                          <button
-                            class="detail-case-link"
-                            onclick={() => handleCaseClick(inst.caseId)}
-                          >
-                            {inst.caseId} \u00a7{inst.paragraph}
-                          </button>
-                          <span class="detail-date">{inst.date}</span>
-                          {#if inst.suggested}
-                            <span class="detail-ai">AI-forslag</span>
-                          {/if}
-                        </div>
-                        <div class="detail-quote">\u00ab{inst.quote}\u00bb</div>
+                  {#if isExpanded}
+                    <div class="event-detail">
+                      <div class="detail-header">
+                        <button
+                          class="detail-case-link"
+                          onclick={() => handleCaseClick(inst.caseId)}
+                        >
+                          {inst.caseId} \u00a7{inst.paragraph}
+                        </button>
+                        <span class="detail-date">{inst.date}</span>
+                        {#if inst.suggested}
+                          <span class="detail-ai">AI-forslag</span>
+                        {/if}
                       </div>
-                    {/if}
-                  {/each}
-                {/if}
+                      <div class="detail-quote">\u00ab{inst.quote}\u00bb</div>
+                    </div>
+                  {/if}
+                {/each}
               </div>
             {/each}
           </div>
@@ -516,7 +519,6 @@
     gap: 6px;
   }
 
-  /* Vertical connector line — positioned at the event dot's center (left padding 12 + dot offset ~4 = 16px) */
   .lane-line {
     position: absolute;
     left: 16px;
