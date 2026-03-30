@@ -1,6 +1,6 @@
 <script lang="ts">
   import '$lib/mockup/tokens.css';
-  import { Sun, Moon, ArrowLeft, BookOpen, Plus } from 'lucide-svelte';
+  import { Sun, Moon, ArrowLeft, BookOpen } from 'lucide-svelte';
   import { fade } from 'svelte/transition';
   import ScreeningLayer from '$lib/mockup/components/ScreeningLayer.svelte';
   import SectionNav from '$lib/mockup/components/SectionNav.svelte';
@@ -151,7 +151,7 @@
       </div>
 
       {#if precedentPanelOpen}
-        <div class="rv-content">
+        <div class="rv-content rv-content-panel">
           <PrecedentPanel
             screening={MOCK_SCREENING}
             caseRef={MOCK_CASE_METADATA.ref}
@@ -306,8 +306,12 @@
     padding: 0 24px;
   }
 
-  .rv-content:last-child {
+  .rv-content:last-child:not(.rv-content-panel) {
     padding-bottom: 80px;
+  }
+
+  .rv-content-panel {
+    padding-bottom: 32px;
   }
 
   @keyframes rv-fade-up {

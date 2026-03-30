@@ -9,7 +9,7 @@
     ArrowLeft,
     Star,
   } from 'lucide-svelte';
-  import { slide } from 'svelte/transition';
+  import { slide, fade } from 'svelte/transition';
   import EvolutionTag from './EvolutionTag.svelte';
   import type { Screening } from '$lib/mockup/data/lesevisning';
   import {
@@ -31,7 +31,6 @@
     onClose: () => void;
   } = $props();
 
-  // --- State ---
   // Initial values from screening prop (stable for panel lifetime)
   const initProposition = screening.proposition;
   const initQuotes = screening.quotes;
@@ -42,14 +41,18 @@
   let selectedQuotes = $state<Set<number>>(new Set(initQuotes.map((q) => q.p)));
   let selectedRuleId = $state<string | null>(null);
   let evolution = $state<EvolutionType>('confirmed');
-  let linkedRules = $state<{ ruleId: string; ruleTopic: string; evolution: EvolutionType }[]>([]);
-  let createdRules = $state<{ proposition: string; theme: string }[]>([]);
+
+  // Track the most recent action for the done state
+  let lastAction = $state<
+    | { type: 'created'; theme: string }
+    | { type: 'linked'; ruleTopic: string; evolution: EvolutionType }
+    | null
+  >(null);
+  let actionCount = $state(0);
 
   const existingRules = MOCK_RETTSSETNINGER;
 
   const selectedRule = $derived(existingRules.find((r) => r.id === selectedRuleId) ?? null);
-
-  const hasMarked = $derived(linkedRules.length > 0 || createdRules.length > 0);
 
   // Evolution options for linking (not 'established' — that's the first occurrence)
   const LINK_EVOLUTIONS: { type: EvolutionType; label: string; desc: string }[] = [
@@ -66,21 +69,19 @@
   }
 
   function handleCreate() {
-    createdRules = [...createdRules, { proposition: propositionText, theme }];
+    lastAction = { type: 'created', theme };
+    actionCount++;
     step = 'done';
   }
 
   function handleLink() {
     if (!selectedRule) return;
-    linkedRules = [
-      ...linkedRules,
-      { ruleId: selectedRule.id, ruleTopic: selectedRule.topic, evolution },
-    ];
+    lastAction = { type: 'linked', ruleTopic: selectedRule.topic, evolution };
+    actionCount++;
     step = 'done';
   }
 
   function handleMarkMore() {
-    // Reset for another round
     propositionText = initProposition;
     selectedQuotes = new Set(initQuotes.map((q) => q.p));
     selectedRuleId = null;
@@ -107,7 +108,7 @@
 
   <!-- Step: choose -->
   {#if step === 'choose'}
-    <div class="panel-body">
+    <div class="panel-body" in:fade={{ duration: 120 }}>
       <!-- AI proposition preview -->
       <div class="ai-proposition">
         <span class="field-label ai"><Sparkles size={10} /> Foreslått rettssetning</span>
@@ -141,7 +142,7 @@
 
     <!-- Step: create -->
   {:else if step === 'create'}
-    <div class="panel-body">
+    <div class="panel-body" in:fade={{ duration: 120 }}>
       <button class="back-link" onclick={() => (step = 'choose')}>
         <ArrowLeft size={12} /> Tilbake
       </button>
@@ -177,7 +178,7 @@
                 checked={selectedQuotes.has(q.p)}
                 onchange={() => toggleQuote(q.p)}
               />
-              <span class="quote-check-para">§{q.p}</span>
+              <span class="quote-check-para">Avsnitt {q.p}</span>
               <span class="quote-check-text">«{q.text}»</span>
             </label>
           {/each}
@@ -194,12 +195,12 @@
 
     <!-- Step: link -->
   {:else if step === 'link'}
-    <div class="panel-body">
-      <button class="back-link" onclick={() => (step = 'choose')}>
-        <ArrowLeft size={12} /> Tilbake
-      </button>
-
+    <div class="panel-body" in:fade={{ duration: 120 }}>
       {#if !selectedRuleId}
+        <button class="back-link" onclick={() => (step = 'choose')}>
+          <ArrowLeft size={12} /> Tilbake
+        </button>
+
         <!-- Rule selection list -->
         <span class="field-label">Velg rettssetning</span>
         <div class="rule-list">
@@ -207,6 +208,7 @@
             {@const starCount = r.cases.filter((c) => c.star).length}
             <button class="rule-item" onclick={() => (selectedRuleId = r.id)}>
               <div class="rule-item-main">
+                <span class="rule-item-theme">{r.theme}</span>
                 <span class="rule-item-topic">{r.topic}</span>
                 <p class="rule-item-prop" class:ai={r.isAiGenerated}>{r.proposition}</p>
               </div>
@@ -265,24 +267,21 @@
 
     <!-- Step: done -->
   {:else if step === 'done'}
-    <div class="panel-body">
+    <div class="panel-body" in:fade={{ duration: 120 }}>
       <div class="done-block">
         <div class="done-icon"><Check size={16} /></div>
         <div class="done-content">
-          {#if createdRules.length > 0}
-            {@const last = createdRules[createdRules.length - 1]}
+          {#if lastAction?.type === 'created'}
             <p class="done-text">
-              Ny rettssetning opprettet under <strong>{last.theme}</strong>.
+              Ny rettssetning opprettet under <strong>{lastAction.theme}</strong>.
             </p>
             <p class="done-sub">{caseRef} lagt til som første forekomst.</p>
-          {/if}
-          {#if linkedRules.length > 0}
-            {@const last = linkedRules[linkedRules.length - 1]}
+          {:else if lastAction?.type === 'linked'}
             <p class="done-text">
-              {caseRef} knyttet til <strong>{last.ruleTopic}</strong>.
+              {caseRef} knyttet til <strong>{lastAction.ruleTopic}</strong>.
             </p>
             <p class="done-sub">
-              Evolusjon: {EVOLUTION_CONFIG[last.evolution].label}
+              Evolusjon: {EVOLUTION_CONFIG[lastAction.evolution].label}
             </p>
           {/if}
         </div>
@@ -346,11 +345,7 @@
 
   /* ── Body ── */
   .panel-body {
-    padding: 20px 24px 24px;
-    max-height: 480px;
-    overflow-y: auto;
-    scrollbar-width: thin;
-    scrollbar-color: var(--border-strong) transparent;
+    padding: 20px 24px 28px;
   }
 
   /* ── AI Proposition (step: choose) ── */
@@ -549,7 +544,7 @@
     display: flex;
     align-items: baseline;
     gap: 8px;
-    padding: 6px 8px;
+    padding: 8px 10px;
     background: var(--paper-dark);
     border: 1px solid var(--border);
     border-radius: 2px;
@@ -574,6 +569,7 @@
     font-variant-numeric: tabular-nums;
     color: var(--ai-accent);
     flex-shrink: 0;
+    white-space: nowrap;
   }
 
   .quote-check-text {
@@ -585,6 +581,7 @@
     overflow: hidden;
     text-overflow: ellipsis;
     display: -webkit-box;
+    line-clamp: 2;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
   }
@@ -630,6 +627,15 @@
     min-width: 0;
   }
 
+  .rule-item-theme {
+    font-family: var(--font-serif);
+    font-size: 11px;
+    font-style: italic;
+    color: var(--ink-muted);
+    display: block;
+    margin-bottom: 2px;
+  }
+
   .rule-item-topic {
     font-family: var(--font-mono);
     font-size: 10px;
@@ -649,6 +655,7 @@
     overflow: hidden;
     text-overflow: ellipsis;
     display: -webkit-box;
+    line-clamp: 2;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
   }
@@ -728,7 +735,6 @@
   /* ── Evolution segmented control ── */
   .evolution-segmented {
     display: flex;
-    gap: 0;
     border: 1px solid var(--border);
     border-radius: 2px;
     overflow: hidden;
@@ -757,15 +763,15 @@
   }
 
   .evolution-option.active {
-    background: var(--ink);
+    background: var(--btn-primary-bg);
   }
 
   .evolution-option.active .evolution-option-label {
-    color: var(--paper);
+    color: var(--btn-primary-fg);
   }
 
   .evolution-option.active .evolution-option-desc {
-    color: var(--paper);
+    color: var(--btn-primary-fg);
     opacity: 0.7;
   }
 
@@ -790,8 +796,8 @@
     gap: 12px;
     align-items: flex-start;
     padding: 16px;
-    background: rgba(55, 94, 55, 0.05);
-    border: 1px solid rgba(55, 94, 55, 0.15);
+    background: color-mix(in srgb, var(--confirm-color) 5%, transparent);
+    border: 1px solid color-mix(in srgb, var(--confirm-color) 15%, transparent);
     border-radius: 2px;
     margin-bottom: 16px;
   }
@@ -801,7 +807,7 @@
     height: 28px;
     border-radius: 50%;
     background: var(--confirm-color);
-    color: #fff;
+    color: var(--paper);
     display: flex;
     align-items: center;
     justify-content: center;
