@@ -441,7 +441,6 @@
     border-left-color: var(--tension-border);
   }
   .col-label {
-    font-family: var(--font-serif);
     font-size: 13px;
     font-weight: 500;
     color: var(--ink);
