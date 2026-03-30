@@ -45,19 +45,57 @@
         if (!isNaN(y)) years.add(y);
       }
     }
-    const sorted = [...years].sort((a, b) => a - b);
-    return sorted;
+    return [...years].sort((a, b) => a - b);
   });
 
-  // Map year to row index for positioning
-  let yearIndex = $derived(new Map(timeAxis.map((y, i) => [y, i])));
+  // Pre-compute event lookup: [propId][year] → instances
+  let eventMap = $derived.by(() => {
+    const map = new Map<string, Map<number, PropositionInstance[]>>();
+    for (const p of selectedPropositions) {
+      const yearMap = new Map<number, PropositionInstance[]>();
+      for (const inst of p.instances) {
+        const y = parseInt(inst.date.slice(0, 4));
+        if (!isNaN(y)) {
+          const existing = yearMap.get(y) ?? [];
+          existing.push(inst);
+          yearMap.set(y, existing);
+        }
+      }
+      map.set(p.id, yearMap);
+    }
+    return map;
+  });
 
-  // Find events for a proposition at a given year
-  function getEventsAt(prop: Proposition, year: number): PropositionInstance[] {
-    return prop.instances.filter((inst) => parseInt(inst.date.slice(0, 4)) === year);
+  function getEventsAt(propId: string, year: number): PropositionInstance[] {
+    return eventMap.get(propId)?.get(year) ?? [];
   }
 
-  // Get evolution color
+  // Pre-compute which years each proposition has events (for connector logic)
+  let propYearSets = $derived.by(() => {
+    const map = new Map<string, Set<number>>();
+    for (const p of selectedPropositions) {
+      const years = new Set<number>();
+      for (const inst of p.instances) {
+        const y = parseInt(inst.date.slice(0, 4));
+        if (!isNaN(y)) years.add(y);
+      }
+      map.set(p.id, years);
+    }
+    return map;
+  });
+
+  function hasEventInRange(propId: string, fromIdx: number, toIdx: number): boolean {
+    const years = propYearSets.get(propId);
+    if (!years) return false;
+    for (let i = fromIdx; i < toIdx; i++) {
+      if (years.has(timeAxis[i])) return true;
+    }
+    return false;
+  }
+
+  // CSS grid columns as custom property
+  let gridColumns = $derived(`48px ${selectedPropositions.map(() => '1fr').join(' ')}`);
+
   function evoColor(type: EvolutionType): string {
     return EVOLUTION_CONFIG[type]?.color ?? 'var(--p-ink3)';
   }
@@ -70,17 +108,15 @@
     return EVOLUTION_CONFIG[type]?.label ?? type;
   }
 
-  // Whether a line should be dashed (qualified = narrowing/departing)
   function isDashed(type: EvolutionType): boolean {
     return type === 'qualified';
   }
 
-  // Truncate proposition text for column headers
   function truncate(text: string, maxLen: number): string {
-    return text.length > maxLen ? text.slice(0, maxLen) + '…' : text;
+    return text.length > maxLen ? text.slice(0, maxLen) + '\u2026' : text;
   }
 
-  // Expanded event for detail tooltip
+  // Expanded event
   let expandedEvent = $state<{ propId: string; instIdx: number } | null>(null);
 
   function toggleEvent(propId: string, instIdx: number) {
@@ -91,13 +127,10 @@
     }
   }
 
-  // Handle clicking a case ref to open in detail panel
   function handleCaseClick(caseId: string) {
-    // Navigate to the case node in the workspace
     uiState.selectNode(caseId);
   }
 
-  // Citation bias note
   let showBiasNote = $state(false);
 </script>
 
@@ -105,12 +138,12 @@
   <!-- Proposition selector -->
   <div class="selector">
     <div class="selector-header">
-      <span class="selector-label">Velg rettssetninger for tidslinje</span>
+      <span class="selector-label">Rettssetninger i tidslinjen</span>
       <span class="selector-hint">
         {#if isAutoSelected}
-          Viser {selectedPropositions.length} første automatisk
+          {selectedPropositions.length} første vist
         {:else}
-          {selectedIds.size}/4 valgt
+          {selectedIds.size} av maks 4
         {/if}
       </span>
       {#if !isAutoSelected}
@@ -130,7 +163,7 @@
         >
           <span class="chip-dot" style:background={isSelected ? 'var(--p-ink)' : 'var(--p-ink4)'}
           ></span>
-          {truncate(prop.proposition, 60)}
+          <span class="chip-text">{truncate(prop.proposition, 60)}</span>
           <span class="chip-count">{prop.instances.length}</span>
         </button>
       {/each}
@@ -139,87 +172,96 @@
 
   {#if selectedPropositions.length === 0}
     <div class="empty-timeline">
-      <span>Velg minst en rettssetning for a vise tidslinjen.</span>
+      <span>Velg minst \u00e9n rettssetning for \u00e5 vise tidslinjen.</span>
     </div>
   {:else if timeAxis.length === 0}
     <div class="empty-timeline">
       <span>Ingen forekomster funnet for valgte rettssetninger.</span>
     </div>
   {:else}
-    <!-- Timeline grid -->
     <div class="timeline-container">
-      <!-- Bias annotation -->
-      <div class="bias-note">
-        <button class="bias-toggle" onclick={() => (showBiasNote = !showBiasNote)}>
-          <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
-            <circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.2" />
-            <path
-              d="M8 7V11M8 5V5.5"
-              stroke="currentColor"
-              stroke-width="1.3"
-              stroke-linecap="round"
-            />
-          </svg>
-          Siteringsbias
-        </button>
-        {#if showBiasNote}
-          <span class="bias-text"
-            >Eldre saker har flere siteringer fordi de har hatt lengre tid til a bli sitert.</span
+      <!-- Column headers -->
+      <div class="grid-header" style:grid-template-columns={gridColumns}>
+        <div class="year-header">
+          <!-- Bias note in corner -->
+          <button
+            class="bias-toggle"
+            onclick={() => (showBiasNote = !showBiasNote)}
+            title="Om siteringer"
           >
-        {/if}
-      </div>
-
-      <!-- Column headers (proposition names) -->
-      <div
-        class="grid-header"
-        style:grid-template-columns="56px {selectedPropositions.map(() => '1fr').join(' ')}"
-      >
-        <div class="year-header"></div>
-        {#each selectedPropositions as prop, colIdx}
-          <div class="col-header">
+            <svg width="11" height="11" viewBox="0 0 16 16" fill="none">
+              <circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.2" />
+              <path
+                d="M8 7V11M8 5V5.5"
+                stroke="currentColor"
+                stroke-width="1.3"
+                stroke-linecap="round"
+              />
+            </svg>
+          </button>
+        </div>
+        {#each selectedPropositions as prop}
+          {@const hasTension =
+            prop.tension && selectedPropositions.some((p) => p.id === prop.tension?.withId)}
+          <div class="col-header" class:has-tension={hasTension}>
             <span class="col-label">{truncate(prop.proposition, 80)}</span>
             <span class="col-meta">
               {prop.instances.length}
               {prop.instances.length === 1 ? 'forekomst' : 'forekomster'}
+              {#if hasTension}
+                <span class="col-tension">\u00b7 spenning</span>
+              {/if}
             </span>
           </div>
         {/each}
       </div>
 
-      <!-- Timeline rows (one per year) -->
+      <!-- Bias note (below header, full width) -->
+      {#if showBiasNote}
+        <div class="bias-bar">
+          Eldre saker har flere siteringer fordi de har hatt lengre tid til \u00e5 bli sitert.
+        </div>
+      {/if}
+
+      <!-- Timeline rows -->
       <div class="grid-body">
         {#each timeAxis as year, rowIdx}
-          <div
-            class="grid-row"
-            class:even={rowIdx % 2 === 0}
-            style:grid-template-columns="56px {selectedPropositions.map(() => '1fr').join(' ')}"
-          >
+          <div class="grid-row" style:grid-template-columns={gridColumns}>
             <!-- Year label -->
             <div class="year-cell">
               <span class="year-label">{year}</span>
-              {#if rowIdx < timeAxis.length - 1}
-                <div class="year-line"></div>
-              {/if}
             </div>
 
             <!-- Swim lane cells -->
             {#each selectedPropositions as prop, colIdx}
-              {@const events = getEventsAt(prop, year)}
-              <div class="lane-cell">
+              {@const events = getEventsAt(prop.id, year)}
+              {@const hasEventThisYear = events.length > 0}
+              {@const hasBefore = hasEventInRange(prop.id, 0, rowIdx)}
+              {@const hasAfter = hasEventInRange(prop.id, rowIdx + 1, timeAxis.length)}
+              {@const showConnector = !hasEventThisYear && hasBefore && hasAfter}
+
+              <div class="lane-cell" class:has-connector={showConnector || hasEventThisYear}>
+                <!-- Vertical connector line (through dot or through empty cell) -->
+                {#if (hasBefore && hasEventThisYear) || showConnector}
+                  <div class="lane-line" class:through-event={hasEventThisYear}></div>
+                {/if}
+
                 {#if events.length > 0}
                   {#each events as inst, eIdx}
+                    {@const instGlobalIdx = prop.instances.indexOf(inst)}
                     {@const isExpanded =
-                      expandedEvent?.propId === prop.id &&
-                      expandedEvent?.instIdx === prop.instances.indexOf(inst)}
-                    <!-- Event node -->
+                      expandedEvent?.propId === prop.id && expandedEvent?.instIdx === instGlobalIdx}
                     <button
                       class="event-node"
                       class:dashed={isDashed(inst.evolution)}
                       class:expanded={isExpanded}
-                      style:border-color={evoColor(inst.evolution)}
-                      onclick={() => toggleEvent(prop.id, prop.instances.indexOf(inst))}
+                      onclick={() => toggleEvent(prop.id, instGlobalIdx)}
                     >
-                      <div class="event-dot" style:background={evoColor(inst.evolution)}></div>
+                      <div
+                        class="event-dot"
+                        style:background={evoColor(inst.evolution)}
+                        style:border-color={evoColor(inst.evolution)}
+                      ></div>
                       <span class="event-case">{inst.caseId}</span>
                       <span
                         class="event-evo"
@@ -228,7 +270,6 @@
                       >
                     </button>
 
-                    <!-- Expanded detail card -->
                     {#if isExpanded}
                       <div class="event-detail">
                         <div class="detail-header">
@@ -236,60 +277,23 @@
                             class="detail-case-link"
                             onclick={() => handleCaseClick(inst.caseId)}
                           >
-                            {inst.caseId} §{inst.paragraph}
+                            {inst.caseId} \u00a7{inst.paragraph}
                           </button>
                           <span class="detail-date">{inst.date}</span>
                           {#if inst.suggested}
                             <span class="detail-ai">AI-forslag</span>
                           {/if}
                         </div>
-                        <div class="detail-quote">&laquo;{inst.quote}&raquo;</div>
+                        <div class="detail-quote">\u00ab{inst.quote}\u00bb</div>
                       </div>
                     {/if}
                   {/each}
-                {:else}
-                  <!-- Empty cell — show vertical connector if proposition has events above and below -->
-                  <div class="lane-empty"></div>
-                {/if}
-
-                <!-- Vertical connector line within swim lane -->
-                {#if colIdx < selectedPropositions.length}
-                  {@const hasEventThisYear = events.length > 0}
-                  {@const hasEventBefore = timeAxis
-                    .slice(0, rowIdx)
-                    .some((y) => getEventsAt(prop, y).length > 0)}
-                  {@const hasEventAfter = timeAxis
-                    .slice(rowIdx + 1)
-                    .some((y) => getEventsAt(prop, y).length > 0)}
-                  {#if hasEventBefore && hasEventAfter && !hasEventThisYear}
-                    <div class="lane-connector"></div>
-                  {/if}
                 {/if}
               </div>
             {/each}
           </div>
         {/each}
       </div>
-
-      <!-- Tension overlay: show tension lines between propositions -->
-      {#each selectedPropositions as prop}
-        {#if prop.tension}
-          {@const tensionTarget = selectedPropositions.find((p) => p.id === prop.tension?.withId)}
-          {#if tensionTarget}
-            <div class="tension-marker">
-              <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
-                <path
-                  d="M3 8H13M13 8L10 5M13 8L10 11"
-                  stroke="var(--p-tension)"
-                  stroke-width="1.5"
-                  stroke-linecap="round"
-                />
-              </svg>
-              <span class="tension-note">{prop.tension.note}</span>
-            </div>
-          {/if}
-        {/if}
-      {/each}
     </div>
   {/if}
 </div>
@@ -298,8 +302,8 @@
   .timeline-view {
     display: flex;
     flex-direction: column;
-    height: 100%;
-    overflow: hidden;
+    flex: 1;
+    min-height: 0;
   }
 
   /* ── Selector ── */
@@ -345,7 +349,7 @@
   .chip {
     all: unset;
     cursor: pointer;
-    display: flex;
+    display: inline-flex;
     align-items: center;
     gap: 6px;
     padding: 4px 10px;
@@ -353,11 +357,9 @@
     color: var(--p-ink3);
     border: 1px solid var(--p-border);
     border-radius: var(--radius-md);
-    transition: all 0.12s ease;
-    max-width: 360px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    transition:
+      border-color 0.15s ease,
+      background 0.15s ease;
   }
   .chip:hover:not(:disabled) {
     border-color: var(--p-ink4);
@@ -376,6 +378,12 @@
     height: 6px;
     border-radius: 50%;
     flex-shrink: 0;
+  }
+  .chip-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 320px;
   }
   .chip-count {
     font-family: var(--font-data);
@@ -399,52 +407,55 @@
   /* ── Timeline container ── */
   .timeline-container {
     flex: 1;
-    overflow: auto;
-    padding: 0 20px 32px;
+    overflow-y: auto;
+    overflow-x: auto;
+    min-height: 0;
   }
 
-  /* ── Bias note ── */
-  .bias-note {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 8px 0;
-    flex-wrap: wrap;
-  }
+  /* ── Bias ── */
   .bias-toggle {
     all: unset;
     cursor: pointer;
     display: flex;
     align-items: center;
-    gap: 4px;
-    font-size: 10px;
     color: var(--p-ink4);
+    padding: 2px;
+    border-radius: 50%;
   }
   .bias-toggle:hover {
     color: var(--p-ink3);
   }
-  .bias-text {
+  .bias-bar {
+    padding: 6px 20px;
     font-size: 11px;
-    color: var(--p-ink3);
     font-style: italic;
+    color: var(--p-ink3);
+    background: var(--p-bg);
+    border-bottom: 1px solid var(--p-border);
   }
 
   /* ── Grid header ── */
   .grid-header {
     display: grid;
     gap: 0;
-    border-bottom: 2px solid var(--p-border-m);
+    border-bottom: 1px solid var(--p-border-m);
     position: sticky;
     top: 0;
     background: var(--p-panel);
     z-index: 1;
   }
   .year-header {
-    padding: 8px 0;
+    padding: 10px 8px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
   }
   .col-header {
     padding: 10px 12px;
     border-left: 1px solid var(--p-border);
+  }
+  .col-header.has-tension {
+    border-left-color: var(--p-tension-border);
   }
   .col-label {
     font-size: 12px;
@@ -463,6 +474,10 @@
     margin-top: 2px;
     display: block;
   }
+  .col-tension {
+    color: var(--p-tension);
+    font-weight: 600;
+  }
 
   /* ── Grid rows ── */
   .grid-body {
@@ -471,35 +486,24 @@
   .grid-row {
     display: grid;
     gap: 0;
-    min-height: 52px;
+    min-height: 48px;
     border-bottom: 1px solid var(--p-border);
-  }
-  .grid-row.even {
-    background: var(--p-hover);
   }
 
   /* Year cell */
   .year-cell {
-    position: relative;
-    padding: 12px 8px 12px 0;
+    padding: 10px 8px 10px 12px;
     display: flex;
     align-items: flex-start;
     justify-content: flex-end;
+    border-right: 1px solid var(--p-border);
   }
   .year-label {
     font-family: var(--font-data);
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 600;
     font-variant-numeric: tabular-nums;
     color: var(--p-ink3);
-  }
-  .year-line {
-    position: absolute;
-    right: 24px;
-    top: 28px;
-    bottom: -1px;
-    width: 1px;
-    background: var(--p-border);
   }
 
   /* ── Swim lane cell ── */
@@ -511,17 +515,15 @@
     flex-direction: column;
     gap: 6px;
   }
-  .lane-empty {
-    min-height: 20px;
-  }
-  .lane-connector {
+
+  /* Vertical connector line — positioned at the event dot's center (left padding 12 + dot offset ~4 = 16px) */
+  .lane-line {
     position: absolute;
-    left: 50%;
+    left: 16px;
     top: 0;
     bottom: 0;
     width: 1px;
-    background: var(--p-border);
-    opacity: 0.5;
+    background: var(--p-border-m);
   }
 
   /* ── Event node ── */
@@ -533,26 +535,28 @@
     gap: 6px;
     padding: 4px 8px;
     border-radius: var(--radius-md);
-    border: 1px solid var(--p-border);
-    transition: all 0.12s ease;
+    border: 1px solid transparent;
+    transition: background 0.15s ease;
     background: var(--p-surface);
+    position: relative;
+    z-index: 1;
   }
   .event-node:hover {
-    border-color: var(--p-border-m);
-    background: var(--p-panel);
+    background: var(--p-hover);
   }
   .event-node.expanded {
-    border-color: var(--p-border-s);
-    background: var(--p-panel);
+    background: var(--p-active);
   }
   .event-node.dashed {
-    border-style: dashed;
+    border: 1px dashed var(--p-border-m);
   }
   .event-dot {
     width: 8px;
     height: 8px;
     border-radius: 50%;
     flex-shrink: 0;
+    border: 2px solid;
+    box-sizing: content-box;
   }
   .event-case {
     font-family: var(--font-data);
@@ -578,8 +582,10 @@
     padding: 8px 10px;
     border-radius: var(--radius-md);
     background: var(--p-highlight);
-    border-left: 3px solid var(--p-kofa-bg);
+    border-left: 3px solid var(--p-kofa-border);
     margin-top: 4px;
+    position: relative;
+    z-index: 1;
   }
   .detail-header {
     display: flex;
@@ -620,33 +626,13 @@
     font-style: italic;
   }
 
-  /* ── Tension marker ── */
-  .tension-marker {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 8px 12px;
-    margin-top: 8px;
-    border-radius: var(--radius-md);
-    background: var(--p-tension-bg);
-    border-left: 3px solid var(--p-tension-border);
-  }
-  .tension-note {
-    font-size: 12px;
-    color: var(--p-tension);
-    line-height: 1.4;
-  }
-
   /* ── Responsive ── */
   @media (max-width: 768px) {
     .selector {
       padding: 12px;
     }
-    .timeline-container {
-      padding: 0 12px 24px;
-    }
-    .col-header {
-      padding: 8px;
+    .chip-text {
+      max-width: 200px;
     }
   }
 </style>

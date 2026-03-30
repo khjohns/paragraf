@@ -81,7 +81,7 @@
   }
 </script>
 
-<div class="registry">
+<div class="registry" class:timeline-active={hasPropositions && subView === 'timeline'}>
   {#if !hasPropositions}
     <div class="empty-state">
       <div class="empty-icon">
@@ -342,13 +342,19 @@
     animation: spin 0.6s linear infinite;
   }
 
+  /* When timeline is active, registry becomes a flex column to let TimelineView fill space */
+  .registry.timeline-active {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
   /* Sub-view toggle */
   .subview-toggle {
     display: flex;
     align-items: center;
-    padding: 12px 16px 0;
-    max-width: 640px;
-    margin: 0 auto;
+    padding: 12px 16px;
+    flex-shrink: 0;
   }
   .subview-switcher {
     display: flex;
