@@ -34,9 +34,12 @@ class UiState {
   scrollToTarget = $state<number | null>(null); // paragraph number for cross-ref navigation
   navigationHistory = $state<string[]>([]);
 
-  /** Direct selection (list/graph click) — resets navigation history */
+  /** Direct selection (list/graph click) — resets navigation history.
+   *  Auto-closes left panel when opening right panel (mutual exclusion). */
   selectNode(id: string | null) {
-    this.navigationHistory = [];
+    if (id === this.selectedNodeId) return;
+    if (this.navigationHistory.length > 0) this.navigationHistory = [];
+    if (id && this.leftPanelOpen) this.leftPanelOpen = false;
     this.selectedNodeId = id;
   }
 
@@ -51,9 +54,8 @@ class UiState {
   /** Go back in navigation history */
   goBack() {
     if (this.navigationHistory.length === 0) return;
-    const history = [...this.navigationHistory];
-    const previous = history.pop()!;
-    this.navigationHistory = history;
+    const previous = this.navigationHistory[this.navigationHistory.length - 1];
+    this.navigationHistory = this.navigationHistory.slice(0, -1);
     this.selectedNodeId = previous;
   }
 
@@ -73,8 +75,11 @@ class UiState {
     this.viewMode = mode;
   }
 
+  /** Toggle left panel. Auto-closes right panel when opening (mutual exclusion). */
   toggleLeftPanel() {
-    this.leftPanelOpen = !this.leftPanelOpen;
+    const opening = !this.leftPanelOpen;
+    if (opening && this.selectedNodeId) this.selectNode(null);
+    this.leftPanelOpen = opening;
   }
 
   setListFilter(filter: ListFilter) {

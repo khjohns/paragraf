@@ -6,6 +6,7 @@
   import type { Perspective } from '$lib/mockup/components/NavRail.svelte';
   import ScopePanel from '$lib/mockup/components/ScopePanel.svelte';
   import ReadingPanel from '$lib/mockup/components/ReadingPanel.svelte';
+  import FullscreenReader from '$lib/mockup/components/FullscreenReader.svelte';
   import SignalBadge from '$lib/mockup/components/SignalBadge.svelte';
   import MockupCategoryBadge from '$lib/mockup/components/MockupCategoryBadge.svelte';
   import GraphCanvas from '$lib/mockup/components/GraphCanvas.svelte';
@@ -26,6 +27,7 @@
   let selectedCase = $state<MockCandidate | null>(null);
   let displayedCase = $state<MockCandidate | null>(null);
   let selectedRows = $state<string[]>([]);
+  let isFullscreenReading = $state(false);
 
   // Keep last case visible during close animation, clear after transition
   $effect(() => {
@@ -130,220 +132,228 @@
     </div>
   </header>
 
-  <div class="workspace">
-    <!-- NAV RAIL -->
-    <NavRail
-      {isScopeOpen}
-      {activePerspective}
-      onToggleScope={toggleScope}
-      onSwitchPerspective={switchPerspective}
-    />
-
-    <!-- SCOPE PANEL (hidden in registry — registry has its own panel model) -->
-    {#if activePerspective !== 'registry'}
-      <div class="panel-slot scope-slot" class:open={isScopeOpen}>
-        <ScopePanel />
-      </div>
-    {/if}
-
-    {#if activePerspective === 'registry'}
-      <!-- REGISTRY VIEW -->
-      <RegistryView />
-    {:else if activePerspective === 'graph'}
-      <!-- GRAPH VIEW -->
-      <GraphCanvas
+  {#if isFullscreenReading}
+    <FullscreenReader onClose={() => (isFullscreenReading = false)} />
+  {:else}
+    <div class="workspace">
+      <!-- NAV RAIL -->
+      <NavRail
         {isScopeOpen}
-        onRequestCloseScope={() => {
-          isScopeOpen = false;
-        }}
+        {activePerspective}
+        onToggleScope={toggleScope}
+        onSwitchPerspective={switchPerspective}
       />
-    {:else}
-      <!-- MAIN REGISTER -->
-      <main class="register">
-        <!-- Tab bar -->
-        <div class="tab-bar">
-          <div class="tab-toggle">
-            {#each TABS as tab, i}
-              {#if i > 0}
-                <div class="tab-sep"></div>
-              {/if}
-              <button
-                class="tab-btn"
-                class:active={activeTab === tab.key}
-                onclick={() => (activeTab = tab.key)}
-              >
-                {tab.label}{#if tab.cat}<span class="tab-cat"> &middot; {tab.cat}</span>{/if} ({tab.count})
-              </button>
-            {/each}
-          </div>
-          {#if activeTab === 'null'}
-            <button class="action-btn ai">
-              <Sparkles size={12} /> Screen {MOCK_COUNTS.null} uvurderte
-            </button>
-          {/if}
-        </div>
 
-        <!-- Column headers -->
-        <div class="col-headers dense-row">
-          <div class="col-check" onclick={toggleAllSelection} role="button" tabindex="0">
-            {#if selectedRows.length === visibleCases.length && visibleCases.length > 0}
-              <CheckSquare size={14} />
-            {:else}
-              <Square size={14} />
+      <!-- SCOPE PANEL (hidden in registry — registry has its own panel model) -->
+      {#if activePerspective !== 'registry'}
+        <div class="panel-slot scope-slot" class:open={isScopeOpen}>
+          <ScopePanel />
+        </div>
+      {/if}
+
+      {#if activePerspective === 'registry'}
+        <!-- REGISTRY VIEW -->
+        <RegistryView />
+      {:else if activePerspective === 'graph'}
+        <!-- GRAPH VIEW -->
+        <GraphCanvas
+          {isScopeOpen}
+          onRequestCloseScope={() => {
+            isScopeOpen = false;
+          }}
+        />
+      {:else}
+        <!-- MAIN REGISTER -->
+        <main class="register">
+          <!-- Tab bar -->
+          <div class="tab-bar">
+            <div class="tab-toggle">
+              {#each TABS as tab, i}
+                {#if i > 0}
+                  <div class="tab-sep"></div>
+                {/if}
+                <button
+                  class="tab-btn"
+                  class:active={activeTab === tab.key}
+                  onclick={() => (activeTab = tab.key)}
+                >
+                  {tab.label}{#if tab.cat}<span class="tab-cat"> &middot; {tab.cat}</span>{/if} ({tab.count})
+                </button>
+              {/each}
+            </div>
+            {#if activeTab === 'null'}
+              <button class="action-btn ai">
+                <Sparkles size={12} /> Screen {MOCK_COUNTS.null} uvurderte
+              </button>
             {/if}
           </div>
-          <div>Kat</div>
-          <div>Referanse</div>
-          <div>Innsikt</div>
-          <div class="col-signal"><span class="signal-dot ref-dot"></span>Ref</div>
-          <div class="col-signal"><span class="signal-dot fts-dot"></span>Ord</div>
-          <div class="col-signal"><span class="signal-dot vec-dot"></span>Konsept</div>
-          <div class="col-right">Lest</div>
-        </div>
 
-        <!-- Rows -->
-        <div class="rows-container">
-          {#each visibleCases as c (c.id)}
-            {@const isDimmed = c.category === 'C'}
-            {@const isExpanded = expandedAiRow === c.id}
-            {@const isActive = selectedCase?.id === c.id}
-            {@const isChecked = selectedRows.includes(c.id)}
-            {@const rS = getSignalsByType(c.signals, 'R')}
-            {@const fS = getSignalsByType(c.signals, 'F')}
-            {@const vS = getSignalsByType(c.signals, 'V')}
-
-            <div
-              class="register-row"
-              class:dimmed={isDimmed && !isActive && !isChecked}
-              class:row-active={isActive}
-              class:row-checked={isChecked && !isActive}
-              onclick={() => openCase(c)}
-            >
-              <div class="dense-row row-grid">
-                <div
-                  class="col-check"
-                  onclick={(e) => toggleRowSelection(c.id, e)}
-                  role="checkbox"
-                  aria-checked={isChecked}
-                  tabindex="0"
-                >
-                  {#if isChecked}
-                    <CheckSquare size={16} color="var(--ai-accent)" />
-                  {:else}
-                    <Square size={16} />
-                  {/if}
-                </div>
-
-                <div onclick={(e) => e.stopPropagation()}>
-                  <MockupCategoryBadge category={c.category} />
-                </div>
-
-                <div class="ref-cell">
-                  <div class="ref-name">{c.ref}</div>
-                  <div class="ref-meta">{c.source} &middot; {c.date}</div>
-                </div>
-
-                <div onclick={(e) => e.stopPropagation()}>
-                  {#if c.ai_screening?.proposition}
-                    <button
-                      class="action-btn"
-                      class:ai={isExpanded}
-                      onclick={(e) => toggleAiExpanded(c.id, e)}
-                    >
-                      <Sparkles size={11} />
-                      {isExpanded ? 'Skjul' : 'KI-innsikt'}
-                    </button>
-                  {:else}
-                    <span class="dash">&ndash;</span>
-                  {/if}
-                </div>
-
-                <div class="signal-col">
-                  {#if rS.length > 0}
-                    {#each rS as s}
-                      <SignalBadge type={s.type} detail={s.detail} explanation={s.explanation} />
-                    {/each}
-                  {:else}
-                    <span class="dash">&ndash;</span>
-                  {/if}
-                </div>
-
-                <div class="signal-col">
-                  {#if fS.length > 0}
-                    {#each fS as s}
-                      <SignalBadge type={s.type} detail={s.detail} explanation={s.explanation} />
-                    {/each}
-                  {:else}
-                    <span class="dash">&ndash;</span>
-                  {/if}
-                </div>
-
-                <div class="signal-col">
-                  {#if vS.length > 0}
-                    {#each vS as s}
-                      <SignalBadge type={s.type} detail={s.detail} explanation={s.explanation} />
-                    {/each}
-                  {:else}
-                    <span class="dash">&ndash;</span>
-                  {/if}
-                </div>
-
-                <div class="read-col">
-                  {#if c.read_at}
-                    <Eye size={14} color="var(--ink-muted)" />
-                  {:else}
-                    <div class="unread-dot" title="Ulest"></div>
-                  {/if}
-                  {#if isActive}
-                    <ChevronRight size={14} color="var(--ink)" />
-                  {/if}
-                </div>
-              </div>
-
-              <!-- Expanded AI row -->
-              {#if isExpanded && c.ai_screening}
-                <div
-                  class="ai-expanded"
-                  transition:slide={{ duration: 150 }}
-                  onclick={(e) => e.stopPropagation()}
-                >
-                  <div class="ai-expanded-card">
-                    <div class="ai-expanded-label">
-                      KI foreslår: Kategori {c.ai_screening.category}
-                    </div>
-                    <div class="ai-expanded-text">{c.ai_screening.proposition}</div>
-                  </div>
-                </div>
+          <!-- Column headers -->
+          <div class="col-headers dense-row">
+            <div class="col-check" onclick={toggleAllSelection} role="button" tabindex="0">
+              {#if selectedRows.length === visibleCases.length && visibleCases.length > 0}
+                <CheckSquare size={14} />
+              {:else}
+                <Square size={14} />
               {/if}
             </div>
-          {/each}
-        </div>
-
-        <!-- Bulk bar -->
-        {#if selectedRows.length > 0}
-          <div class="bulk-bar">
-            <span class="bulk-count">{selectedRows.length} valgt</span>
-            <div class="bulk-sep"></div>
-            <button class="bulk-btn primary">
-              <Sparkles size={12} /> Screen med KI
-            </button>
-            <button class="bulk-btn">Sett kategori&hellip;</button>
-            <button class="bulk-btn">Marker som lest</button>
-            <button class="bulk-close" onclick={() => (selectedRows = [])}>
-              <X size={14} />
-            </button>
+            <div>Kat</div>
+            <div>Referanse</div>
+            <div>Innsikt</div>
+            <div class="col-signal"><span class="signal-dot ref-dot"></span>Ref</div>
+            <div class="col-signal"><span class="signal-dot fts-dot"></span>Ord</div>
+            <div class="col-signal"><span class="signal-dot vec-dot"></span>Konsept</div>
+            <div class="col-right">Lest</div>
           </div>
-        {/if}
-      </main>
 
-      <!-- READING PANEL -->
-      <div class="panel-slot reading-slot" class:open={selectedCase !== null}>
-        {#if displayedCase}
-          <ReadingPanel selectedCase={displayedCase} onClose={() => (selectedCase = null)} />
-        {/if}
-      </div>
-    {/if}
-  </div>
+          <!-- Rows -->
+          <div class="rows-container">
+            {#each visibleCases as c (c.id)}
+              {@const isDimmed = c.category === 'C'}
+              {@const isExpanded = expandedAiRow === c.id}
+              {@const isActive = selectedCase?.id === c.id}
+              {@const isChecked = selectedRows.includes(c.id)}
+              {@const rS = getSignalsByType(c.signals, 'R')}
+              {@const fS = getSignalsByType(c.signals, 'F')}
+              {@const vS = getSignalsByType(c.signals, 'V')}
+
+              <div
+                class="register-row"
+                class:dimmed={isDimmed && !isActive && !isChecked}
+                class:row-active={isActive}
+                class:row-checked={isChecked && !isActive}
+                onclick={() => openCase(c)}
+              >
+                <div class="dense-row row-grid">
+                  <div
+                    class="col-check"
+                    onclick={(e) => toggleRowSelection(c.id, e)}
+                    role="checkbox"
+                    aria-checked={isChecked}
+                    tabindex="0"
+                  >
+                    {#if isChecked}
+                      <CheckSquare size={16} color="var(--ai-accent)" />
+                    {:else}
+                      <Square size={16} />
+                    {/if}
+                  </div>
+
+                  <div onclick={(e) => e.stopPropagation()}>
+                    <MockupCategoryBadge category={c.category} />
+                  </div>
+
+                  <div class="ref-cell">
+                    <div class="ref-name">{c.ref}</div>
+                    <div class="ref-meta">{c.source} &middot; {c.date}</div>
+                  </div>
+
+                  <div onclick={(e) => e.stopPropagation()}>
+                    {#if c.ai_screening?.proposition}
+                      <button
+                        class="action-btn"
+                        class:ai={isExpanded}
+                        onclick={(e) => toggleAiExpanded(c.id, e)}
+                      >
+                        <Sparkles size={11} />
+                        {isExpanded ? 'Skjul' : 'KI-innsikt'}
+                      </button>
+                    {:else}
+                      <span class="dash">&ndash;</span>
+                    {/if}
+                  </div>
+
+                  <div class="signal-col">
+                    {#if rS.length > 0}
+                      {#each rS as s}
+                        <SignalBadge type={s.type} detail={s.detail} explanation={s.explanation} />
+                      {/each}
+                    {:else}
+                      <span class="dash">&ndash;</span>
+                    {/if}
+                  </div>
+
+                  <div class="signal-col">
+                    {#if fS.length > 0}
+                      {#each fS as s}
+                        <SignalBadge type={s.type} detail={s.detail} explanation={s.explanation} />
+                      {/each}
+                    {:else}
+                      <span class="dash">&ndash;</span>
+                    {/if}
+                  </div>
+
+                  <div class="signal-col">
+                    {#if vS.length > 0}
+                      {#each vS as s}
+                        <SignalBadge type={s.type} detail={s.detail} explanation={s.explanation} />
+                      {/each}
+                    {:else}
+                      <span class="dash">&ndash;</span>
+                    {/if}
+                  </div>
+
+                  <div class="read-col">
+                    {#if c.read_at}
+                      <Eye size={14} color="var(--ink-muted)" />
+                    {:else}
+                      <div class="unread-dot" title="Ulest"></div>
+                    {/if}
+                    {#if isActive}
+                      <ChevronRight size={14} color="var(--ink)" />
+                    {/if}
+                  </div>
+                </div>
+
+                <!-- Expanded AI row -->
+                {#if isExpanded && c.ai_screening}
+                  <div
+                    class="ai-expanded"
+                    transition:slide={{ duration: 150 }}
+                    onclick={(e) => e.stopPropagation()}
+                  >
+                    <div class="ai-expanded-card">
+                      <div class="ai-expanded-label">
+                        KI foreslår: Kategori {c.ai_screening.category}
+                      </div>
+                      <div class="ai-expanded-text">{c.ai_screening.proposition}</div>
+                    </div>
+                  </div>
+                {/if}
+              </div>
+            {/each}
+          </div>
+
+          <!-- Bulk bar -->
+          {#if selectedRows.length > 0}
+            <div class="bulk-bar">
+              <span class="bulk-count">{selectedRows.length} valgt</span>
+              <div class="bulk-sep"></div>
+              <button class="bulk-btn primary">
+                <Sparkles size={12} /> Screen med KI
+              </button>
+              <button class="bulk-btn">Sett kategori&hellip;</button>
+              <button class="bulk-btn">Marker som lest</button>
+              <button class="bulk-close" onclick={() => (selectedRows = [])}>
+                <X size={14} />
+              </button>
+            </div>
+          {/if}
+        </main>
+
+        <!-- READING PANEL -->
+        <div class="panel-slot reading-slot" class:open={selectedCase !== null}>
+          {#if displayedCase}
+            <ReadingPanel
+              selectedCase={displayedCase}
+              onClose={() => (selectedCase = null)}
+              onExpand={() => (isFullscreenReading = true)}
+            />
+          {/if}
+        </div>
+      {/if}
+    </div>
+  {/if}
 </div>
 
 <style>

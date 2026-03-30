@@ -3,12 +3,11 @@
   import { pipelineState } from '$lib/stores/pipeline.svelte';
   import { crossPropositions } from '$lib/api/analyses';
   import { toastState } from '$lib/stores/toast.svelte';
-  import {
-    EVOLUTION_CONFIG,
-    type Proposition,
-    type PropositionInstance,
-    type EvolutionType,
-  } from '$lib/types/analysis';
+  import { EVOLUTION_CONFIG, type Proposition, type EvolutionType } from '$lib/types/analysis';
+  import TimelineView from './TimelineView.svelte';
+
+  type RegistrySubView = 'list' | 'timeline';
+  let subView = $state<RegistrySubView>('list');
 
   type OrderedEntry = { prop: Proposition; tensionAfter?: { withId: string; note: string } };
 
@@ -49,16 +48,17 @@
     collapsed = next;
   }
 
-  // Group propositions by theme
-  let themes = $derived([...new Set(pipelineState.propositions.map((p) => p.theme))]);
-
+  // Group propositions by theme (single pass)
   let propositionsByTheme = $derived.by(() => {
     const map: Record<string, Proposition[]> = {};
-    for (const theme of themes) {
-      map[theme] = pipelineState.propositions.filter((p) => p.theme === theme);
+    for (const p of pipelineState.propositions) {
+      if (!map[p.theme]) map[p.theme] = [];
+      map[p.theme].push(p);
     }
     return map;
   });
+
+  let themes = $derived(Object.keys(propositionsByTheme));
 
   let hasPropositions = $derived(pipelineState.propositions.length > 0);
 
@@ -77,7 +77,7 @@
   }
 </script>
 
-<div class="registry">
+<div class="registry" class:timeline-active={hasPropositions && subView === 'timeline'}>
   {#if !hasPropositions}
     <div class="empty-state">
       <div class="empty-icon">
@@ -126,134 +126,154 @@
       </button>
     </div>
   {:else}
-    <div class="registry-content">
-      {#each themes as theme}
-        {@const props = propositionsByTheme[theme]}
-        {@const ordered = orderPropositions(props)}
-        {@const hasTension = props.some((p) => p.tension)}
+    <!-- Sub-view toggle: Liste | Tidslinje -->
+    <div class="subview-toggle">
+      <div class="subview-switcher">
+        <button
+          class="subview-btn"
+          class:active={subView === 'list'}
+          onclick={() => (subView = 'list')}>Liste</button
+        >
+        <button
+          class="subview-btn"
+          class:active={subView === 'timeline'}
+          onclick={() => (subView = 'timeline')}>Tidslinje</button
+        >
+      </div>
+    </div>
 
-        <div class="theme-group">
-          <div class="theme-header">
-            <div class="theme-bar"></div>
-            <span class="theme-name">{theme}</span>
-            {#if hasTension}
-              <span class="theme-tension-badge">spenning</span>
-            {/if}
-          </div>
+    {#if subView === 'timeline'}
+      <TimelineView propositions={pipelineState.propositions} />
+    {:else}
+      <div class="registry-content">
+        {#each themes as theme}
+          {@const props = propositionsByTheme[theme]}
+          {@const ordered = orderPropositions(props)}
+          {@const hasTension = props.some((p) => p.tension)}
 
-          <div class="theme-cards">
-            {#each ordered as { prop, tensionAfter }, i}
-              {@const isExpanded = !collapsed.has(prop.id)}
-              <div>
-                <!-- Proposition card -->
-                <div class="prop-card" class:has-tension={!!prop.tension}>
-                  <button class="prop-header" onclick={() => toggleCard(prop.id)}>
-                    <svg
-                      class="chevron"
-                      class:open={isExpanded}
-                      width="8"
-                      height="8"
-                      viewBox="0 0 8 8"
-                    >
-                      <path
-                        d="M2 0.5L6 4L2 7.5"
-                        stroke="currentColor"
-                        stroke-width="1.5"
-                        fill="none"
-                        stroke-linecap="round"
-                      />
-                    </svg>
-                    <div class="prop-header-content">
-                      <div class="prop-text">{prop.proposition}</div>
-                      <div class="prop-meta">
-                        <span>
-                          {prop.instances.length === 1
-                            ? '1 forekomst'
-                            : `${prop.instances.length} forekomster`}
-                        </span>
-                        <span>·</span>
-                        <span>
-                          {prop.instances[0]?.date.slice(0, 4)}{prop.instances.length > 1
-                            ? `–${prop.instances[prop.instances.length - 1].date.slice(0, 4)}`
-                            : ''}
-                        </span>
-                        {#if prop.instances.some((inst) => inst.suggested)}
-                          <span class="ai-badge">Inneholder AI-forslag</span>
-                        {/if}
-                      </div>
-                    </div>
-                  </button>
+          <div class="theme-group">
+            <div class="theme-header">
+              <div class="theme-bar"></div>
+              <span class="theme-name">{theme}</span>
+              {#if hasTension}
+                <span class="theme-tension-badge">spenning</span>
+              {/if}
+            </div>
 
-                  {#if isExpanded}
-                    <div class="prop-instances">
-                      {#each prop.instances as inst, idx}
-                        {@const isLast = idx === prop.instances.length - 1}
-                        {@const ev = EVOLUTION_CONFIG[inst.evolution]}
-                        <div class="instance" class:last={isLast}>
-                          <!-- Timeline dot -->
-                          <div
-                            class="timeline-dot"
-                            style:border-color={evolutionColor(inst.evolution)}
-                          ></div>
-                          <!-- Timeline line -->
-                          {#if !isLast}
-                            <div class="timeline-line"></div>
+            <div class="theme-cards">
+              {#each ordered as { prop, tensionAfter }, i}
+                {@const isExpanded = !collapsed.has(prop.id)}
+                <div>
+                  <!-- Proposition card -->
+                  <div class="prop-card" class:has-tension={!!prop.tension}>
+                    <button class="prop-header" onclick={() => toggleCard(prop.id)}>
+                      <svg
+                        class="chevron"
+                        class:open={isExpanded}
+                        width="8"
+                        height="8"
+                        viewBox="0 0 8 8"
+                      >
+                        <path
+                          d="M2 0.5L6 4L2 7.5"
+                          stroke="currentColor"
+                          stroke-width="1.5"
+                          fill="none"
+                          stroke-linecap="round"
+                        />
+                      </svg>
+                      <div class="prop-header-content">
+                        <div class="prop-text">{prop.proposition}</div>
+                        <div class="prop-meta">
+                          <span>
+                            {prop.instances.length === 1
+                              ? '1 forekomst'
+                              : `${prop.instances.length} forekomster`}
+                          </span>
+                          <span>·</span>
+                          <span>
+                            {prop.instances[0]?.date.slice(0, 4)}{prop.instances.length > 1
+                              ? `–${prop.instances[prop.instances.length - 1].date.slice(0, 4)}`
+                              : ''}
+                          </span>
+                          {#if prop.instances.some((inst) => inst.suggested)}
+                            <span class="ai-badge">Inneholder AI-forslag</span>
                           {/if}
-                          <!-- Instance content -->
-                          <div class="instance-content">
-                            <div class="instance-header">
-                              <span class="instance-case">{inst.caseId} §{inst.paragraph}</span>
-                              {#if ev}
-                                <span
-                                  class="evo-badge"
-                                  style:background={ev.bg}
-                                  style:color={ev.color}>{ev.label}</span
-                                >
-                              {/if}
-                              <span class="instance-date">{inst.date}</span>
-                              {#if inst.suggested}
-                                <span class="ai-badge">AI-forslag</span>
-                              {/if}
-                            </div>
-                            <div class="instance-quote">«{inst.quote}»</div>
-                          </div>
                         </div>
-                      {/each}
+                      </div>
+                    </button>
+
+                    {#if isExpanded}
+                      <div class="prop-instances">
+                        {#each prop.instances as inst, idx}
+                          {@const isLast = idx === prop.instances.length - 1}
+                          {@const ev = EVOLUTION_CONFIG[inst.evolution]}
+                          <div class="instance" class:last={isLast}>
+                            <!-- Timeline dot -->
+                            <div
+                              class="timeline-dot"
+                              style:border-color={evolutionColor(inst.evolution)}
+                            ></div>
+                            <!-- Timeline line -->
+                            {#if !isLast}
+                              <div class="timeline-line"></div>
+                            {/if}
+                            <!-- Instance content -->
+                            <div class="instance-content">
+                              <div class="instance-header">
+                                <span class="instance-case">{inst.caseId} §{inst.paragraph}</span>
+                                {#if ev}
+                                  <span
+                                    class="evo-badge"
+                                    style:background={ev.bg}
+                                    style:color={ev.color}>{ev.label}</span
+                                  >
+                                {/if}
+                                <span class="instance-date">{inst.date}</span>
+                                {#if inst.suggested}
+                                  <span class="ai-badge">AI-forslag</span>
+                                {/if}
+                              </div>
+                              <div class="instance-quote">«{inst.quote}»</div>
+                            </div>
+                          </div>
+                        {/each}
+                      </div>
+                    {/if}
+                  </div>
+
+                  <!-- Tension connector or gap -->
+                  {#if tensionAfter}
+                    <div class="tension-connector">
+                      <svg width="14" height="14" viewBox="0 0 16 16" style="flex-shrink:0">
+                        <path
+                          d="M3 8H13M13 8L10 5M13 8L10 11"
+                          stroke="var(--p-tension)"
+                          stroke-width="1.5"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        />
+                        <path
+                          d="M13 8H3M3 8L6 5M3 8L6 11"
+                          stroke="var(--p-tension)"
+                          stroke-width="1.5"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          opacity="0.3"
+                        />
+                      </svg>
+                      <span>{tensionAfter.note}</span>
                     </div>
+                  {:else if i < ordered.length - 1}
+                    <div class="card-gap"></div>
                   {/if}
                 </div>
-
-                <!-- Tension connector or gap -->
-                {#if tensionAfter}
-                  <div class="tension-connector">
-                    <svg width="14" height="14" viewBox="0 0 16 16" style="flex-shrink:0">
-                      <path
-                        d="M3 8H13M13 8L10 5M13 8L10 11"
-                        stroke="var(--p-tension)"
-                        stroke-width="1.5"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                      />
-                      <path
-                        d="M13 8H3M3 8L6 5M3 8L6 11"
-                        stroke="var(--p-tension)"
-                        stroke-width="1.5"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        opacity="0.3"
-                      />
-                    </svg>
-                    <span>{tensionAfter.note}</span>
-                  </div>
-                {:else if i < ordered.length - 1}
-                  <div class="card-gap"></div>
-                {/if}
-              </div>
-            {/each}
+              {/each}
+            </div>
           </div>
-        </div>
-      {/each}
-    </div>
+        {/each}
+      </div>
+    {/if}
   {/if}
 </div>
 
@@ -316,6 +336,43 @@
     border-top-color: var(--p-panel);
     border-radius: 50%;
     animation: spin 0.6s linear infinite;
+  }
+
+  /* When timeline is active, registry becomes a flex column to let TimelineView fill space */
+  .registry.timeline-active {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* Sub-view toggle */
+  .subview-toggle {
+    display: flex;
+    align-items: center;
+    padding: 12px 16px;
+    flex-shrink: 0;
+  }
+  .subview-switcher {
+    display: flex;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--p-border);
+    overflow: hidden;
+  }
+  .subview-btn {
+    all: unset;
+    cursor: pointer;
+    padding: 4px 14px;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--p-ink3);
+    background: transparent;
+  }
+  .subview-btn:hover:not(.active) {
+    background: var(--p-hover);
+  }
+  .subview-btn.active {
+    background: var(--p-ink);
+    color: var(--p-panel);
   }
 
   /* Registry content */

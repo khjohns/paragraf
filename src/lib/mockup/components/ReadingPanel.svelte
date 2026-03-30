@@ -6,9 +6,11 @@
   let {
     selectedCase,
     onClose,
+    onExpand,
   }: {
     selectedCase: MockCandidate;
     onClose: () => void;
+    onExpand: () => void;
   } = $props();
 </script>
 
@@ -20,7 +22,8 @@
       <div class="panel-meta">{selectedCase.source} &middot; {selectedCase.date}</div>
     </div>
     <div class="panel-actions">
-      <button class="icon-btn" title="Fullskjerm"><Maximize2 size={16} /></button>
+      <button class="icon-btn" title="Fullskjerm" onclick={onExpand}><Maximize2 size={16} /></button
+      >
       <button class="icon-btn" onclick={onClose} title="Lukk"><X size={16} /></button>
     </div>
   </header>
