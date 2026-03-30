@@ -24,15 +24,18 @@
   let fontFamily = $derived(serif ? 'var(--font-serif)' : 'var(--font-sans)');
   let paddingLeft = $derived(aiGenerated ? 16 : 8);
 
+  function autoResizeTextarea(el: HTMLTextAreaElement) {
+    el.style.height = 'auto';
+    el.style.height = el.scrollHeight + 'px';
+  }
+
   function startEditing() {
     editing = true;
-    // Focus after DOM update
     requestAnimationFrame(() => {
       if (inputEl) {
         inputEl.focus();
         if (multiline && inputEl instanceof HTMLTextAreaElement) {
-          inputEl.style.height = 'auto';
-          inputEl.style.height = inputEl.scrollHeight + 'px';
+          autoResizeTextarea(inputEl);
         }
       }
     });
@@ -47,8 +50,7 @@
     const target = e.target as HTMLInputElement | HTMLTextAreaElement;
     value = target.value;
     if (multiline && target instanceof HTMLTextAreaElement) {
-      target.style.height = 'auto';
-      target.style.height = target.scrollHeight + 'px';
+      autoResizeTextarea(target);
     }
   }
 

@@ -112,6 +112,9 @@
     goto('/mockup/analyse');
   }
 
+  let primaryProvisions = $derived(provisions.filter((p) => p.primary));
+  let secondaryProvisions = $derived(provisions.filter((p) => !p.primary));
+
   function removeProvision(ref: string) {
     provisions = provisions.filter((p) => p.ref !== ref);
   }
@@ -367,7 +370,7 @@
                   <div class="provisions-group">
                     <span class="provisions-label">Primære</span>
                     <div class="provisions-row">
-                      {#each provisions.filter((p) => p.primary) as p (p.ref)}
+                      {#each primaryProvisions as p (p.ref)}
                         <EditableProvisionTag
                           ref={p.ref}
                           label={p.label}
@@ -381,7 +384,7 @@
                   <div class="provisions-group">
                     <span class="provisions-label">Sekundære</span>
                     <div class="provisions-row">
-                      {#each provisions.filter((p) => !p.primary) as p (p.ref)}
+                      {#each secondaryProvisions as p (p.ref)}
                         <EditableProvisionTag
                           ref={p.ref}
                           label={p.label}
