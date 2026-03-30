@@ -1,6 +1,6 @@
 <script lang="ts">
   import '$lib/mockup/tokens.css';
-  import { onMount } from 'svelte';
+  import { onDestroy } from 'svelte';
   import { goto } from '$app/navigation';
   import { ArrowLeft, Sparkles, Plus, ChevronRight, Loader2, ArrowRight } from 'lucide-svelte';
   import MockupHeader from '$lib/mockup/components/MockupHeader.svelte';
@@ -32,11 +32,13 @@
   // Elapsed timer
   let elapsed = $state(0);
   let elapsedHandle: ReturnType<typeof setInterval> | null = null;
-  let elapsedDisplay = $derived(() => {
+  let elapsedDisplay = $derived.by(() => {
     const m = Math.floor(elapsed / 60);
     const s = elapsed % 60;
     return `${m}:${s.toString().padStart(2, '0')}`;
   });
+
+  onDestroy(stopTimers);
 
   // Textarea auto-resize
   let textareaEl: HTMLTextAreaElement | undefined = $state();
@@ -224,12 +226,7 @@
               <Sparkles size={13} /> Analyser med KI
             </button>
             <span class="or-separator">eller</span>
-            <button
-              class="direct-link"
-              disabled={!canSubmit}
-              class:disabled={!canSubmit}
-              onclick={handleStartDirect}
-            >
+            <button class="direct-link" disabled={!canSubmit} onclick={handleStartDirect}>
               Start direkte <ArrowRight size={11} />
             </button>
           </div>
@@ -246,7 +243,7 @@
                 <div class="progress-info">
                   <Loader2 size={12} class="spinner" />
                   <span class="progress-label">Seksjon {Math.min(completed + 1, 6)} av 6</span>
-                  <span class="progress-timer">{elapsedDisplay()}</span>
+                  <span class="progress-timer">{elapsedDisplay}</span>
                 </div>
                 <button class="btn-ghost cancel-btn" onclick={handleCancel}>Avbryt</button>
               </div>
@@ -577,6 +574,7 @@
     text-overflow: ellipsis;
     display: -webkit-box;
     -webkit-line-clamp: 2;
+    line-clamp: 2;
     -webkit-box-orient: vertical;
   }
 
@@ -715,7 +713,7 @@
     font-weight: 600;
     font-size: 13px;
     padding: 8px 20px;
-    border-radius: 4px;
+    border-radius: 2px;
     cursor: pointer;
     transition: all 0.15s ease;
     display: inline-flex;
@@ -724,7 +722,7 @@
     white-space: nowrap;
     background: var(--btn-primary-bg);
     color: var(--btn-primary-fg);
-    border: 1px solid var(--btn-primary-bg);
+    border: 1.5px solid transparent;
   }
 
   .btn-analyze:hover:not(:disabled) {
@@ -763,7 +761,7 @@
     border-color: var(--border-strong);
   }
 
-  .direct-link.disabled {
+  .direct-link:disabled {
     opacity: 0.35;
     cursor: not-allowed;
   }
@@ -873,11 +871,11 @@
   }
 
   .review-title {
-    font-family: var(--font-sans);
-    font-size: 11px;
+    font-family: var(--font-mono);
+    font-size: 10px;
     font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.1em;
     color: var(--ai-accent);
   }
 
@@ -1001,7 +999,7 @@
     font-weight: 600;
     font-size: 14px;
     padding: 10px 24px;
-    border-radius: 4px;
+    border-radius: 2px;
     cursor: pointer;
     transition: all 0.15s ease;
     display: inline-flex;
@@ -1010,7 +1008,7 @@
     white-space: nowrap;
     background: var(--btn-primary-bg);
     color: var(--btn-primary-fg);
-    border: 1px solid var(--btn-primary-bg);
+    border: 1.5px solid transparent;
   }
 
   .btn-start:hover {

@@ -85,7 +85,6 @@
   <div
     class="display-text"
     class:ai={isAi}
-    class:ai-origin={aiGenerated}
     onclick={startEditing}
     style="font-family: {fontFamily}; font-size: {size}px; font-weight: {weight}; padding-left: {paddingLeft}px;"
   >
@@ -140,11 +139,6 @@
   .display-text.ai:hover {
     border-color: var(--border-strong);
     border-left-color: var(--ai-accent);
-  }
-
-  /* Keep constant left padding for AI-origin fields to prevent layout shift */
-  .display-text.ai-origin {
-    padding-left: 16px;
   }
 
   .edited-label {

@@ -45,6 +45,15 @@
     background: none;
     border: none;
     cursor: pointer;
+    transition: color 0.15s ease;
+  }
+
+  .section-toggle:hover .section-label {
+    color: var(--ink-secondary);
+  }
+
+  .section-toggle:hover .section-label.ai {
+    color: var(--ai-accent);
   }
 
   .section-toggle :global(.chevron) {
