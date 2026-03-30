@@ -59,14 +59,6 @@
     if (isScopeOpen) selectedCase = null;
   }
 
-  function expandToFullscreen() {
-    isFullscreenReading = true;
-  }
-
-  function closeFullscreen() {
-    isFullscreenReading = false;
-  }
-
   function switchPerspective(p: Perspective) {
     activePerspective = p;
     selectedCase = null;
@@ -141,7 +133,7 @@
   </header>
 
   {#if isFullscreenReading}
-    <FullscreenReader onClose={closeFullscreen} />
+    <FullscreenReader onClose={() => (isFullscreenReading = false)} />
   {:else}
     <div class="workspace">
       <!-- NAV RAIL -->
@@ -355,7 +347,7 @@
             <ReadingPanel
               selectedCase={displayedCase}
               onClose={() => (selectedCase = null)}
-              onExpand={expandToFullscreen}
+              onExpand={() => (isFullscreenReading = true)}
             />
           {/if}
         </div>

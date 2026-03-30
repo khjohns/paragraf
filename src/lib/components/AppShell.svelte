@@ -64,17 +64,21 @@
     overflow: hidden;
   }
 
-  /* Panel slots — CSS width transition matching mockup pattern */
+  /* Width-transition keeps content mounted so child state survives open/close cycles */
   .panel-slot {
     width: 0;
     min-width: 0;
     overflow: hidden;
     flex-shrink: 0;
+    pointer-events: none;
     transition:
       width 250ms cubic-bezier(0.16, 1, 0.3, 1),
       min-width 250ms cubic-bezier(0.16, 1, 0.3, 1),
       border-color 250ms cubic-bezier(0.16, 1, 0.3, 1);
     border-color: transparent;
+  }
+  .panel-slot.open {
+    pointer-events: auto;
   }
 
   .left-slot {

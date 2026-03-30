@@ -37,10 +37,9 @@ class UiState {
   /** Direct selection (list/graph click) — resets navigation history.
    *  Auto-closes left panel when opening right panel (mutual exclusion). */
   selectNode(id: string | null) {
-    this.navigationHistory = [];
-    if (id && this.leftPanelOpen) {
-      this.leftPanelOpen = false;
-    }
+    if (id === this.selectedNodeId) return;
+    if (this.navigationHistory.length > 0) this.navigationHistory = [];
+    if (id && this.leftPanelOpen) this.leftPanelOpen = false;
     this.selectedNodeId = id;
   }
 
@@ -55,9 +54,8 @@ class UiState {
   /** Go back in navigation history */
   goBack() {
     if (this.navigationHistory.length === 0) return;
-    const history = [...this.navigationHistory];
-    const previous = history.pop()!;
-    this.navigationHistory = history;
+    const previous = this.navigationHistory[this.navigationHistory.length - 1];
+    this.navigationHistory = this.navigationHistory.slice(0, -1);
     this.selectedNodeId = previous;
   }
 
@@ -80,9 +78,7 @@ class UiState {
   /** Toggle left panel. Auto-closes right panel when opening (mutual exclusion). */
   toggleLeftPanel() {
     const opening = !this.leftPanelOpen;
-    if (opening && this.selectedNodeId) {
-      this.selectedNodeId = null;
-    }
+    if (opening && this.selectedNodeId) this.selectNode(null);
     this.leftPanelOpen = opening;
   }
 

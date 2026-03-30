@@ -20,6 +20,11 @@
 
   let precedentPanelOpen = $state(false);
 
+  // Clean up copy-feedback timer on destroy
+  $effect(() => () => {
+    if (copyTimer) clearTimeout(copyTimer);
+  });
+
   let currentSection = $derived(MOCK_SECTIONS.find((s) => s.id === activeSection));
 
   function copyParaRef(n: number) {
