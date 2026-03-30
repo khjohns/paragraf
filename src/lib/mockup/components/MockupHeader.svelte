@@ -4,9 +4,11 @@
   let {
     darkMode = false,
     onToggleDarkMode,
+    pageTitle = '',
   }: {
     darkMode?: boolean;
     onToggleDarkMode: () => void;
+    pageTitle?: string;
   } = $props();
 </script>
 
@@ -15,7 +17,12 @@
     <a href="/mockup" class="logo">
       <span class="logo-symbol">&sect;</span>
     </a>
-    <span class="brand">Paragraf</span>
+    {#if pageTitle}
+      <div class="divider"></div>
+      <span class="page-title">{pageTitle}</span>
+    {:else}
+      <span class="brand">Paragraf</span>
+    {/if}
   </div>
 
   <div class="header-right">
@@ -85,6 +92,19 @@
     font-weight: 500;
     font-size: 13px;
     letter-spacing: 0.02em;
+    color: var(--ink);
+  }
+
+  .divider {
+    width: 1px;
+    height: 16px;
+    background: var(--border);
+  }
+
+  .page-title {
+    font-family: var(--font-serif);
+    font-size: 16px;
+    font-weight: 500;
     color: var(--ink);
   }
 
