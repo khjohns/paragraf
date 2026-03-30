@@ -1,5 +1,6 @@
 import type {
   Proposition,
+  PropositionInstance,
   PostSearchSuggestion,
   SynthesisResult,
   QAReport,
@@ -7,6 +8,7 @@ import type {
 } from '$lib/types/analysis';
 import type { AnalysisDocuments, StreamEvent } from '$lib/api/analyses';
 import { fetchDocuments } from '$lib/api/analyses';
+import { MOCK_RETTSSETNINGER } from '$lib/mockup/data/rettssetninger';
 
 /** A single line in the live streaming progress log */
 export interface StreamProgressItem {
@@ -97,6 +99,28 @@ function normalizeQaReport(raw: Record<string, unknown>): QAReport {
   };
 
   return mapped;
+}
+
+/** Convert mockup Rettssetning[] → Proposition[] for dev fallback */
+function mockToPropositions(): Proposition[] {
+  return MOCK_RETTSSETNINGER.map((rs) => ({
+    id: rs.id,
+    theme: rs.theme,
+    proposition: rs.proposition,
+    tension: rs.tension ?? undefined,
+    confirmed: !rs.isAiGenerated,
+    source: rs.isAiGenerated ? ('ai_cross' as const) : ('user' as const),
+    instances: rs.cases.map(
+      (c): PropositionInstance => ({
+        caseId: c.ref,
+        paragraph: parseInt(c.paragraphs.replace(/\D/g, '')) || 0,
+        date: `${c.year}-01-01`,
+        evolution: c.evolution,
+        quote: c.quotes[0]?.text ?? '',
+        suggested: c.suggested,
+      })
+    ),
+  }));
 }
 
 class PipelineState {
@@ -264,6 +288,10 @@ class PipelineState {
       }
     } catch {
       // Document fetch failed — synthesis/QA will show empty state
+    }
+    // Dev fallback: show mock propositions when DB has none
+    if (this.propositions.length === 0) {
+      this.propositions = mockToPropositions();
     }
   }
 }
