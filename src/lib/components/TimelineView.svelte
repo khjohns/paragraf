@@ -105,7 +105,9 @@
   // CSS grid columns
   let gridColumns = $derived(`48px ${selectedPropositions.map(() => '1fr').join(' ')}`);
 
-  // Pre-compute tension targets for column headers
+  // Pre-compute which propositions are *targets* of a tension (i.e. another selected
+  // proposition has tension.withId pointing at them). We mark the target column, not
+  // the source, because the tension originates from the source's perspective.
   let tensionTargetIds = $derived(
     new Set(selectedPropositions.filter((p) => p.tension).map((p) => p.tension!.withId))
   );

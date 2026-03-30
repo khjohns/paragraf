@@ -34,9 +34,13 @@ class UiState {
   scrollToTarget = $state<number | null>(null); // paragraph number for cross-ref navigation
   navigationHistory = $state<string[]>([]);
 
-  /** Direct selection (list/graph click) — resets navigation history */
+  /** Direct selection (list/graph click) — resets navigation history.
+   *  Auto-closes left panel when opening right panel (mutual exclusion). */
   selectNode(id: string | null) {
     this.navigationHistory = [];
+    if (id && this.leftPanelOpen) {
+      this.leftPanelOpen = false;
+    }
     this.selectedNodeId = id;
   }
 
@@ -73,8 +77,13 @@ class UiState {
     this.viewMode = mode;
   }
 
+  /** Toggle left panel. Auto-closes right panel when opening (mutual exclusion). */
   toggleLeftPanel() {
-    this.leftPanelOpen = !this.leftPanelOpen;
+    const opening = !this.leftPanelOpen;
+    if (opening && this.selectedNodeId) {
+      this.selectedNodeId = null;
+    }
+    this.leftPanelOpen = opening;
   }
 
   setListFilter(filter: ListFilter) {
