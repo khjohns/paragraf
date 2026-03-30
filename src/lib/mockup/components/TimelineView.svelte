@@ -286,7 +286,7 @@
   /* ── Selector ── */
   .selector {
     flex-shrink: 0;
-    padding: 16px 24px 12px;
+    padding: 16px 24px;
     border-bottom: 1px solid var(--border);
   }
   .selector-header {
@@ -441,9 +441,9 @@
     border-left-color: var(--tension-border);
   }
   .col-label {
-    font-family: var(--font-sans);
-    font-size: 12px;
-    font-weight: 600;
+    font-family: var(--font-serif);
+    font-size: 13px;
+    font-weight: 500;
     color: var(--ink);
     line-height: 1.4;
     display: -webkit-box;
@@ -535,8 +535,8 @@
     border: 1px dashed var(--border-strong);
   }
   .event-dot {
-    width: 8px;
-    height: 8px;
+    width: 9px;
+    height: 9px;
     border-radius: 50%;
     flex-shrink: 0;
     box-sizing: content-box;
@@ -569,7 +569,7 @@
     padding: 8px 10px;
     border-radius: 2px;
     background: var(--paper-dark);
-    border-left: 3px solid var(--border-stronger);
+    border-left: 2px solid var(--border-strong);
     margin-top: 4px;
     position: relative;
     z-index: 1;
@@ -608,7 +608,6 @@
     color: var(--ai-accent);
   }
   .detail-quote {
-    font-family: var(--font-serif);
     font-size: 12px;
     line-height: 1.55;
     color: var(--ink-secondary);
