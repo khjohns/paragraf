@@ -1,11 +1,12 @@
 <script lang="ts">
   import '$lib/mockup/tokens.css';
-  import { Sun, Moon, ArrowLeft, BookOpen } from 'lucide-svelte';
+  import { Sun, Moon, ArrowLeft, BookOpen, Plus } from 'lucide-svelte';
   import { fade } from 'svelte/transition';
   import ScreeningLayer from '$lib/mockup/components/ScreeningLayer.svelte';
   import SectionNav from '$lib/mockup/components/SectionNav.svelte';
   import ParagraphRow from '$lib/mockup/components/ParagraphRow.svelte';
   import ReadingSidebar from '$lib/mockup/components/ReadingSidebar.svelte';
+  import PrecedentPanel from '$lib/mockup/components/PrecedentPanel.svelte';
   import { tick } from 'svelte';
   import { MOCK_SCREENING, MOCK_SECTIONS, MOCK_CASE_METADATA } from '$lib/mockup/data/lesevisning';
 
@@ -17,6 +18,8 @@
   let copiedPara = $state<number | null>(null);
   let copyTimer: ReturnType<typeof setTimeout> | null = null;
 
+  let precedentPanelOpen = $state(false);
+
   let currentSection = $derived(MOCK_SECTIONS.find((s) => s.id === activeSection));
 
   function copyParaRef(n: number) {
@@ -26,6 +29,14 @@
       copiedPara = n;
       copyTimer = setTimeout(() => (copiedPara = null), 2000);
     });
+  }
+
+  let scrollContainer: HTMLDivElement | undefined = $state();
+
+  async function openPrecedentPanel() {
+    precedentPanelOpen = true;
+    await tick();
+    scrollContainer?.scrollTo({ top: scrollContainer.scrollHeight, behavior: 'smooth' });
   }
 
   async function scrollToQuote(p: number) {
@@ -67,7 +78,7 @@
   </header>
 
   <div class="rv-main">
-    <div class="rv-scroll">
+    <div class="rv-scroll" bind:this={scrollContainer}>
       <div class="rv-content">
         <div class="case-header">
           <div class="back-row">
@@ -125,17 +136,29 @@
           {/key}
         {/if}
 
-        <div class="bottom-action">
-          <button class="btn-primary-full">
-            <BookOpen size={14} /> Marker som Rettssetning
-          </button>
-          <div class="bottom-meta">
-            <span class="bottom-related">
-              {MOCK_CASE_METADATA.relatedCases.length} relaterte saker
-            </span>
+        {#if !precedentPanelOpen}
+          <div class="bottom-action">
+            <button class="btn-primary-full" onclick={openPrecedentPanel}>
+              <BookOpen size={14} /> Marker som Rettssetning
+            </button>
+            <div class="bottom-meta">
+              <span class="bottom-related">
+                {MOCK_CASE_METADATA.relatedCases.length} relaterte saker
+              </span>
+            </div>
           </div>
-        </div>
+        {/if}
       </div>
+
+      {#if precedentPanelOpen}
+        <div class="rv-content">
+          <PrecedentPanel
+            screening={MOCK_SCREENING}
+            caseRef={MOCK_CASE_METADATA.ref}
+            onClose={() => (precedentPanelOpen = false)}
+          />
+        </div>
+      {/if}
     </div>
 
     <ReadingSidebar metadata={MOCK_CASE_METADATA} />
