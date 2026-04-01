@@ -88,7 +88,6 @@ CROSS_PROPOSITIONS_SCHEMA = {
             "items": {"type": "string"},
             "description": "Liste over alle temaer i rekkefølge",
         },
-    },
         "boundary_notes": {
             "type": "array",
             "items": {
